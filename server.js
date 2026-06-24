@@ -23,17 +23,20 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // ---- In-memory game state. One "room" = one campaign table. ----
-// For a hobby game this is fine; swap for a DB later if you want persistence.
 const rooms = new Map();
 
 function getRoom(id) {
   if (!rooms.has(id)) {
     rooms.set(id, {
-      tokens: {},          // id -> {id,x,y,color,label,size,ownerId,img}
-      chat: [],            // {id,author,role,text,ts}  role: player|dm|system|roll
-      mapImage: null,      // dataURL background, or null for plain grid
-      gridSize: 70,        // px per cell
-      players: {},         // socketId -> {name, color}
+      tokens: {},
+      chat: [],
+      mapImage: null,
+      gridSize: 70,
+      players: {},            // socketId -> {id, name, color, isGm}
+      gmPassword: null,        // first GM to set a password claims the role
+      initiative: [],          // [{id, name, init}]
+      turnIndex: 0,
+      fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
     });
   }
   return rooms.get(id);
@@ -43,6 +46,8 @@ function broadcastPlayers(roomId) {
   const room = rooms.get(roomId);
   if (room) io.to(roomId).emit('players', Object.values(room.players));
 }
+function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+function rid() { return Math.random().toString(36).slice(2, 9); }
 
 // ---- AI Dungeon Master ----
 const DM_SYSTEM_PROMPT = `You are a masterful Dungeon Master running a Dungeons & Dragons 5th Edition game.
@@ -64,15 +69,11 @@ async function callOpenAIDM(messages) {
   try {
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify(payload),
     });
     if (!r.ok) {
-      const err = await r.text();
-      console.error('OpenAI error:', err);
+      console.error('OpenAI error:', await r.text());
       return `⚠️ The DM stumbled (OpenAI API error ${r.status}). Check your API key/billing.`;
     }
     const data = await r.json();
@@ -83,10 +84,8 @@ async function callOpenAIDM(messages) {
   }
 }
 
-// Build a compact running transcript for the model from recent chat.
 function buildDMContext(room) {
-  const recent = room.chat.slice(-20);
-  return recent
+  return room.chat.slice(-20)
     .filter((m) => m.role === 'player' || m.role === 'dm' || m.role === 'roll')
     .map((m) => {
       if (m.role === 'dm') return { role: 'assistant', content: m.text };
@@ -95,146 +94,174 @@ function buildDMContext(room) {
     });
 }
 
+function pushSystem(roomId, text) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  const msg = { id: 'm_' + rid(), author: 'System', role: 'system', text, ts: Date.now() };
+  room.chat.push(msg);
+  io.to(roomId).emit('chat', msg);
+}
+
 io.on('connection', (socket) => {
   let joinedRoom = null;
 
-  socket.on('join', ({ roomId, name, color }) => {
+  socket.on('join', ({ roomId, name, color, gmPassword }) => {
     joinedRoom = roomId || 'default';
     socket.join(joinedRoom);
     const room = getRoom(joinedRoom);
-    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b' };
 
-    // Send full current state to the new player.
+    // GM role resolution via password
+    let gm = false;
+    if (gmPassword && gmPassword.trim()) {
+      if (!room.gmPassword) { room.gmPassword = gmPassword.trim(); gm = true; }
+      else if (room.gmPassword === gmPassword.trim()) { gm = true; }
+    }
+    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
+
     socket.emit('state', {
       tokens: room.tokens,
       chat: room.chat.slice(-100),
       mapImage: room.mapImage,
       gridSize: room.gridSize,
+      initiative: room.initiative,
+      turnIndex: room.turnIndex,
+      fog: room.fog,
       youId: socket.id,
+      isGm: gm,
+      gmClaimed: !!room.gmPassword,
     });
     broadcastPlayers(joinedRoom);
-
-    // Tell existing peers a new voice peer arrived (for WebRTC mesh).
     socket.to(joinedRoom).emit('peer-joined', { peerId: socket.id, name: room.players[socket.id].name });
-
-    pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table.`);
+    pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
   });
 
-  // ---- Token movement / creation / deletion ----
+  // ---- Tokens ----
   socket.on('token:add', (token) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
-    token.id = token.id || 't_' + Math.random().toString(36).slice(2, 9);
+    const room = rooms.get(joinedRoom); if (!room) return;
+    token.id = token.id || 't_' + rid();
     token.ownerId = socket.id;
     room.tokens[token.id] = token;
     io.to(joinedRoom).emit('token:add', token);
   });
-
   socket.on('token:move', ({ id, x, y }) => {
-    const room = rooms.get(joinedRoom);
-    if (!room || !room.tokens[id]) return;
-    room.tokens[id].x = x;
-    room.tokens[id].y = y;
+    const room = rooms.get(joinedRoom); if (!room || !room.tokens[id]) return;
+    room.tokens[id].x = x; room.tokens[id].y = y;
     socket.to(joinedRoom).emit('token:move', { id, x, y });
   });
-
   socket.on('token:update', (token) => {
-    const room = rooms.get(joinedRoom);
-    if (!room || !room.tokens[token.id]) return;
+    const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
     room.tokens[token.id] = { ...room.tokens[token.id], ...token };
     io.to(joinedRoom).emit('token:update', room.tokens[token.id]);
   });
-
   socket.on('token:remove', (id) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room) return;
     delete room.tokens[id];
     io.to(joinedRoom).emit('token:remove', id);
   });
 
-  // ---- Map background ----
+  // ---- Map / grid ----
   socket.on('map:set', (dataUrl) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room) return;
     room.mapImage = dataUrl;
     io.to(joinedRoom).emit('map:set', dataUrl);
   });
-
   socket.on('grid:set', (size) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room) return;
     room.gridSize = size;
     io.to(joinedRoom).emit('grid:set', size);
   });
 
-  // ---- Chat (player text) ----
+  // ---- Ping (Alt-click beacon) ----
+  socket.on('ping', ({ x, y }) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id];
+    io.to(joinedRoom).emit('ping', { x, y, color: p?.color || '#d9b154', name: p?.name || '' });
+  });
+
+  // ---- Initiative tracker ----
+  function emitInit() {
+    const room = rooms.get(joinedRoom);
+    io.to(joinedRoom).emit('init:state', { list: room.initiative, turnIndex: room.turnIndex });
+  }
+  socket.on('init:add', ({ name, init }) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.initiative.push({ id: 'i_' + rid(), name: name || '?', init: Number(init) || 0 });
+    emitInit();
+  });
+  socket.on('init:remove', (id) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.initiative = room.initiative.filter((e) => e.id !== id);
+    if (room.turnIndex >= room.initiative.length) room.turnIndex = 0;
+    emitInit();
+  });
+  socket.on('init:sort', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.initiative.sort((a, b) => b.init - a.init);
+    room.turnIndex = 0;
+    emitInit();
+  });
+  socket.on('init:turn', (dir) => {
+    const room = rooms.get(joinedRoom); if (!room || room.initiative.length === 0) return;
+    room.turnIndex = (room.turnIndex + (dir === 'prev' ? -1 : 1) + room.initiative.length) % room.initiative.length;
+    emitInit();
+  });
+  socket.on('init:clear', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.initiative = []; room.turnIndex = 0; emitInit();
+  });
+
+  // ---- Fog of war (GM only) ----
+  socket.on('fog:active', (active) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.fog.active = !!active;
+    io.to(joinedRoom).emit('fog:state', room.fog);
+  });
+  socket.on('fog:cell', ({ key, hidden }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (hidden) room.fog.hidden[key] = true; else delete room.fog.hidden[key];
+    io.to(joinedRoom).emit('fog:cell', { key, hidden });
+  });
+  socket.on('fog:all', (hidden) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (hidden) {
+      const cols = Math.ceil(2100 / room.gridSize), rowsN = Math.ceil(1400 / room.gridSize);
+      room.fog.hidden = {};
+      for (let cx = 0; cx < cols; cx++) for (let cy = 0; cy < rowsN; cy++) room.fog.hidden[`${cx},${cy}`] = true;
+    } else { room.fog.hidden = {}; }
+    room.fog.active = true;
+    io.to(joinedRoom).emit('fog:state', room.fog);
+  });
+
+  // ---- Chat / rolls / DM ----
   socket.on('chat', ({ text }) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
-    const player = room.players[socket.id];
-    const msg = {
-      id: 'm_' + Math.random().toString(36).slice(2, 9),
-      author: player?.name || 'Someone',
-      role: 'player',
-      text,
-      ts: Date.now(),
-    };
-    room.chat.push(msg);
-    io.to(joinedRoom).emit('chat', msg);
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id];
+    const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'player', text, ts: Date.now() };
+    room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
-
-  // ---- Dice rolls (shared) ----
   socket.on('roll', ({ formula, result, detail }) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
-    const player = room.players[socket.id];
-    const msg = {
-      id: 'm_' + Math.random().toString(36).slice(2, 9),
-      author: player?.name || 'Someone',
-      role: 'roll',
-      text: `rolled ${formula} → ${result}  (${detail})`,
-      ts: Date.now(),
-    };
-    room.chat.push(msg);
-    io.to(joinedRoom).emit('chat', msg);
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id];
+    const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'roll', text: `rolled ${formula} → ${result}  (${detail})`, ts: Date.now() };
+    room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
-
-  // ---- Ask the AI Dungeon Master ----
   socket.on('dm:ask', async ({ text }) => {
-    const room = rooms.get(joinedRoom);
-    if (!room) return;
-    const player = room.players[socket.id];
-
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id];
     if (text && text.trim()) {
-      const userMsg = {
-        id: 'm_' + Math.random().toString(36).slice(2, 9),
-        author: player?.name || 'Someone',
-        role: 'player',
-        text,
-        ts: Date.now(),
-      };
-      room.chat.push(userMsg);
-      io.to(joinedRoom).emit('chat', userMsg);
+      const userMsg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'player', text, ts: Date.now() };
+      room.chat.push(userMsg); io.to(joinedRoom).emit('chat', userMsg);
     }
-
     io.to(joinedRoom).emit('dm:thinking', true);
     const reply = await callOpenAIDM(buildDMContext(room));
-    const dmMsg = {
-      id: 'm_' + Math.random().toString(36).slice(2, 9),
-      author: 'Dungeon Master',
-      role: 'dm',
-      text: reply,
-      ts: Date.now(),
-    };
+    const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: reply, ts: Date.now() };
     room.chat.push(dmMsg);
     io.to(joinedRoom).emit('dm:thinking', false);
     io.to(joinedRoom).emit('chat', dmMsg);
   });
 
-  // ---- WebRTC voice signaling (mesh: each peer connects to each other) ----
-  socket.on('rtc:signal', ({ to, data }) => {
-    io.to(to).emit('rtc:signal', { from: socket.id, data });
-  });
+  // ---- WebRTC voice signaling ----
+  socket.on('rtc:signal', ({ to, data }) => { io.to(to).emit('rtc:signal', { from: socket.id, data }); });
 
   socket.on('disconnect', () => {
     if (!joinedRoom) return;
@@ -248,20 +275,6 @@ io.on('connection', (socket) => {
     }
   });
 });
-
-function pushSystem(roomId, text) {
-  const room = rooms.get(roomId);
-  if (!room) return;
-  const msg = {
-    id: 'm_' + Math.random().toString(36).slice(2, 9),
-    author: 'System',
-    role: 'system',
-    text,
-    ts: Date.now(),
-  };
-  room.chat.push(msg);
-  io.to(roomId).emit('chat', msg);
-}
 
 httpServer.listen(PORT, () => {
   console.log(`\n  ⚔️  D&D VTT running:  http://localhost:${PORT}`);
