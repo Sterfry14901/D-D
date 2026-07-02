@@ -313,6 +313,29 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .mini-gm { background: linear-gradient(180deg,#7c52d6,#4b2e8f); color:#fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; letter-spacing: .5px; vertical-align: middle; }
 .you { color: var(--muted); font-size: 12px; }
 
+/* ===== Logo / branding ===== */
+.brand-logo { height: 34px; width: 34px; object-fit: contain; border-radius: 7px; }
+.join-logo { display: block; width: 210px; max-width: 80%; margin: 0 auto 6px; border-radius: 12px; filter: drop-shadow(0 6px 18px rgba(0,0,0,0.6)); }
+
+/* Emoji token art */
+.token .lbl.emoji { font-size: 34px; line-height: 1; text-shadow: 0 2px 4px #000; }
+.token[style*="width: 128"] .lbl.emoji, .token[style*="width: 192"] .lbl.emoji { font-size: 60px; }
+
+/* Token art picker */
+.art-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.art-opt { font-size: 20px; padding: 7px 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.art-opt:hover { border-color: var(--gold); }
+.art-opt.on { background: rgba(217,177,84,0.2); border-color: var(--gold); box-shadow: 0 0 8px rgba(217,177,84,0.3); }
+.art-opt.upload { background: linear-gradient(180deg,#6b46c1,#4b2e8f); border-color:#3a2363; }
+
+/* Ruler */
+#ruler { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+#board.ruler-on #board-hint::after { content: " · Ruler ON: drag to measure"; color: var(--gold-bright); }
+#board.ruler-on { cursor: crosshair; }
+.ruler-line { position: absolute; height: 3px; background: linear-gradient(90deg, var(--gold-bright), var(--gold)); transform-origin: 0 50%; box-shadow: 0 0 8px rgba(217,177,84,0.7); }
+.ruler-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--gold-bright); box-shadow: 0 0 8px rgba(217,177,84,0.8); }
+.ruler-label { position: absolute; transform: translate(-50%, -160%); font-family: "Cinzel", serif; font-weight: 700; color: #14100a; background: var(--gold-bright); padding: 2px 9px; border-radius: 12px; font-size: 14px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+
 @media (max-width: 820px) {
   #layout { flex-direction: column; }
   #panel { width: 100%; height: 46%; }

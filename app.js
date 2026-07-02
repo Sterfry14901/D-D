@@ -47,7 +47,47 @@ socket.on('state', (s) => {
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('fog-btn').classList.toggle('hidden', !me.isGm);
+  $('save-btn').classList.toggle('hidden', !me.isGm);
+  $('load-btn').classList.toggle('hidden', !me.isGm);
 });
+
+/* ============ SAVE / LOAD CAMPAIGN (GM) ============ */
+$('save-btn').onclick = () => socket.emit('campaign:get');
+socket.on('campaign:data', (data) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${data.room || 'campaign'}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$('load-btn').onclick = () => $('load-file').click();
+$('load-file').onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { socket.emit('campaign:load', JSON.parse(reader.result)); } catch { alert('That file is not a valid campaign save.'); } };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+/* ============ RULER ============ */
+let rulerMode = false, rulerStart = null;
+$('ruler-btn').onclick = () => {
+  rulerMode = !rulerMode;
+  $('ruler-btn').classList.toggle('on', rulerMode);
+  $('board').classList.toggle('ruler-on', rulerMode);
+  if (!rulerMode) $('ruler').innerHTML = '';
+};
+function drawRuler(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const px = Math.sqrt(dx*dx + dy*dy);
+  const feet = Math.round((px / gridSize) * 5);
+  const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  $('ruler').innerHTML =
+    `<div class="ruler-line" style="left:${x1}px;top:${y1}px;width:${px}px;transform:rotate(${ang}deg)"></div>` +
+    `<div class="ruler-label" style="left:${(x1+x2)/2}px;top:${(y1+y2)/2}px">${feet} ft</div>` +
+    `<div class="ruler-dot" style="left:${x1}px;top:${y1}px"></div>` +
+    `<div class="ruler-dot" style="left:${x2}px;top:${y2}px"></div>`;
+}
 
 socket.on('players', (players) => {
   const ul = $('player-list'); ul.innerHTML = '';
@@ -183,14 +223,16 @@ let panning = false, panStart = null;
 $('board-wrap').addEventListener('mousedown', (e) => {
   if (e.target.closest('.token')) return;
   if (e.altKey) { const c = boardCoords(e); socket.emit('ping', c); showPing(c.x, c.y, me.color); return; }
+  if (rulerMode) { rulerStart = boardCoords(e); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
   panning = true; panStart = { x: e.clientX, y: e.clientY, sl: $('board-wrap').scrollLeft, st: $('board-wrap').scrollTop };
 });
 window.addEventListener('mousemove', (e) => {
   if (panning) { $('board-wrap').scrollLeft = panStart.sl - (e.clientX - panStart.x); $('board-wrap').scrollTop = panStart.st - (e.clientY - panStart.y); }
+  else if (rulerStart) { const c = boardCoords(e); drawRuler(rulerStart.x, rulerStart.y, c.x, c.y); }
   else if (fogPainting && me.isGm) paintFog(e);
 });
-window.addEventListener('mouseup', () => { panning = false; fogPainting = false; });
+window.addEventListener('mouseup', () => { panning = false; fogPainting = false; rulerStart = null; });
 
 /* ============ PINGS ============ */
 socket.on('ping', ({ x, y, color }) => showPing(x, y, color));
@@ -228,8 +270,9 @@ function renderToken(t) {
 function styleToken(el, t) {
   const s = (t.size || 1) * 64;
   el.style.width = s + 'px'; el.style.height = s + 'px';
-  el.style.background = t.img ? `center/cover url(${t.img})` : t.color;
-  el.querySelector('.lbl').textContent = t.img ? '' : (t.label || '');
+  const lbl = el.querySelector('.lbl');
+  if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; }
+  else { el.style.background = t.color; if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; } else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; } }
   el.classList.toggle('mine', t.ownerId === me.id);
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
   if (t.maxhp && Number(t.maxhp) > 0) {
@@ -264,15 +307,32 @@ function makeDraggable(el) {
 }
 
 /* Token modal */
-let editingToken = null, editStatuses = [];
+let editingToken = null, editStatuses = [], editEmoji = '', editImg = null;
 function openTokenModal(t) {
   editingToken = t; editStatuses = [...(t.statuses || [])];
+  editEmoji = t.emoji || ''; editImg = t.img || null;
   $('tk-label').value = t.label || ''; $('tk-color').value = t.color || '#c0392b';
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
+  document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
   $('token-modal').classList.remove('hidden');
 }
+// Art palette: pick an emoji preset (clears custom image)
+document.querySelectorAll('.art-opt[data-e]').forEach((b) => {
+  b.onclick = () => {
+    editEmoji = b.dataset.e; editImg = null;
+    document.querySelectorAll('.art-opt[data-e]').forEach((x) => x.classList.toggle('on', x === b));
+  };
+});
+// Upload custom token image
+$('tk-upload').onclick = () => $('tk-img-file').click();
+$('tk-img-file').onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { editImg = reader.result; editEmoji = ''; document.querySelectorAll('.art-opt[data-e]').forEach((x) => x.classList.remove('on')); };
+  reader.readAsDataURL(file);
+};
 document.querySelectorAll('.status-opt').forEach((b) => {
   b.onclick = () => {
     const s = b.dataset.s;
@@ -288,7 +348,7 @@ $('tk-save').onclick = () => {
     size: parseInt($('tk-size').value),
     hp: $('tk-hp').value === '' ? null : Number($('tk-hp').value),
     maxhp: $('tk-maxhp').value === '' ? null : Number($('tk-maxhp').value),
-    statuses: editStatuses,
+    statuses: editStatuses, emoji: editEmoji, img: editImg,
   });
   $('token-modal').classList.add('hidden');
 };

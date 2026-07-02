@@ -232,6 +232,34 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('fog:state', room.fog);
   });
 
+  // ---- Save / Load campaign ----
+  socket.on('campaign:get', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    socket.emit('campaign:data', {
+      tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
+      initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
+      savedAt: Date.now(), room: joinedRoom,
+    });
+  });
+  socket.on('campaign:load', (data) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !data) return;
+    room.tokens = data.tokens || {};
+    room.mapImage = data.mapImage || null;
+    room.gridSize = data.gridSize || 70;
+    room.initiative = data.initiative || [];
+    room.turnIndex = data.turnIndex || 0;
+    room.fog = data.fog || { active: false, hidden: {} };
+    // push full fresh state to everyone
+    for (const sid of Object.keys(room.players)) {
+      io.to(sid).emit('state', {
+        tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
+        gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
+        fog: room.fog, youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
+      });
+    }
+    pushSystem(joinedRoom, 'The GM loaded a saved campaign.');
+  });
+
   // ---- Chat / rolls / DM ----
   socket.on('chat', ({ text }) => {
     const room = rooms.get(joinedRoom); if (!room) return;

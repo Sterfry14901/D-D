@@ -14,7 +14,7 @@
   <!-- ===== Join screen ===== -->
   <div id="join-screen" class="overlay">
     <div class="join-card">
-      <h1>⚔️ AI D&D Tabletop</h1>
+      <img class="join-logo" src="logo.png" alt="AI D&D Tabletop" />
       <p class="tagline">Battle map · AI Dungeon Master · Dice · Voice chat</p>
       <label>Your name
         <input id="join-name" type="text" placeholder="Aragorn" maxlength="24" />
@@ -38,7 +38,8 @@
   <!-- ===== Main app ===== -->
   <div id="app" class="hidden">
     <header id="topbar">
-      <span class="brand">⚔️ AI D&D Tabletop</span>
+      <img id="brand-logo" class="brand-logo" src="logo.png" alt="" />
+      <span class="brand">AI D&D Tabletop</span>
       <span id="room-label" class="room-label"></span>
       <span id="gm-badge" class="gm-badge hidden">GM</span>
       <span id="turn-banner" class="turn-banner hidden"></span>
@@ -52,7 +53,11 @@
         <button id="map-btn" class="ghost" title="Upload a battle map image">🗺️ Map</button>
         <input id="map-file" type="file" accept="image/*" hidden />
         <button id="addtoken-btn" class="ghost" title="Add a token">➕ Token</button>
+        <button id="ruler-btn" class="ghost" title="Measure distance (drag on map)">📏 Ruler</button>
         <button id="fog-btn" class="ghost hidden" title="Fog of war tools (GM)">🌫️ Fog</button>
+        <button id="save-btn" class="ghost hidden" title="Save campaign to a file (GM)">💾 Save</button>
+        <button id="load-btn" class="ghost hidden" title="Load a saved campaign (GM)">📂 Load</button>
+        <input id="load-file" type="file" accept="application/json" hidden />
       </div>
     </header>
 
@@ -76,6 +81,7 @@
             <div id="fog"></div>
             <div id="tokens"></div>
             <div id="pings"></div>
+            <div id="ruler"></div>
           </div>
         </div>
         <div id="board-hint">Drag tokens to move · scroll wheel to zoom · drag empty space to pan · Alt-click to ping · double-click a token to edit</div>
@@ -200,6 +206,22 @@
         <label>HP <input id="tk-hp" type="number" placeholder="—" /></label>
         <label>/ Max <input id="tk-maxhp" type="number" placeholder="—" /></label>
       </div>
+      <label>Token art</label>
+      <div id="tk-art" class="art-picker">
+        <button class="art-opt" data-e="" title="Plain (color)">🎨</button>
+        <button class="art-opt" data-e="🛡️" title="Fighter">🛡️</button>
+        <button class="art-opt" data-e="🗡️" title="Rogue">🗡️</button>
+        <button class="art-opt" data-e="🏹" title="Ranger">🏹</button>
+        <button class="art-opt" data-e="🧙" title="Wizard">🧙</button>
+        <button class="art-opt" data-e="✨" title="Cleric">✨</button>
+        <button class="art-opt" data-e="🐉" title="Dragon">🐉</button>
+        <button class="art-opt" data-e="👹" title="Ogre">👹</button>
+        <button class="art-opt" data-e="💀" title="Skeleton">💀</button>
+        <button class="art-opt" data-e="🐺" title="Wolf">🐺</button>
+        <button class="art-opt" data-e="🕷️" title="Spider">🕷️</button>
+        <button class="art-opt upload" id="tk-upload" title="Upload custom image">⬆️</button>
+      </div>
+      <input id="tk-img-file" type="file" accept="image/*" hidden />
       <label>Status markers</label>
       <div id="tk-status" class="status-picker">
         <button class="status-opt" data-s="💀" title="Dead">💀</button>
