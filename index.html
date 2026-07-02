@@ -187,6 +187,24 @@
     </main>
   </div>
 
+  <!-- Battle map picker -->
+  <div id="map-modal" class="overlay hidden">
+    <div class="join-card wide">
+      <h2>Battle Maps</h2>
+      <div class="map-grid">
+        <button class="map-opt" data-map="map-dungeon.png"><img src="map-dungeon.png" alt="" /><span>Dungeon</span></button>
+        <button class="map-opt" data-map="map-tavern.png"><img src="map-tavern.png" alt="" /><span>Tavern</span></button>
+        <button class="map-opt" data-map="map-forest.png"><img src="map-forest.png" alt="" /><span>Forest</span></button>
+        <button class="map-opt" data-map="map-cavern.png"><img src="map-cavern.png" alt="" /><span>Cavern</span></button>
+        <button class="map-opt blank" data-map=""><span>Blank grid</span></button>
+      </div>
+      <div class="modal-actions">
+        <button id="map-upload">⬆️ Upload custom map</button>
+        <button id="map-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Token edit modal -->
   <div id="token-modal" class="overlay hidden">
     <div class="join-card">
@@ -206,7 +224,22 @@
         <label>HP <input id="tk-hp" type="number" placeholder="—" /></label>
         <label>/ Max <input id="tk-maxhp" type="number" placeholder="—" /></label>
       </div>
-      <label>Token art</label>
+      <label>Token art — character &amp; monster portraits</label>
+      <div id="tk-imgart" class="img-picker">
+        <button class="img-opt" data-img="tok-fighter.png" title="Fighter"><img src="tok-fighter.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-rogue.png" title="Rogue"><img src="tok-rogue.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-ranger.png" title="Ranger"><img src="tok-ranger.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-wizard.png" title="Wizard"><img src="tok-wizard.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-cleric.png" title="Cleric"><img src="tok-cleric.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-barbarian.png" title="Barbarian"><img src="tok-barbarian.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-goblin.png" title="Goblin"><img src="tok-goblin.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-orc.png" title="Orc"><img src="tok-orc.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-skeleton.png" title="Skeleton"><img src="tok-skeleton.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-dragon.png" title="Dragon"><img src="tok-dragon.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-wolf.png" title="Wolf"><img src="tok-wolf.png" alt="" /></button>
+        <button class="img-opt" data-img="tok-spider.png" title="Spider"><img src="tok-spider.png" alt="" /></button>
+      </div>
+      <label>Quick emoji / plain</label>
       <div id="tk-art" class="art-picker">
         <button class="art-opt" data-e="" title="Plain (color)">🎨</button>
         <button class="art-opt" data-e="🛡️" title="Fighter">🛡️</button>

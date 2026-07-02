@@ -171,16 +171,23 @@ document.querySelectorAll('.tab').forEach((t) => {
 });
 
 /* ============ MAP ============ */
-$('map-btn').onclick = () => $('map-file').click();
+$('map-btn').onclick = () => $('map-modal').classList.remove('hidden');
+$('map-close').onclick = () => $('map-modal').classList.add('hidden');
+$('map-modal').addEventListener('click', (e) => { if (e.target.id === 'map-modal') e.currentTarget.classList.add('hidden'); });
+$('map-upload').onclick = () => $('map-file').click();
+document.querySelectorAll('.map-opt').forEach((b) => {
+  b.onclick = () => { const m = b.dataset.map || null; socket.emit('map:set', m); setMap(m); $('map-modal').classList.add('hidden'); };
+});
 $('map-file').onchange = (e) => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => { socket.emit('map:set', reader.result); setMap(reader.result); };
-  reader.readAsDataURL(file);
+  reader.onload = () => { socket.emit('map:set', reader.result); setMap(reader.result); $('map-modal').classList.add('hidden'); };
+  reader.readAsDataURL(file); e.target.value = '';
 };
-function setMap(dataUrl) {
+function setMap(src) {
   const stage = $('stage');
-  stage.style.backgroundImage = `url(${dataUrl})`;
+  if (!src) { stage.style.backgroundImage = 'none'; $('board').classList.remove('has-map'); return; }
+  stage.style.backgroundImage = `url(${src})`;
   stage.style.backgroundSize = 'cover';
   $('board').classList.add('has-map');
 }
@@ -316,13 +323,23 @@ function openTokenModal(t) {
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
   document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
+  document.querySelectorAll('.img-opt').forEach((b) => b.classList.toggle('on', editImg === b.dataset.img));
   $('token-modal').classList.remove('hidden');
 }
+// Image token gallery: pick a built-in portrait
+document.querySelectorAll('.img-opt').forEach((b) => {
+  b.onclick = () => {
+    editImg = b.dataset.img; editEmoji = '';
+    document.querySelectorAll('.img-opt').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.art-opt[data-e]').forEach((x) => x.classList.remove('on'));
+  };
+});
 // Art palette: pick an emoji preset (clears custom image)
 document.querySelectorAll('.art-opt[data-e]').forEach((b) => {
   b.onclick = () => {
     editEmoji = b.dataset.e; editImg = null;
     document.querySelectorAll('.art-opt[data-e]').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.img-opt').forEach((x) => x.classList.remove('on'));
   };
 });
 // Upload custom token image
