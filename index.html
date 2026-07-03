@@ -175,6 +175,8 @@
             <label>Mod <input type="number" id="quickmod" value="0" style="width:3.5em" /></label>
           </div>
           <div id="dice-result" class="dice-result"></div>
+          <div class="dice-hist-title">Recent rolls</div>
+          <div id="dice-history" class="dice-history"></div>
         </div>
 
         <!-- Character sheet -->
@@ -262,6 +264,10 @@
       <div class="sh-hp">
         <label>HP <input id="tk-hp" type="number" placeholder="—" /></label>
         <label>/ Max <input id="tk-maxhp" type="number" placeholder="—" /></label>
+      </div>
+      <div class="sh-hp">
+        <label>Sight <input id="tk-vision" type="number" placeholder="6" title="How far this token can see, in squares (lighting)" /></label>
+        <label>Light <input id="tk-light" type="number" placeholder="0" title="Light this token emits, in squares (torch/lantern)" /></label>
       </div>
       <label>Token art — character &amp; monster portraits</label>
       <div id="tk-imgart" class="img-picker">

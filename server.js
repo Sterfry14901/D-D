@@ -105,6 +105,7 @@ function getRoom(id) {
       gmPassword: null,        // first GM to set a password claims the role
       initiative: [],          // [{id, name, init}]
       turnIndex: 0,
+      round: 1,                // combat round counter
       fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
       walls: {},               // "cx,cy": true — sight-blocking wall cells
       lighting: false,         // dynamic line-of-sight active
@@ -220,6 +221,7 @@ io.on('connection', (socket) => {
       gridSize: room.gridSize,
       initiative: room.initiative,
       turnIndex: room.turnIndex,
+      round: room.round,
       fog: room.fog,
       walls: room.walls,
       lighting: room.lighting,
@@ -280,7 +282,7 @@ io.on('connection', (socket) => {
   // ---- Initiative tracker ----
   function emitInit() {
     const room = rooms.get(joinedRoom);
-    io.to(joinedRoom).emit('init:state', { list: room.initiative, turnIndex: room.turnIndex });
+    io.to(joinedRoom).emit('init:state', { list: room.initiative, turnIndex: room.turnIndex, round: room.round });
   }
   socket.on('init:add', ({ name, init }) => {
     const room = rooms.get(joinedRoom); if (!room) return;
@@ -296,17 +298,20 @@ io.on('connection', (socket) => {
   socket.on('init:sort', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
     room.initiative.sort((a, b) => b.init - a.init);
-    room.turnIndex = 0;
+    room.turnIndex = 0; room.round = 1;
     emitInit();
   });
   socket.on('init:turn', (dir) => {
     const room = rooms.get(joinedRoom); if (!room || room.initiative.length === 0) return;
-    room.turnIndex = (room.turnIndex + (dir === 'prev' ? -1 : 1) + room.initiative.length) % room.initiative.length;
+    const next = room.turnIndex + (dir === 'prev' ? -1 : 1);
+    if (next >= room.initiative.length) room.round += 1;          // wrapped forward → new round
+    else if (next < 0 && room.round > 1) room.round -= 1;          // wrapped back → previous round
+    room.turnIndex = (next + room.initiative.length) % room.initiative.length;
     emitInit();
   });
   socket.on('init:clear', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
-    room.initiative = []; room.turnIndex = 0; emitInit();
+    room.initiative = []; room.turnIndex = 0; room.round = 1; emitInit();
   });
 
   // ---- Fog of war (GM only) ----

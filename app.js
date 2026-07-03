@@ -48,7 +48,7 @@ socket.on('state', (s) => {
   (s.chat || []).forEach(addChat);
   $('tokens').innerHTML = '';
   Object.values(s.tokens || {}).forEach(renderToken);
-  renderInit(s.initiative || [], s.turnIndex || 0);
+  renderInit(s.initiative || [], s.turnIndex || 0, s.round || 1);
   fog = s.fog || { active: false, hidden: {} };
   renderFog();
   walls = s.walls || {};
@@ -123,6 +123,15 @@ function addChat(m) {
   else div.innerHTML = `<span class="who">${escapeHtml(m.author)}</span>${escapeHtml(m.text)}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
+  if (m.role === 'roll') addRollHistory(m);
+}
+function addRollHistory(m) {
+  const box = $('dice-history'); if (!box) return;
+  const row = document.createElement('div');
+  row.className = 'dh-row';
+  row.innerHTML = `<span class="dh-who">${escapeHtml(m.author)}</span> <span class="dh-txt">${escapeHtml((m.text || '').replace(/^rolled /, ''))}</span>`;
+  box.prepend(row);
+  while (box.children.length > 12) box.lastChild.remove();
 }
 socket.on('chat', addChat);
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
@@ -386,6 +395,7 @@ function openTokenModal(t) {
   $('tk-label').value = t.label || ''; $('tk-color').value = t.color || '#c0392b';
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
+  $('tk-vision').value = t.vision ?? ''; $('tk-light').value = t.light ?? '';
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
   document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
   document.querySelectorAll('.img-opt').forEach((b) => b.classList.toggle('on', editImg === b.dataset.img));
@@ -430,6 +440,8 @@ $('tk-save').onclick = () => {
     size: parseInt($('tk-size').value),
     hp: $('tk-hp').value === '' ? null : Number($('tk-hp').value),
     maxhp: $('tk-maxhp').value === '' ? null : Number($('tk-maxhp').value),
+    vision: $('tk-vision').value === '' ? null : Number($('tk-vision').value),
+    light: $('tk-light').value === '' ? null : Number($('tk-light').value),
     statuses: editStatuses, emoji: editEmoji, img: editImg,
   });
   $('token-modal').classList.add('hidden');
@@ -448,8 +460,9 @@ $('init-sort').onclick = () => socket.emit('init:sort');
 $('init-next').onclick = () => socket.emit('init:turn', 'next');
 $('init-prev').onclick = () => socket.emit('init:turn', 'prev');
 $('init-clear').onclick = () => socket.emit('init:clear');
-socket.on('init:state', ({ list, turnIndex }) => renderInit(list, turnIndex));
-function renderInit(list, turnIndex) {
+let combat = { list: [], turnIndex: 0, round: 1, turnStart: Date.now(), _key: '' };
+socket.on('init:state', ({ list, turnIndex, round }) => renderInit(list, turnIndex, round));
+function renderInit(list, turnIndex, round) {
   const ol = $('init-list'); ol.innerHTML = '';
   list.forEach((e, i) => {
     const li = document.createElement('li');
@@ -458,10 +471,21 @@ function renderInit(list, turnIndex) {
     li.querySelector('.ini-x').onclick = () => socket.emit('init:remove', e.id);
     ol.appendChild(li);
   });
-  const banner = $('turn-banner');
-  if (list.length) { banner.textContent = `⚔️ ${list[turnIndex].name}'s turn`; banner.classList.remove('hidden'); }
-  else banner.classList.add('hidden');
+  const key = (round || 1) + ':' + turnIndex;
+  if (key !== combat._key) { combat.turnStart = Date.now(); combat._key = key; }
+  combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
+  updateTurnBanner();
 }
+function updateTurnBanner() {
+  const banner = $('turn-banner');
+  if (combat.list.length) {
+    const s = Math.floor((Date.now() - combat.turnStart) / 1000);
+    const mm = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
+    banner.textContent = `⚔️ Round ${combat.round} · ${combat.list[combat.turnIndex].name} · ${mm}:${ss}`;
+    banner.classList.remove('hidden');
+  } else banner.classList.add('hidden');
+}
+setInterval(() => { if (combat.list.length) updateTurnBanner(); }, 1000);
 
 /* ============ FOG OF WAR ============ */
 $('fog-btn').onclick = () => {
@@ -556,11 +580,13 @@ function computeVision() {
     const t = el._token; if (!t) return;
     const tcx = Math.floor((t.x + (t.size || 1) * 32) / gridSize);
     const tcy = Math.floor((t.y + (t.size || 1) * 32) / gridSize);
-    for (let cx = tcx - R; cx <= tcx + R; cx++) {
-      for (let cy = tcy - R; cy <= tcy + R; cy++) {
+    // per-token: use the larger of its sight range and the light it emits
+    const r = Math.max(Number(t.vision) || R, Number(t.light) || 0);
+    for (let cx = tcx - r; cx <= tcx + r; cx++) {
+      for (let cy = tcy - r; cy <= tcy + r; cy++) {
         if (cx < 0 || cy < 0) continue;
         const dist = Math.max(Math.abs(cx - tcx), Math.abs(cy - tcy));
-        if (dist > R) continue;
+        if (dist > r) continue;
         if (hasSight(tcx, tcy, cx, cy)) lit.add(`${cx},${cy}`);
       }
     }
