@@ -15,6 +15,9 @@ let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
 let walls = {};             // "cx,cy": true — sight-blocking cells
 let lighting = false;       // dynamic line-of-sight active
 const VISION_RADIUS = 6;    // cells a token can see (~30 ft)
+let aoes = [];              // placed spell area templates
+let aoeMode = false, aoeShape = 'circle', aoeStart = null;
+const SVGNS = 'http://www.w3.org/2000/svg';
 
 /* ============ JOIN ============ */
 $('join-btn').onclick = join;
@@ -54,6 +57,8 @@ socket.on('state', (s) => {
   $('light-toggle').classList.toggle('active', lighting);
   renderWalls();
   refreshLighting();
+  aoes = s.aoes || [];
+  renderAoes();
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('fog-btn').classList.toggle('hidden', !me.isGm);
@@ -282,6 +287,7 @@ let panning = false, panStart = null;
 $('board-wrap').addEventListener('mousedown', (e) => {
   if (e.target.closest('.token')) return;
   if (e.altKey) { const c = boardCoords(e); socket.emit('ping', c); showPing(c.x, c.y, me.color); return; }
+  if (aoeMode) { aoeStart = boardCoords(e); e.preventDefault(); return; }
   if (rulerMode) { rulerStart = boardCoords(e); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
   panning = true; panStart = { x: e.clientX, y: e.clientY, sl: $('board-wrap').scrollLeft, st: $('board-wrap').scrollTop };
@@ -289,9 +295,13 @@ $('board-wrap').addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
   if (panning) { $('board-wrap').scrollLeft = panStart.sl - (e.clientX - panStart.x); $('board-wrap').scrollTop = panStart.st - (e.clientY - panStart.y); }
   else if (rulerStart) { const c = boardCoords(e); drawRuler(rulerStart.x, rulerStart.y, c.x, c.y); }
+  else if (aoeStart) { renderAoes(previewFrom(e)); }
   else if (fogPainting && me.isGm) paintFog(e);
 });
-window.addEventListener('mouseup', () => { panning = false; fogPainting = false; rulerStart = null; });
+window.addEventListener('mouseup', (e) => {
+  if (aoeStart) { finalizeAoe(e); aoeStart = null; }
+  panning = false; fogPainting = false; rulerStart = null;
+});
 
 /* ============ PINGS ============ */
 socket.on('ping', ({ x, y, color }) => showPing(x, y, color));
@@ -606,6 +616,71 @@ function renderFog() {
     cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
     layer.appendChild(cell);
   }
+}
+
+/* ============ SPELL / AoE TEMPLATES ============ */
+$('aoe-btn').onclick = () => {
+  const hidden = $('aoe-bar').classList.toggle('hidden');
+  aoeMode = !hidden;
+  $('aoe-btn').classList.toggle('on', aoeMode);
+  if (aoeMode) { // turn off conflicting modes
+    rulerMode = false; $('ruler-btn').classList.remove('on'); $('board').classList.remove('ruler-on');
+  }
+};
+[['circle','aoe-circle'],['cone','aoe-cone'],['line','aoe-line']].forEach(([shape, id]) => {
+  $(id).onclick = () => {
+    aoeShape = shape;
+    ['aoe-circle','aoe-cone','aoe-line'].forEach((x) => $(x).classList.toggle('active', x === id));
+  };
+});
+$('aoe-clear').onclick = () => socket.emit('aoe:clear');
+
+const aoeSizeFt = () => Math.max(5, parseInt($('aoe-size').value) || 20);
+const ft2px = (ft) => (ft / 5) * gridSize;
+
+function previewFrom(e) {
+  const c = boardCoords(e);
+  if (aoeShape === 'circle') return { type: 'circle', x: aoeStart.x, y: aoeStart.y, size: aoeSizeFt(), color: me.color };
+  return { type: aoeShape, x: aoeStart.x, y: aoeStart.y, x2: c.x, y2: c.y, size: aoeSizeFt(), color: me.color };
+}
+function finalizeAoe(e) {
+  const t = previewFrom(e);
+  if (t.type !== 'circle') {
+    const d = Math.hypot(t.x2 - t.x, t.y2 - t.y);
+    if (d < 8) return; // ignore accidental clicks with no drag
+  }
+  socket.emit('aoe:add', t);
+}
+
+socket.on('aoe:add', (a) => { aoes.push(a); renderAoes(); });
+socket.on('aoe:remove', (id) => { aoes = aoes.filter((a) => a.id !== id); renderAoes(); });
+socket.on('aoe:clear', () => { aoes = []; renderAoes(); });
+
+function aoeSvg(a) {
+  const col = a.color || '#d9b154';
+  const common = `fill="${col}" fill-opacity="0.28" stroke="${col}" stroke-opacity="0.9" stroke-width="3"`;
+  if (a.type === 'circle') {
+    return `<circle cx="${a.x}" cy="${a.y}" r="${ft2px(a.size)}" ${common} />`;
+  }
+  if (a.type === 'line') {
+    const w = ft2px(5);
+    return `<line x1="${a.x}" y1="${a.y}" x2="${a.x2}" y2="${a.y2}" stroke="${col}" stroke-opacity="0.55" stroke-width="${w}" stroke-linecap="round" />`;
+  }
+  // cone: apex at origin, spreads ~53° toward the drag point
+  const dx = a.x2 - a.x, dy = a.y2 - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;         // direction
+  const px = -uy, py = ux;                      // perpendicular
+  const half = len * 0.5;                        // 53° cone → half-width ≈ 0.5·length
+  const bx = a.x + ux * len, by = a.y + uy * len;
+  const c1x = bx + px * half, c1y = by + py * half;
+  const c2x = bx - px * half, c2y = by - py * half;
+  return `<polygon points="${a.x},${a.y} ${c1x},${c1y} ${c2x},${c2y}" ${common} />`;
+}
+function renderAoes(preview) {
+  const svg = $('aoe'); if (!svg) return;
+  const list = preview ? aoes.concat([preview]) : aoes;
+  svg.innerHTML = list.map(aoeSvg).join('');
 }
 
 /* ============ VOICE CHAT (WebRTC mesh) ============ */

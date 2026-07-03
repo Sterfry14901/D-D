@@ -55,6 +55,7 @@
         <input id="map-file" type="file" accept="image/*" hidden />
         <button id="addtoken-btn" class="ghost" title="Add a token">➕ Token</button>
         <button id="ruler-btn" class="ghost" title="Measure distance (drag on map)">📏 Ruler</button>
+        <button id="aoe-btn" class="ghost" title="Place a spell area template">✨ AoE</button>
         <button id="fog-btn" class="ghost hidden" title="Fog of war tools (GM)">🌫️ Fog</button>
         <button id="save-btn" class="ghost hidden" title="Save campaign to a file (GM)">💾 Save</button>
         <button id="load-btn" class="ghost hidden" title="Load a saved campaign (GM)">📂 Load</button>
@@ -77,6 +78,18 @@
       <span class="fog-hint">Paint walls, then turn Lighting on — players only see what their tokens can see.</span>
     </div>
 
+    <!-- Spell area template toolbar -->
+    <div id="aoe-bar" class="fog-bar hidden">
+      <span class="fog-title">Spell Area</span>
+      <button id="aoe-circle" class="fog-tool active">● Circle</button>
+      <button id="aoe-cone" class="fog-tool">◤ Cone</button>
+      <button id="aoe-line" class="fog-tool">▬ Line</button>
+      <span class="fog-sep"></span>
+      <label class="aoe-size">Radius <input id="aoe-size" type="number" value="20" min="5" step="5" /> ft</label>
+      <button id="aoe-clear" class="fog-tool">Clear all</button>
+      <span class="fog-hint">Circle: click the center. Cone / Line: drag from the origin outward.</span>
+    </div>
+
     <main id="layout">
       <!-- Battle map -->
       <section id="board-wrap">
@@ -86,6 +99,7 @@
             <div id="walls"></div>
             <div id="fog"></div>
             <div id="dark"></div>
+            <svg id="aoe" viewBox="0 0 2100 1400" preserveAspectRatio="none"></svg>
             <div id="tokens"></div>
             <div id="pings"></div>
             <div id="ruler"></div>

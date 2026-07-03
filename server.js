@@ -46,6 +46,7 @@ function saveRooms() {
         fog: room.fog,
         walls: room.walls,
         lighting: room.lighting,
+        aoes: room.aoes,
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -77,6 +78,7 @@ function loadRooms() {
         fog: room.fog || { active: false, hidden: {} },
         walls: room.walls || {},
         lighting: !!room.lighting,
+        aoes: room.aoes || [],
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -104,6 +106,7 @@ function getRoom(id) {
       fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
       walls: {},               // "cx,cy": true — sight-blocking wall cells
       lighting: false,         // dynamic line-of-sight active
+      aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
     });
   }
   return rooms.get(id);
@@ -217,6 +220,7 @@ io.on('connection', (socket) => {
       fog: room.fog,
       walls: room.walls,
       lighting: room.lighting,
+      aoes: room.aoes,
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -340,13 +344,32 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls });
   });
 
+  // ---- Area-of-effect spell templates (any player) ----
+  socket.on('aoe:add', (a) => {
+    const room = rooms.get(joinedRoom); if (!room || !a) return;
+    a.id = 'a_' + rid();
+    room.aoes.push(a);
+    if (room.aoes.length > 40) room.aoes.shift(); // keep it bounded
+    io.to(joinedRoom).emit('aoe:add', a);
+  });
+  socket.on('aoe:remove', (id) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.aoes = room.aoes.filter((a) => a.id !== id);
+    io.to(joinedRoom).emit('aoe:remove', id);
+  });
+  socket.on('aoe:clear', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.aoes = [];
+    io.to(joinedRoom).emit('aoe:clear');
+  });
+
   // ---- Save / Load campaign ----
   socket.on('campaign:get', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
     socket.emit('campaign:data', {
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
-      walls: room.walls, lighting: room.lighting,
+      walls: room.walls, lighting: room.lighting, aoes: room.aoes,
       savedAt: Date.now(), room: joinedRoom,
     });
   });
@@ -360,12 +383,13 @@ io.on('connection', (socket) => {
     room.fog = data.fog || { active: false, hidden: {} };
     room.walls = data.walls || {};
     room.lighting = !!data.lighting;
+    room.aoes = data.aoes || [];
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
         tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
-        fog: room.fog, walls: room.walls, lighting: room.lighting,
+        fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
         youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
       });
     }
