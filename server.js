@@ -47,6 +47,7 @@ function saveRooms() {
         walls: room.walls,
         lighting: room.lighting,
         aoes: room.aoes,
+        handout: room.handout,
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -79,6 +80,7 @@ function loadRooms() {
         walls: room.walls || {},
         lighting: !!room.lighting,
         aoes: room.aoes || [],
+        handout: room.handout || null,
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -107,6 +109,7 @@ function getRoom(id) {
       walls: {},               // "cx,cy": true — sight-blocking wall cells
       lighting: false,         // dynamic line-of-sight active
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
+      handout: null,           // image data-url currently shown to the table
     });
   }
   return rooms.get(id);
@@ -221,6 +224,7 @@ io.on('connection', (socket) => {
       walls: room.walls,
       lighting: room.lighting,
       aoes: room.aoes,
+      handout: room.handout,
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -363,13 +367,25 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('aoe:clear');
   });
 
+  // ---- Shared handout / image board ----
+  socket.on('handout:show', (dataUrl) => {
+    const room = rooms.get(joinedRoom); if (!room || !dataUrl) return;
+    room.handout = dataUrl;
+    io.to(joinedRoom).emit('handout:show', dataUrl);
+  });
+  socket.on('handout:clear', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.handout = null;
+    io.to(joinedRoom).emit('handout:clear');
+  });
+
   // ---- Save / Load campaign ----
   socket.on('campaign:get', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
     socket.emit('campaign:data', {
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
-      walls: room.walls, lighting: room.lighting, aoes: room.aoes,
+      walls: room.walls, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
       savedAt: Date.now(), room: joinedRoom,
     });
   });
@@ -384,13 +400,14 @@ io.on('connection', (socket) => {
     room.walls = data.walls || {};
     room.lighting = !!data.lighting;
     room.aoes = data.aoes || [];
+    room.handout = data.handout || null;
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
         tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
         fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
-        youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
+        handout: room.handout, youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
       });
     }
     pushSystem(joinedRoom, 'The GM loaded a saved campaign.');

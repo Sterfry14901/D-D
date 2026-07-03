@@ -59,6 +59,7 @@ socket.on('state', (s) => {
   refreshLighting();
   aoes = s.aoes || [];
   renderAoes();
+  if (s.handout) showHandout(s.handout); else hideHandout();
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('fog-btn').classList.toggle('hidden', !me.isGm);
@@ -617,6 +618,26 @@ function renderFog() {
     layer.appendChild(cell);
   }
 }
+
+/* ============ SHARED HANDOUT / IMAGE BOARD ============ */
+$('handout-btn').onclick = () => $('handout-file').click();
+$('handout-file').onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => socket.emit('handout:show', reader.result);
+  reader.readAsDataURL(file); e.target.value = '';
+};
+function showHandout(src) {
+  $('handout-img').src = src;
+  $('handout-remove').classList.toggle('hidden', !me.isGm);
+  $('handout-modal').classList.remove('hidden');
+}
+function hideHandout() { $('handout-modal').classList.add('hidden'); }
+socket.on('handout:show', showHandout);
+socket.on('handout:clear', () => { hideHandout(); $('handout-img').src = ''; });
+$('handout-close').onclick = hideHandout;                        // dismiss on my screen only
+$('handout-remove').onclick = () => socket.emit('handout:clear'); // GM removes for everyone
+$('handout-modal').addEventListener('click', (e) => { if (e.target.id === 'handout-modal') hideHandout(); });
 
 /* ============ SPELL / AoE TEMPLATES ============ */
 $('aoe-btn').onclick = () => {

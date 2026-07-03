@@ -250,6 +250,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 #aoe-btn.on { box-shadow: 0 0 14px rgba(217,177,84,0.4); border-color: var(--gold); }
 .aoe-size { display: inline-flex; align-items: center; gap: 5px; color: #e9dcc5; font-size: 0.82rem; }
 .aoe-size input { width: 4em; }
+.handout-card { background: linear-gradient(180deg,#1b1610,#120d08); border: 1px solid var(--line-gold);
+  border-radius: 14px; padding: 14px; box-shadow: 0 12px 48px rgba(0,0,0,0.6); max-width: 88vw; max-height: 92vh;
+  display: flex; flex-direction: column; gap: 12px; }
+.handout-card img { max-width: 84vw; max-height: 78vh; border-radius: 8px; object-fit: contain;
+  border: 1px solid var(--line-gold); background: #0a0705; }
 
 /* Zoom control */
 .zoom-ctrl { display: flex; align-items: center; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px 6px; }
