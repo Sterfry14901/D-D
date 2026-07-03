@@ -652,14 +652,16 @@ const CS_ABIL = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 const CS_ABILN = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 const CS_SKILLS = [['Acrobatics','dex'],['Animal Handling','wis'],['Arcana','int'],['Athletics','str'],['Deception','cha'],['History','int'],['Insight','wis'],['Intimidation','cha'],['Investigation','int'],['Medicine','wis'],['Nature','int'],['Perception','wis'],['Performance','cha'],['Persuasion','cha'],['Religion','int'],['Sleight of Hand','dex'],['Stealth','dex'],['Survival','wis']];
 const CS_CONDS = ['Blinded','Charmed','Deafened','Frightened','Grappled','Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone','Restrained','Stunned','Unconscious'];
-const CS_NUMF = ['level','ac','speed','hp','maxhp','temphp'];
+const CS_NUMF = ['level','ac','speed','hp','maxhp','temphp','hitDiceUsed','cp','sp','ep','gp','pp'];
 
 function csDefault() {
   return { name:'', pronouns:'', race:'', cls:'', level:1, background:'', inspiration:false,
     ac:10, speed:30, hp:10, maxhp:10, temphp:0,
     scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
     saves:{}, skills:{}, attacks:[], conditions:[], notes:'',
-    resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'' };
+    resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'',
+    slots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
+    deathSucc:0, deathFail:0, hitDiceTotal:'', hitDiceUsed:0, cp:0, sp:0, ep:0, gp:0, pp:0 };
 }
 let cs = csDefault(), csBuilt = false;
 const csKey = () => 'dnd-cs-' + me.room;
@@ -773,6 +775,30 @@ function buildCS() {
     <div class="cs-sec"><div class="cs-sec-t">Inventory</div><textarea data-cs="inventory" placeholder="Equipment, coins, consumables…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
   </div>`);
+  const deathPips = (t) => [0,1,2].map((i) => `<button class="cs-dpip ${t}" data-death="${t}:${i}"></button>`).join('');
+  h.push(`<div class="cs-grid cs-grid3">
+    <div class="cs-sec"><div class="cs-sec-t">Spell Slots</div><div id="cs-slots" class="cs-slots"></div></div>
+    <div class="cs-sec">
+      <div class="cs-sec-t">Death Saves</div>
+      <div class="cs-death"><span>Successes</span><div class="cs-dpips">${deathPips('succ')}</div></div>
+      <div class="cs-death"><span>Failures</span><div class="cs-dpips">${deathPips('fail')}</div></div>
+      <div class="cs-sec-t" style="margin-top:12px">Hit Dice</div>
+      <div class="cs-hitdice">
+        <label>Total <input data-cs="hitDiceTotal" placeholder="8d8" /></label>
+        <label>Used <input data-cs="hitDiceUsed" type="number" /></label>
+      </div>
+    </div>
+    <div class="cs-sec">
+      <div class="cs-sec-t">Currency</div>
+      <div class="cs-coins">
+        <label>CP <input data-cs="cp" type="number" /></label>
+        <label>SP <input data-cs="sp" type="number" /></label>
+        <label>EP <input data-cs="ep" type="number" /></label>
+        <label>GP <input data-cs="gp" type="number" /></label>
+        <label>PP <input data-cs="pp" type="number" /></label>
+      </div>
+    </div>
+  </div>`);
   $('cs-body').innerHTML = h.join('');
   csBuilt = true;
   const body = $('cs-body');
@@ -789,6 +815,25 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
+  csRenderSlots(); csPopulateDeath();
+}
+function csRenderSlots() {
+  const box = $('cs-slots'); if (!box) return;
+  let h = '';
+  for (let l = 1; l <= 9; l++) {
+    const s = cs.slots[l] || { max: 0, used: 0 };
+    const pips = s.max > 0 ? Array.from({ length: s.max }, (_, i) => `<button class="cs-pip ${i < s.used ? 'on' : ''}" data-slot="${l}:${i}"></button>`).join('') : '<span class="cs-empty">—</span>';
+    h += `<div class="cs-slotrow"><span class="cs-slotlvl">${l}</span><input class="cs-slotmax" type="number" min="0" max="9" data-slotmax="${l}" value="${s.max}" /><div class="cs-pips">${pips}</div></div>`;
+  }
+  box.innerHTML = h;
+}
+function csPopulateDeath() {
+  const body = $('cs-body'); if (!body) return;
+  body.querySelectorAll('[data-death]').forEach((el) => {
+    const [t, i] = el.dataset.death.split(':');
+    const n = t === 'succ' ? cs.deathSucc : cs.deathFail;
+    el.classList.toggle('on', Number(i) < n);
+  });
 }
 
 function csOnChange(e) {
@@ -797,6 +842,12 @@ function csOnChange(e) {
   else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
+  else if (el.dataset.slotmax !== undefined) {
+    const l = el.dataset.slotmax, m = Math.max(0, Math.min(9, Number(el.value) || 0));
+    cs.slots[l] = cs.slots[l] || { max: 0, used: 0 }; cs.slots[l].max = m;
+    if (cs.slots[l].used > m) cs.slots[l].used = m;
+    saveCS(); if (e.type === 'change') csRenderSlots(); return;
+  }
   else return;
   csRecompute(); saveCS();
 }
@@ -808,6 +859,10 @@ function csOnClick(e) {
   if (insp) { cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS(); return; }
   const cond = e.target.closest('[data-cond]');
   if (cond) { const c = cond.dataset.cond; if (cs.conditions.includes(c)) cs.conditions = cs.conditions.filter((x) => x !== c); else cs.conditions.push(c); cond.classList.toggle('on'); saveCS(); return; }
+  const slot = e.target.closest('[data-slot]');
+  if (slot) { const [l, i] = slot.dataset.slot.split(':'); const s = cs.slots[l]; if (!s) return; const idx = Number(i); s.used = idx < s.used ? idx : idx + 1; csRenderSlots(); saveCS(); return; }
+  const dp = e.target.closest('[data-death]');
+  if (dp) { const [t, i] = dp.dataset.death.split(':'); const idx = Number(i); const cur = t === 'succ' ? cs.deathSucc : cs.deathFail; const nv = idx < cur ? idx : idx + 1; if (t === 'succ') cs.deathSucc = nv; else cs.deathFail = nv; csPopulateDeath(); saveCS(); return; }
   const hp = e.target.closest('[data-hp]');
   if (hp) {
     const amt = Math.abs(Number($('cs-hp-amt').value) || 0);
