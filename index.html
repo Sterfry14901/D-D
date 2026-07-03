@@ -194,6 +194,7 @@
 
         <!-- Character sheet -->
         <div class="tabpane" id="tab-sheet">
+          <button id="open-cs" class="cs-open-btn">📋 Open Full Character Sheet</button>
           <div class="sheet">
             <input id="sh-name" class="sh-name" placeholder="Character name" />
             <div class="sh-row">
@@ -328,6 +329,14 @@
         <button id="tk-delete" class="danger">Delete</button>
         <button id="tk-save">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Full character sheet -->
+  <div id="cs-modal" class="overlay hidden">
+    <div class="cs-card">
+      <button id="cs-close" class="cs-close" title="Close">✕</button>
+      <div id="cs-body"></div>
     </div>
   </div>
 

@@ -35,6 +35,7 @@ function join() {
   $('room-label').textContent = `Table: ${me.room}`;
   applyZoom();
   loadSheet();
+  loadCS();
 }
 
 /* ============ INITIAL STATE ============ */
@@ -644,6 +645,230 @@ function renderFog() {
     cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
     layer.appendChild(cell);
   }
+}
+
+/* ============ FULL CHARACTER SHEET ============ */
+const CS_ABIL = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+const CS_ABILN = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
+const CS_SKILLS = [['Acrobatics','dex'],['Animal Handling','wis'],['Arcana','int'],['Athletics','str'],['Deception','cha'],['History','int'],['Insight','wis'],['Intimidation','cha'],['Investigation','int'],['Medicine','wis'],['Nature','int'],['Perception','wis'],['Performance','cha'],['Persuasion','cha'],['Religion','int'],['Sleight of Hand','dex'],['Stealth','dex'],['Survival','wis']];
+const CS_CONDS = ['Blinded','Charmed','Deafened','Frightened','Grappled','Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone','Restrained','Stunned','Unconscious'];
+const CS_NUMF = ['level','ac','speed','hp','maxhp','temphp'];
+
+function csDefault() {
+  return { name:'', pronouns:'', race:'', cls:'', level:1, background:'', inspiration:false,
+    ac:10, speed:30, hp:10, maxhp:10, temphp:0,
+    scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
+    saves:{}, skills:{}, attacks:[], conditions:[], notes:'',
+    resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'' };
+}
+let cs = csDefault(), csBuilt = false;
+const csKey = () => 'dnd-cs-' + me.room;
+function loadCS() {
+  cs = csDefault();
+  const raw = localStorage.getItem(csKey());
+  if (raw) { try { const d = JSON.parse(raw); Object.assign(cs, d); cs.scores = Object.assign(cs.scores, d.scores || {}); } catch {} }
+  else if ($('sh-name') && $('sh-name').value) { // migrate quick sheet
+    cs.name = $('sh-name').value; cs.cls = $('sh-class').value; cs.level = Number($('sh-level').value) || 1;
+    cs.race = $('sh-race').value; cs.ac = Number($('sh-ac').value) || 10;
+    cs.hp = Number($('sh-hp').value) || 10; cs.maxhp = Number($('sh-maxhp').value) || 10;
+    CS_ABIL.forEach((a) => cs.scores[a] = Number($('ab-' + a).value) || 10);
+  }
+  if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); }
+}
+function saveCS() { try { localStorage.setItem(csKey(), JSON.stringify(cs)); } catch {} }
+function csMod(s) { return Math.floor((Number(s || 10) - 10) / 2); }
+function csProf() { return 2 + Math.floor((Number(cs.level || 1) - 1) / 4); }
+function csFmt(n) { return n >= 0 ? '+' + n : '' + n; }
+
+$('open-cs').onclick = () => { if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks(); $('cs-modal').classList.remove('hidden'); };
+$('cs-close').onclick = () => $('cs-modal').classList.add('hidden');
+$('cs-modal').addEventListener('click', (e) => { if (e.target.id === 'cs-modal') $('cs-modal').classList.add('hidden'); });
+
+function buildCS() {
+  const h = [];
+  h.push(`<div class="cs-header">
+    <div class="cs-lvlbadge"><span data-lvlnum>1</span></div>
+    <div class="cs-idblock">
+      <input class="cs-name" data-cs="name" placeholder="Character name" />
+      <div class="cs-idrow">
+        <input data-cs="pronouns" placeholder="Pronouns" />
+        <input data-cs="race" placeholder="Race / Ancestry" />
+        <input data-cs="cls" placeholder="Class" />
+        <label class="cs-lvlin">Lvl <input data-cs="level" type="number" min="1" max="20" /></label>
+        <input data-cs="background" placeholder="Background" />
+      </div>
+    </div>
+    <div class="cs-headstats">
+      <button class="cs-insp" data-insp>✨ Inspiration</button>
+      <div class="cs-badge">PROF <b data-prof>+2</b></div>
+      <button class="cs-badge cs-roll" data-roll="init">INIT <b data-init>+0</b></button>
+      <div class="cs-badge">PASS. PERC <b data-passive>10</b></div>
+    </div>
+  </div>`);
+  h.push(`<div class="cs-topline">
+    <div class="cs-hpblock">
+      <div class="cs-hp-main">
+        <label>HP <input data-cs="hp" type="number" /></label><span>/</span>
+        <label>Max <input data-cs="maxhp" type="number" /></label>
+        <label>Temp <input data-cs="temphp" type="number" /></label>
+      </div>
+      <div class="cs-hp-apply">
+        <input id="cs-hp-amt" type="number" placeholder="0" />
+        <button data-hp="dmg" class="cs-dmg">Damage</button>
+        <button data-hp="heal" class="cs-heal">Heal</button>
+      </div>
+    </div>
+    <div class="cs-acspeed">
+      <div class="cs-badge big">AC <b><input data-cs="ac" type="number" /></b></div>
+      <div class="cs-badge big">SPD <b><input data-cs="speed" type="number" /></b></div>
+    </div>
+  </div>`);
+  const abilCards = CS_ABIL.map((a) => `<div class="cs-abil">
+      <div class="cs-abil-name">${CS_ABILN[a]}</div>
+      <input class="cs-score" data-score="${a}" type="number" />
+      <button class="cs-mod" data-roll="ability:${a}" data-mod="${a}">+0</button>
+    </div>`).join('');
+  const saveRows = CS_ABIL.map((a) => `<div class="cs-line">
+      <input type="checkbox" data-save="${a}" />
+      <button class="cs-line-roll" data-roll="save:${a}"><span class="cs-val" data-saveval="${a}">+0</span> ${CS_ABILN[a]}</button>
+    </div>`).join('');
+  const skillRows = CS_SKILLS.map(([nm, ab]) => `<div class="cs-line">
+      <input type="checkbox" data-skill="${nm}" />
+      <button class="cs-line-roll" data-roll="skill:${nm}"><span class="cs-val" data-skillval="${nm}">+0</span> ${nm} <em>${CS_ABILN[ab]}</em></button>
+    </div>`).join('');
+  const condChips = CS_CONDS.map((c) => `<button class="cs-cond" data-cond="${c}">${c}</button>`).join('');
+  h.push(`<div class="cs-grid">
+    <div class="cs-col">
+      <div class="cs-sec"><div class="cs-sec-t">Abilities</div><div class="cs-abils">${abilCards}</div></div>
+      <div class="cs-sec"><div class="cs-sec-t">Saving Throws</div>${saveRows}</div>
+    </div>
+    <div class="cs-col">
+      <div class="cs-sec"><div class="cs-sec-t">Skills</div>${skillRows}</div>
+    </div>
+    <div class="cs-col">
+      <div class="cs-sec"><div class="cs-sec-t">Attacks</div>
+        <div id="cs-atk-list"></div>
+        <div class="cs-atk-add">
+          <input id="cs-atk-name" placeholder="Name" />
+          <input id="cs-atk-bonus" type="number" placeholder="+hit" />
+          <input id="cs-atk-dmg" placeholder="1d8+3" />
+          <button id="cs-atk-addbtn">Add</button>
+        </div>
+      </div>
+      <div class="cs-sec"><div class="cs-sec-t">Conditions</div><div class="cs-conds">${condChips}</div></div>
+      <div class="cs-sec"><div class="cs-sec-t">Defenses</div><textarea data-cs="resistances" placeholder="Resistances, immunities, vulnerabilities…"></textarea></div>
+      <div class="cs-sec"><div class="cs-sec-t">Senses</div>
+        <div class="cs-senses">
+          <span class="cs-badge">PASS. PERC <b data-passive2>10</b></span>
+          <span class="cs-badge">PASS. INVEST <b data-passinv>10</b></span>
+          <span class="cs-badge">PASS. INSIGHT <b data-passins>10</b></span>
+        </div>
+        <textarea data-cs="senses" placeholder="Darkvision 60 ft, blindsight…"></textarea>
+      </div>
+      <div class="cs-sec"><div class="cs-sec-t">Proficiencies &amp; Languages</div><textarea data-cs="proficiencies" placeholder="Armor, weapons, tools, languages…"></textarea></div>
+    </div>
+  </div>
+  <div class="cs-grid cs-grid3">
+    <div class="cs-sec"><div class="cs-sec-t">Spells</div><textarea data-cs="spells" placeholder="Spell slots, prepared spells, cantrips…"></textarea></div>
+    <div class="cs-sec"><div class="cs-sec-t">Inventory</div><textarea data-cs="inventory" placeholder="Equipment, coins, consumables…"></textarea></div>
+    <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
+  </div>`);
+  $('cs-body').innerHTML = h.join('');
+  csBuilt = true;
+  const body = $('cs-body');
+  body.addEventListener('input', csOnChange);
+  body.addEventListener('change', csOnChange);
+  body.addEventListener('click', csOnClick);
+}
+
+function csPopulate() {
+  const body = $('cs-body'); if (!body) return;
+  body.querySelectorAll('[data-cs]').forEach((el) => { const f = el.dataset.cs; el.value = cs[f] ?? ''; });
+  CS_ABIL.forEach((a) => { const el = body.querySelector(`[data-score="${a}"]`); if (el) el.value = cs.scores[a]; });
+  body.querySelectorAll('[data-save]').forEach((el) => el.checked = !!cs.saves[el.dataset.save]);
+  body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
+  body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
+  const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
+}
+
+function csOnChange(e) {
+  const el = e.target;
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; }
+  else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
+  else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
+  else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
+  else return;
+  csRecompute(); saveCS();
+}
+
+function csOnClick(e) {
+  const rollEl = e.target.closest('[data-roll]');
+  if (rollEl) { csRoll(rollEl.dataset.roll); return; }
+  const insp = e.target.closest('[data-insp]');
+  if (insp) { cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS(); return; }
+  const cond = e.target.closest('[data-cond]');
+  if (cond) { const c = cond.dataset.cond; if (cs.conditions.includes(c)) cs.conditions = cs.conditions.filter((x) => x !== c); else cs.conditions.push(c); cond.classList.toggle('on'); saveCS(); return; }
+  const hp = e.target.closest('[data-hp]');
+  if (hp) {
+    const amt = Math.abs(Number($('cs-hp-amt').value) || 0);
+    if (hp.dataset.hp === 'heal') cs.hp = Math.min(Number(cs.maxhp || 0), Number(cs.hp || 0) + amt);
+    else { let rem = amt; const t = Number(cs.temphp || 0); const used = Math.min(t, rem); cs.temphp = t - used; rem -= used; cs.hp = Math.max(0, Number(cs.hp || 0) - rem); }
+    csPopulate(); saveCS(); return;
+  }
+  const rm = e.target.closest('[data-atk-rm]');
+  if (rm) { cs.attacks.splice(Number(rm.dataset.atkRm), 1); csRenderAttacks(); saveCS(); return; }
+  if (e.target.id === 'cs-atk-addbtn') {
+    const nm = $('cs-atk-name').value.trim(); if (!nm) return;
+    cs.attacks.push({ name: nm, bonus: Number($('cs-atk-bonus').value) || 0, dmg: $('cs-atk-dmg').value.trim() });
+    $('cs-atk-name').value = ''; $('cs-atk-bonus').value = ''; $('cs-atk-dmg').value = '';
+    csRenderAttacks(); saveCS(); return;
+  }
+}
+
+function csRecompute() {
+  const body = $('cs-body'); if (!body) return;
+  const prof = csProf();
+  body.querySelectorAll('[data-prof]').forEach((e) => e.textContent = csFmt(prof));
+  body.querySelectorAll('[data-lvlnum]').forEach((e) => e.textContent = cs.level || 1);
+  CS_ABIL.forEach((a) => {
+    const m = csMod(cs.scores[a]);
+    const me_ = body.querySelector(`[data-mod="${a}"]`); if (me_) me_.textContent = csFmt(m);
+    const sv = body.querySelector(`[data-saveval="${a}"]`); if (sv) sv.textContent = csFmt(m + (cs.saves[a] ? prof : 0));
+  });
+  CS_SKILLS.forEach(([nm, ab]) => {
+    const v = csMod(cs.scores[ab]) + (cs.skills[nm] ? prof : 0);
+    const el = body.querySelector(`[data-skillval="${nm}"]`); if (el) el.textContent = csFmt(v);
+  });
+  const init = body.querySelector('[data-init]'); if (init) init.textContent = csFmt(csMod(cs.scores.dex));
+  const per = 10 + csMod(cs.scores.wis) + (cs.skills['Perception'] ? prof : 0);
+  const pass = body.querySelector('[data-passive]'); if (pass) pass.textContent = per;
+  const pass2 = body.querySelector('[data-passive2]'); if (pass2) pass2.textContent = per;
+  const pinv = body.querySelector('[data-passinv]'); if (pinv) pinv.textContent = 10 + csMod(cs.scores.int) + (cs.skills['Investigation'] ? prof : 0);
+  const pins = body.querySelector('[data-passins]'); if (pins) pins.textContent = 10 + csMod(cs.scores.wis) + (cs.skills['Insight'] ? prof : 0);
+}
+
+function csRenderAttacks() {
+  const box = $('cs-atk-list'); if (!box) return;
+  box.innerHTML = cs.attacks.map((a, i) => `<div class="cs-atk">
+    <button class="cs-line-roll" data-roll="atk:${i}"><b>${csFmt(Number(a.bonus) || 0)}</b> ${escapeHtml(a.name)}</button>
+    <span class="cs-atk-dmg-txt">${escapeHtml(a.dmg || '')}</span>
+    <button class="cs-atk-rm" data-atk-rm="${i}" title="Remove">✕</button>
+  </div>`).join('') || '<div class="cs-empty">No attacks yet.</div>';
+}
+
+function csRoll(spec) {
+  const [type, key] = spec.split(':');
+  const prof = csProf();
+  let label = '', mod = 0;
+  if (type === 'ability') { label = CS_ABILN[key] + ' check'; mod = csMod(cs.scores[key]); }
+  else if (type === 'save') { label = CS_ABILN[key] + ' save'; mod = csMod(cs.scores[key]) + (cs.saves[key] ? prof : 0); }
+  else if (type === 'skill') { const ab = Object.fromEntries(CS_SKILLS)[key]; label = key; mod = csMod(cs.scores[ab]) + (cs.skills[key] ? prof : 0); }
+  else if (type === 'init') { label = 'Initiative'; mod = csMod(cs.scores.dex); }
+  else if (type === 'atk') { const a = cs.attacks[Number(key)]; if (!a) return; label = a.name + ' to hit'; mod = Number(a.bonus) || 0; }
+  const r = 1 + Math.floor(Math.random() * 20);
+  socket.emit('roll', { formula: (cs.name ? cs.name + ' — ' : '') + label, result: r + mod, detail: `d20[${r}] ${csFmt(mod)}` });
+  const btn = $('open-cs'); // subtle flash so the user knows it registered
+  if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 300); }
 }
 
 /* ============ WEATHER / ATMOSPHERE ============ */
