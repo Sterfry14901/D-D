@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { maxHttpBufferSize: 5e6 }); // 5MB for map images
+const io = new Server(httpServer, { maxHttpBufferSize: 30e6 }); // 30MB — allows large hi-res uploaded map images
 
 app.use(express.static(__dirname));
 app.get('/health', (_req, res) => res.json({ ok: true }));
