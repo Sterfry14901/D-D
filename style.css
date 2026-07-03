@@ -238,9 +238,14 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 /* ===== Zoom stage wrapper ===== */
 #board { width: 2100px; height: 1400px; }
 #stage { position: absolute; top: 0; left: 0; width: 2100px; height: 1400px; transform-origin: 0 0; box-shadow: inset 0 0 200px rgba(0,0,0,0.7); }
-#grid, #fog, #tokens, #pings { position: absolute; inset: 0; }
+#grid, #fog, #tokens, #pings, #walls, #dark { position: absolute; inset: 0; }
 #tokens { z-index: 4; }
 #pings { z-index: 5; pointer-events: none; }
+#walls { z-index: 3; pointer-events: none; }
+#dark { z-index: 7; pointer-events: none; }   /* players: darkness above map, below fog */
+.wall-cell { position: absolute; background: repeating-linear-gradient(45deg, rgba(150,60,60,0.5) 0 6px, rgba(90,30,30,0.5) 6px 12px);
+  border: 1px solid rgba(200,80,80,0.55); box-sizing: border-box; }
+.dark-cell { position: absolute; background: #030303; }
 
 /* Zoom control */
 .zoom-ctrl { display: flex; align-items: center; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px 6px; }

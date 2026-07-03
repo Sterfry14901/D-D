@@ -11,6 +11,10 @@ let fog = { active: false, hidden: {} };
 let fogMode = false;        // GM painting mode
 let fogPaintHide = true;    // paint hides (true) or reveals (false)
 let fogPainting = false;
+let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
+let walls = {};             // "cx,cy": true — sight-blocking cells
+let lighting = false;       // dynamic line-of-sight active
+const VISION_RADIUS = 6;    // cells a token can see (~30 ft)
 
 /* ============ JOIN ============ */
 $('join-btn').onclick = join;
@@ -44,6 +48,12 @@ socket.on('state', (s) => {
   renderInit(s.initiative || [], s.turnIndex || 0);
   fog = s.fog || { active: false, hidden: {} };
   renderFog();
+  walls = s.walls || {};
+  lighting = !!s.lighting;
+  $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
+  $('light-toggle').classList.toggle('active', lighting);
+  renderWalls();
+  refreshLighting();
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('fog-btn').classList.toggle('hidden', !me.isGm);
@@ -235,7 +245,7 @@ function setMap(src) {
 }
 socket.on('map:set', setMap);
 function applyGrid(size) { $('grid').style.backgroundSize = `${size}px ${size}px`; renderFog(); }
-socket.on('grid:set', (s) => { gridSize = s; applyGrid(s); });
+socket.on('grid:set', (s) => { gridSize = s; applyGrid(s); renderWalls(); refreshLighting(); });
 
 /* ============ ZOOM & PAN ============ */
 function applyZoom() {
@@ -297,13 +307,14 @@ function showPing(x, y, color) {
 $('addtoken-btn').onclick = () => {
   socket.emit('token:add', { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), size: 1, statuses: [] });
 };
-socket.on('token:add', renderToken);
-socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); } });
+socket.on('token:add', (t) => { renderToken(t); refreshLighting(); });
+socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); refreshLighting(); } });
 socket.on('token:move', ({ id, x, y }) => {
   const el = tokenEls[id]; if (!el) return;
   el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
+  refreshLighting();
 });
-socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; } });
+socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; refreshLighting(); } });
 
 function renderToken(t) {
   let el = tokenEls[t.id];
@@ -345,6 +356,7 @@ function makeDraggable(el) {
     const c = boardCoords(e); const x = c.x - grabX, y = c.y - grabY;
     el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
     socket.emit('token:move', { id: el._token.id, x, y });
+    refreshLighting();
   });
   window.addEventListener('mouseup', () => {
     if (!dragging) return; dragging = false;
@@ -448,10 +460,19 @@ $('fog-btn').onclick = () => {
   $('board').classList.toggle('fog-painting', fogMode);
   if (fogMode && !fog.active) socket.emit('fog:active', true);
 };
-$('fog-paint-hide').onclick = () => { fogPaintHide = true; $('fog-paint-hide').classList.add('active'); $('fog-paint-reveal').classList.remove('active'); };
-$('fog-paint-reveal').onclick = () => { fogPaintHide = false; $('fog-paint-reveal').classList.add('active'); $('fog-paint-hide').classList.remove('active'); };
+function setPaintTarget(t) {
+  paintTarget = t;
+  fogPaintHide = (t === 'hide');
+  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall']]
+    .forEach(([k, id]) => $(id).classList.toggle('active', paintTarget === k));
+}
+$('fog-paint-hide').onclick = () => setPaintTarget('hide');
+$('fog-paint-reveal').onclick = () => setPaintTarget('reveal');
+$('fog-paint-wall').onclick = () => setPaintTarget('wall');
 $('fog-cover-all').onclick = () => socket.emit('fog:all', true);
 $('fog-clear-all').onclick = () => socket.emit('fog:all', false);
+$('wall-clear').onclick = () => socket.emit('wall:clear');
+$('light-toggle').onclick = () => socket.emit('light:active', !lighting);
 
 function paintFog(e) {
   fogPainting = true;
@@ -459,11 +480,116 @@ function paintFog(e) {
   const cx = Math.floor(c.x / gridSize), cy = Math.floor(c.y / gridSize);
   if (cx < 0 || cy < 0) return;
   const key = `${cx},${cy}`;
-  const wantHidden = fogPaintHide;
+  if (paintTarget === 'wall') {
+    if (walls[key]) return;
+    walls[key] = true;
+    socket.emit('wall:cell', { key, on: true });
+    renderWalls(); refreshLighting();
+    return;
+  }
+  const wantHidden = (paintTarget === 'hide');
   if (!!fog.hidden[key] === wantHidden) return;
   if (wantHidden) fog.hidden[key] = true; else delete fog.hidden[key];
   socket.emit('fog:cell', { key, hidden: wantHidden });
   renderFog();
+}
+
+/* ============ DYNAMIC LIGHTING ============ */
+socket.on('light:state', ({ lighting: on, walls: w }) => {
+  lighting = !!on; walls = w || {};
+  $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
+  $('light-toggle').classList.toggle('active', lighting);
+  renderWalls(); refreshLighting();
+});
+socket.on('wall:cell', ({ key, on }) => {
+  if (on) walls[key] = true; else delete walls[key];
+  renderWalls(); refreshLighting();
+});
+
+function renderWalls() {
+  const layer = $('walls'); if (!layer) return;
+  layer.innerHTML = '';
+  // Walls are a GM building aid — only the GM sees the blocks.
+  if (!me.isGm) return;
+  for (const key in walls) {
+    const [cx, cy] = key.split(',').map(Number);
+    const cell = document.createElement('div');
+    cell.className = 'wall-cell';
+    cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
+    cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+    layer.appendChild(cell);
+  }
+}
+
+// Grid raycast: is there a clear line of sight from (x0,y0) to (x1,y1)?
+function hasSight(x0, y0, x1, y1) {
+  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy, x = x0, y = y0;
+  while (true) {
+    if (!(x === x0 && y === y0) && !(x === x1 && y === y1)) {
+      if (walls[`${x},${y}`]) return false; // a wall between blocks sight
+    }
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+  return true;
+}
+
+function computeVision() {
+  const lit = new Set();
+  const R = VISION_RADIUS;
+  Object.values(tokenEls).forEach((el) => {
+    const t = el._token; if (!t) return;
+    const tcx = Math.floor((t.x + (t.size || 1) * 32) / gridSize);
+    const tcy = Math.floor((t.y + (t.size || 1) * 32) / gridSize);
+    for (let cx = tcx - R; cx <= tcx + R; cx++) {
+      for (let cy = tcy - R; cy <= tcy + R; cy++) {
+        if (cx < 0 || cy < 0) continue;
+        const dist = Math.max(Math.abs(cx - tcx), Math.abs(cy - tcy));
+        if (dist > R) continue;
+        if (hasSight(tcx, tcy, cx, cy)) lit.add(`${cx},${cy}`);
+      }
+    }
+  });
+  return lit;
+}
+
+let lightingRAF = null;
+function refreshLighting() {
+  if (lightingRAF) return;
+  lightingRAF = requestAnimationFrame(() => { lightingRAF = null; doLighting(); });
+}
+function doLighting() {
+  const dark = $('dark'); if (!dark) return;
+  dark.innerHTML = '';
+  $('board').classList.toggle('lit', lighting);
+  // GM sees everything; darkness only applies to players.
+  if (!lighting || me.isGm) {
+    Object.values(tokenEls).forEach((el) => { el.style.visibility = 'visible'; });
+    return;
+  }
+  const lit = computeVision();
+  const cols = Math.ceil(BOARD_W / gridSize), rows = Math.ceil(BOARD_H / gridSize);
+  for (let cx = 0; cx < cols; cx++) {
+    for (let cy = 0; cy < rows; cy++) {
+      if (lit.has(`${cx},${cy}`)) continue;
+      const cell = document.createElement('div');
+      cell.className = 'dark-cell';
+      cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
+      cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+      dark.appendChild(cell);
+    }
+  }
+  // Hide tokens that stand in darkness (outside the party's line of sight).
+  Object.values(tokenEls).forEach((el) => {
+    const t = el._token; if (!t) return;
+    const cx = Math.floor((t.x + (t.size || 1) * 32) / gridSize);
+    const cy = Math.floor((t.y + (t.size || 1) * 32) / gridSize);
+    el.style.visibility = lit.has(`${cx},${cy}`) ? 'visible' : 'hidden';
+  });
 }
 socket.on('fog:state', (f) => { fog = f; renderFog(); });
 socket.on('fog:cell', ({ key, hidden }) => { if (hidden) fog.hidden[key] = true; else delete fog.hidden[key]; renderFog(); });

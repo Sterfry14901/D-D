@@ -44,6 +44,8 @@ function saveRooms() {
         initiative: room.initiative,
         turnIndex: room.turnIndex,
         fog: room.fog,
+        walls: room.walls,
+        lighting: room.lighting,
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -59,7 +61,9 @@ function markDirty() {
 function loadRooms() {
   try {
     if (!fs.existsSync(DATA_FILE)) return;
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const raw = fs.readFileSync(DATA_FILE, 'utf8').trim();
+    if (!raw) return;
+    const data = JSON.parse(raw);
     for (const [id, room] of Object.entries(data)) {
       rooms.set(id, {
         tokens: room.tokens || {},
@@ -71,6 +75,8 @@ function loadRooms() {
         initiative: room.initiative || [],
         turnIndex: room.turnIndex || 0,
         fog: room.fog || { active: false, hidden: {} },
+        walls: room.walls || {},
+        lighting: !!room.lighting,
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -96,6 +102,8 @@ function getRoom(id) {
       initiative: [],          // [{id, name, init}]
       turnIndex: 0,
       fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
+      walls: {},               // "cx,cy": true — sight-blocking wall cells
+      lighting: false,         // dynamic line-of-sight active
     });
   }
   return rooms.get(id);
@@ -207,6 +215,8 @@ io.on('connection', (socket) => {
       initiative: room.initiative,
       turnIndex: room.turnIndex,
       fog: room.fog,
+      walls: room.walls,
+      lighting: room.lighting,
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -313,12 +323,30 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('fog:state', room.fog);
   });
 
+  // ---- Dynamic lighting: walls (GM only) ----
+  socket.on('light:active', (active) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.lighting = !!active;
+    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls });
+  });
+  socket.on('wall:cell', ({ key, on }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (on) room.walls[key] = true; else delete room.walls[key];
+    io.to(joinedRoom).emit('wall:cell', { key, on });
+  });
+  socket.on('wall:clear', () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.walls = {};
+    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls });
+  });
+
   // ---- Save / Load campaign ----
   socket.on('campaign:get', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
     socket.emit('campaign:data', {
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
+      walls: room.walls, lighting: room.lighting,
       savedAt: Date.now(), room: joinedRoom,
     });
   });
@@ -330,12 +358,15 @@ io.on('connection', (socket) => {
     room.initiative = data.initiative || [];
     room.turnIndex = data.turnIndex || 0;
     room.fog = data.fog || { active: false, hidden: {} };
+    room.walls = data.walls || {};
+    room.lighting = !!data.lighting;
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
         tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
-        fog: room.fog, youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
+        fog: room.fog, walls: room.walls, lighting: room.lighting,
+        youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
       });
     }
     pushSystem(joinedRoom, 'The GM loaded a saved campaign.');

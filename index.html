@@ -70,7 +70,11 @@
       <span class="fog-sep"></span>
       <button id="fog-cover-all" class="fog-tool">Cover all</button>
       <button id="fog-clear-all" class="fog-tool">Reveal all</button>
-      <span class="fog-hint">Click or drag on the map to paint. Players only see revealed areas.</span>
+      <span class="fog-sep"></span>
+      <button id="fog-paint-wall" class="fog-tool">🧱 Walls</button>
+      <button id="wall-clear" class="fog-tool">Clear walls</button>
+      <button id="light-toggle" class="fog-tool">💡 Lighting: Off</button>
+      <span class="fog-hint">Paint walls, then turn Lighting on — players only see what their tokens can see.</span>
     </div>
 
     <main id="layout">
@@ -79,7 +83,9 @@
         <div id="board">
           <div id="stage">
             <div id="grid"></div>
+            <div id="walls"></div>
             <div id="fog"></div>
+            <div id="dark"></div>
             <div id="tokens"></div>
             <div id="pings"></div>
             <div id="ruler"></div>
