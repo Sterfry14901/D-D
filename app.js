@@ -60,6 +60,7 @@ socket.on('state', (s) => {
   aoes = s.aoes || [];
   renderAoes();
   if (s.handout) showHandout(s.handout); else hideHandout();
+  setWeather(s.weather || 'clear');
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('fog-btn').classList.toggle('hidden', !me.isGm);
@@ -643,6 +644,79 @@ function renderFog() {
     cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
     layer.appendChild(cell);
   }
+}
+
+/* ============ WEATHER / ATMOSPHERE ============ */
+$('weather-btn').onclick = () => {
+  const hidden = $('weather-bar').classList.toggle('hidden');
+  $('weather-btn').classList.toggle('on', !hidden);
+};
+document.querySelectorAll('.wx').forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll('.wx').forEach((x) => x.classList.toggle('active', x === b));
+    socket.emit('weather:set', b.dataset.wx);
+  };
+});
+socket.on('weather:set', setWeather);
+
+const WX = (() => {
+  const canvas = $('weather-fx');
+  const ctx = canvas.getContext('2d');
+  const wrap = $('board-wrap');
+  let type = 'clear', parts = [], raf = null, W = 0, H = 0;
+  function resize() {
+    W = canvas.width = wrap.clientWidth; H = canvas.height = wrap.clientHeight;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  }
+  window.addEventListener('resize', resize);
+  // keep the canvas pinned to the visible area as the board scrolls
+  wrap.addEventListener('scroll', () => { canvas.style.transform = `translate(${wrap.scrollLeft}px, ${wrap.scrollTop}px)`; });
+  function seed(n, make) { parts = []; for (let i = 0; i < n; i++) parts.push(make()); }
+  function start(t) {
+    type = t; resize();
+    canvas.style.transform = `translate(${wrap.scrollLeft}px, ${wrap.scrollTop}px)`;
+    if (t === 'rain') seed(220, () => ({ x: Math.random()*W, y: Math.random()*H, l: 8+Math.random()*12, v: 8+Math.random()*6 }));
+    else if (t === 'snow') seed(160, () => ({ x: Math.random()*W, y: Math.random()*H, r: 1+Math.random()*2.5, v: 0.6+Math.random()*1.2, d: Math.random()*Math.PI*2 }));
+    else if (t === 'embers') seed(120, () => ({ x: Math.random()*W, y: Math.random()*H, r: 1+Math.random()*2, v: 0.5+Math.random()*1.5, d: Math.random()*Math.PI*2 }));
+    else if (t === 'fog') seed(14, () => ({ x: Math.random()*W, y: Math.random()*H, r: 120+Math.random()*160, v: 0.2+Math.random()*0.4 }));
+    if (!raf) loop();
+  }
+  function stop() { type = 'clear'; if (raf) cancelAnimationFrame(raf); raf = null; ctx.clearRect(0,0,W,H); }
+  function loop() {
+    raf = requestAnimationFrame(loop);
+    ctx.clearRect(0, 0, W, H);
+    if (type === 'rain') {
+      ctx.strokeStyle = 'rgba(170,200,230,0.5)'; ctx.lineWidth = 1.3;
+      parts.forEach((p) => {
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 2, p.y + p.l); ctx.stroke();
+        p.y += p.v; p.x -= 1; if (p.y > H) { p.y = -10; p.x = Math.random()*W; }
+      });
+    } else if (type === 'snow') {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      parts.forEach((p) => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        p.d += 0.02; p.y += p.v; p.x += Math.sin(p.d) * 0.8; if (p.y > H) { p.y = -6; p.x = Math.random()*W; }
+      });
+    } else if (type === 'embers') {
+      parts.forEach((p) => {
+        ctx.fillStyle = `rgba(255,${120 + Math.floor(Math.random()*80)},40,0.8)`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        p.d += 0.05; p.y -= p.v; p.x += Math.sin(p.d) * 0.7; if (p.y < -6) { p.y = H + 6; p.x = Math.random()*W; }
+      });
+    } else if (type === 'fog') {
+      parts.forEach((p) => {
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, 'rgba(200,205,215,0.14)'); g.addColorStop(1, 'rgba(200,205,215,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        p.x += p.v; if (p.x - p.r > W) p.x = -p.r;
+      });
+    }
+  }
+  return { start, stop };
+})();
+function setWeather(t) {
+  document.querySelectorAll('.wx').forEach((x) => x.classList.toggle('active', x.dataset.wx === t));
+  if (!t || t === 'clear') WX.stop(); else WX.start(t);
 }
 
 /* ============ SHARED HANDOUT / IMAGE BOARD ============ */

@@ -48,6 +48,7 @@ function saveRooms() {
         lighting: room.lighting,
         aoes: room.aoes,
         handout: room.handout,
+        weather: room.weather,
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -81,6 +82,7 @@ function loadRooms() {
         lighting: !!room.lighting,
         aoes: room.aoes || [],
         handout: room.handout || null,
+        weather: room.weather || 'clear',
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -111,6 +113,7 @@ function getRoom(id) {
       lighting: false,         // dynamic line-of-sight active
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
+      weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
     });
   }
   return rooms.get(id);
@@ -227,6 +230,7 @@ io.on('connection', (socket) => {
       lighting: room.lighting,
       aoes: room.aoes,
       handout: room.handout,
+      weather: room.weather,
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -384,6 +388,14 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('handout:clear');
   });
 
+  // ---- Weather / atmosphere ----
+  socket.on('weather:set', (type) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const allowed = ['clear', 'rain', 'snow', 'fog', 'embers'];
+    room.weather = allowed.includes(type) ? type : 'clear';
+    io.to(joinedRoom).emit('weather:set', room.weather);
+  });
+
   // ---- Save / Load campaign ----
   socket.on('campaign:get', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
@@ -391,6 +403,7 @@ io.on('connection', (socket) => {
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
       walls: room.walls, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
+      weather: room.weather,
       savedAt: Date.now(), room: joinedRoom,
     });
   });
@@ -406,13 +419,15 @@ io.on('connection', (socket) => {
     room.lighting = !!data.lighting;
     room.aoes = data.aoes || [];
     room.handout = data.handout || null;
+    room.weather = data.weather || 'clear';
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
         tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
         fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
-        handout: room.handout, youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
+        handout: room.handout, weather: room.weather, round: room.round,
+        youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
       });
     }
     pushSystem(joinedRoom, 'The GM loaded a saved campaign.');

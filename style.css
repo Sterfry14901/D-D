@@ -261,6 +261,14 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .dh-row { font-size: 0.8rem; color: #d8c9ad; padding: 4px 8px; background: rgba(255,255,255,0.03);
   border-left: 2px solid var(--line-gold); border-radius: 4px; }
 .dh-who { color: var(--gold); font-weight: 600; }
+#weather-fx { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 6; }
+#weather-btn.on { box-shadow: 0 0 14px rgba(217,177,84,0.4); border-color: var(--gold); }
+.dice-result .big { display: inline-block; animation: diePop .5s cubic-bezier(.2,1.4,.5,1); }
+@keyframes diePop {
+  0%   { transform: scale(.2) rotate(-30deg); opacity: 0; }
+  55%  { transform: scale(1.3) rotate(10deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
 
 /* Zoom control */
 .zoom-ctrl { display: flex; align-items: center; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px 6px; }
