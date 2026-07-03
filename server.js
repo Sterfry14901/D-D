@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,64 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // ---- In-memory game state. One "room" = one campaign table. ----
 const rooms = new Map();
+
+// ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
+const DATA_FILE = join(__dirname, 'rooms-data.json');
+let saveTimer = null;
+
+function saveRooms() {
+  try {
+    const out = {};
+    for (const [id, room] of rooms) {
+      // Players are connection-bound (socket ids) — don't persist them.
+      out[id] = {
+        tokens: room.tokens,
+        chat: room.chat.slice(-200),
+        mapImage: room.mapImage,
+        gridSize: room.gridSize,
+        gmPassword: room.gmPassword,
+        initiative: room.initiative,
+        turnIndex: room.turnIndex,
+        fog: room.fog,
+      };
+    }
+    fs.writeFileSync(DATA_FILE, JSON.stringify(out));
+  } catch (e) { console.error('saveRooms failed:', e.message); }
+}
+
+// Debounced save — coalesces bursts of changes into one write.
+function markDirty() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => { saveTimer = null; saveRooms(); }, 3000);
+}
+
+function loadRooms() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    for (const [id, room] of Object.entries(data)) {
+      rooms.set(id, {
+        tokens: room.tokens || {},
+        chat: room.chat || [],
+        mapImage: room.mapImage || null,
+        gridSize: room.gridSize || 70,
+        players: {},
+        gmPassword: room.gmPassword || null,
+        initiative: room.initiative || [],
+        turnIndex: room.turnIndex || 0,
+        fog: room.fog || { active: false, hidden: {} },
+      });
+    }
+    console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
+  } catch (e) { console.error('loadRooms failed:', e.message); }
+}
+
+// Save on graceful shutdown (Render sends SIGTERM on restart / spin-down).
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => { saveRooms(); process.exit(0); });
+}
+// Periodic safety-net autosave.
+setInterval(saveRooms, 30000);
 
 function getRoom(id) {
   if (!rooms.has(id)) {
@@ -54,7 +113,11 @@ const DM_SYSTEM_PROMPT = `You are a masterful Dungeon Master running a Dungeons 
 Narrate vividly but concisely (2-5 sentences unless a big set-piece). Describe scenes, voice NPCs,
 and react to player actions and dice rolls. When players attempt risky actions, ask for a specific
 ability check or saving throw (e.g. "Make a DC 14 Dexterity save"). Keep the story moving, offer
-real choices, and never decide a player's actions for them. Stay in character as the narrator/world.`;
+real choices, and never decide a player's actions for them. Stay in character as the narrator/world.
+You may roll dice yourself when the story calls for it (attacks, damage, random events) — state the
+result inline, e.g. "The goblin's arrow flies wide (rolled 7 vs AC 15)." A BATTLEFIELD STATE line may
+be provided listing tokens and their current HP; use it to narrate wounds, bloodied foes, and deaths
+accurately, and never contradict a creature's stated HP.`;
 
 async function callOpenAIDM(messages) {
   if (!OPENAI_API_KEY) {
@@ -84,14 +147,32 @@ async function callOpenAIDM(messages) {
   }
 }
 
+function battlefieldSummary(room) {
+  const toks = Object.values(room.tokens || {});
+  if (!toks.length) return null;
+  const parts = toks.map((t) => {
+    const name = t.label || t.name || 'token';
+    const hp = t.hp, maxhp = t.maxhp ?? t.maxHp;
+    if (hp != null && maxhp != null && Number(maxhp) > 0) {
+      const status = hp <= 0 ? 'DOWN' : hp <= maxhp / 2 ? 'bloodied' : 'healthy';
+      return `${name} (${hp}/${maxhp} HP, ${status})`;
+    }
+    return name;
+  }).filter((p) => p && p !== 'token');
+  return `BATTLEFIELD STATE — ${parts.join('; ')}.`;
+}
+
 function buildDMContext(room) {
-  return room.chat.slice(-20)
+  const msgs = room.chat.slice(-20)
     .filter((m) => m.role === 'player' || m.role === 'dm' || m.role === 'roll')
     .map((m) => {
       if (m.role === 'dm') return { role: 'assistant', content: m.text };
       const who = m.role === 'roll' ? 'DICE' : m.author;
       return { role: 'user', content: `${who}: ${m.text}` };
     });
+  const bf = battlefieldSummary(room);
+  if (bf) msgs.unshift({ role: 'user', content: bf });
+  return msgs;
 }
 
 function pushSystem(roomId, text) {
@@ -304,6 +385,7 @@ io.on('connection', (socket) => {
   });
 });
 
+loadRooms();
 httpServer.listen(PORT, () => {
   console.log(`\n  ⚔️  D&D VTT running:  http://localhost:${PORT}`);
   console.log(`  AI DM: ${OPENAI_API_KEY ? 'enabled (' + OPENAI_MODEL + ')' : 'STUB MODE — add OPENAI_API_KEY to .env'}\n`);

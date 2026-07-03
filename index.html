@@ -125,6 +125,11 @@
           </div>
           <ol id="init-list"></ol>
           <p class="sheet-hint">Add players &amp; monsters, Sort by initiative, then Next to advance turns. Everyone sees whose turn it is.</p>
+
+          <div class="monster-add">
+            <div class="mon-title">⚔️ Quick monsters — click to drop a token with HP</div>
+            <div id="mon-grid" class="mon-grid"></div>
+          </div>
         </div>
 
         <!-- Dice -->
@@ -173,6 +178,11 @@
               <div class="abil"><span>INT</span><input id="ab-int" type="number" value="10" /><em id="m-int">+0</em></div>
               <div class="abil"><span>WIS</span><input id="ab-wis" type="number" value="10" /><em id="m-wis">+0</em></div>
               <div class="abil"><span>CHA</span><input id="ab-cha" type="number" value="10" /><em id="m-cha">+0</em></div>
+            </div>
+            <div class="sh-rolls">
+              <button id="roll-attack" title="d20 + best of STR/DEX + proficiency">⚔️ Attack</button>
+              <button id="roll-init" title="d20 + DEX">🎲 Initiative</button>
+              <button id="add-me-init" title="Add yourself to the initiative tracker">➕ To Combat</button>
             </div>
             <p class="sheet-hint">Click a modifier to roll a d20 + that ability. Sheet auto-saves on this device.</p>
             <textarea id="sh-notes" placeholder="Inventory, spells, backstory…"></textarea>

@@ -161,6 +161,48 @@ function loadSheet() {
   updateMods();
 }
 
+/* Quick-roll helpers driven from the sheet */
+function profBonus() { return 2 + Math.floor((parseInt($('sh-level').value || 1) - 1) / 4); }
+function quickRoll(m) { $('quickmod').value = m; document.querySelector('[data-tab="dice"]').click(); rollFormula('1d20'); }
+$('roll-attack').onclick = () => quickRoll(Math.max(mod($('ab-str').value), mod($('ab-dex').value)) + profBonus());
+$('roll-init').onclick = () => quickRoll(mod($('ab-dex').value));
+$('add-me-init').onclick = () => {
+  const init = rollDie(20) + mod($('ab-dex').value);
+  socket.emit('init:add', { name: $('sh-name').value.trim() || me.name, init });
+  document.querySelector('[data-tab="combat"]').click();
+};
+
+/* ============ MONSTER QUICK-ADD ============ */
+const MONSTERS = [
+  { n: 'Goblin', hp: 7, e: '👹' }, { n: 'Orc', hp: 15, e: '👹' },
+  { n: 'Kobold', hp: 5, e: '🦎' }, { n: 'Skeleton', hp: 13, e: '💀' },
+  { n: 'Zombie', hp: 22, e: '🧟' }, { n: 'Bandit', hp: 11, e: '🗡️' },
+  { n: 'Guard', hp: 11, e: '🛡️' }, { n: 'Cultist', hp: 9, e: '🕯️' },
+  { n: 'Wolf', hp: 11, e: '🐺' }, { n: 'Dire Wolf', hp: 37, e: '🐺', size: 2 },
+  { n: 'Giant Spider', hp: 26, e: '🕷️', size: 2 }, { n: 'Ogre', hp: 59, e: '👹', size: 2 },
+  { n: 'Troll', hp: 84, e: '🧌', size: 2 }, { n: 'Wyrmling', hp: 33, e: '🐉', size: 2 },
+  { n: 'Young Dragon', hp: 178, e: '🐉', size: 3 }, { n: 'Ghost', hp: 45, e: '👻' },
+];
+function buildMonsters() {
+  const g = $('mon-grid'); if (!g) return;
+  MONSTERS.forEach((m) => {
+    const b = document.createElement('button');
+    b.className = 'mon-btn';
+    b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp</em>`;
+    b.onclick = () => spawnMonster(m);
+    g.appendChild(b);
+  });
+}
+function spawnMonster(m) {
+  socket.emit('token:add', {
+    x: gridSize * (2 + Math.floor(Math.random() * 6)),
+    y: gridSize * (1 + Math.floor(Math.random() * 3)),
+    color: '#7a2318', label: m.n, size: m.size || 1,
+    statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
+  });
+}
+buildMonsters();
+
 /* ============ TABS ============ */
 document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
@@ -480,6 +522,35 @@ socket.on('rtc:signal', async ({ from, data }) => {
     if (data.sdp.type === 'offer') { const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('rtc:signal', { to: from, data: { sdp: a } }); }
   } else if (data.candidate) { try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch {} }
 });
+
+/* ============ TOUCH SUPPORT (mobile/tablet) ============ */
+/* Bridge single-finger touches to the mouse handlers the board already uses. */
+(function () {
+  const wrap = $('board-wrap');
+  if (!wrap) return;
+  let boardTouch = false;
+  const fire = (type, touch, target) => {
+    const ev = new MouseEvent(type, { bubbles: true, cancelable: true, view: window,
+      clientX: touch.clientX, clientY: touch.clientY });
+    (target || document).dispatchEvent(ev);
+  };
+  wrap.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    boardTouch = true;
+    const t = e.touches[0];
+    fire('mousedown', t, document.elementFromPoint(t.clientX, t.clientY) || wrap);
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (!boardTouch || e.touches.length !== 1) return;
+    e.preventDefault();           // stop the page scrolling while dragging/panning
+    fire('mousemove', e.touches[0], window);
+  }, { passive: false });
+  window.addEventListener('touchend', (e) => {
+    if (!boardTouch) return;
+    boardTouch = false;
+    fire('mouseup', e.changedTouches[0], window);
+  }, { passive: true });
+})();
 
 /* ============ helpers ============ */
 function initials(name) { return name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase(); }
