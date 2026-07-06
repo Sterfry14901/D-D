@@ -114,6 +114,7 @@ function getRoom(id) {
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
       weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
+      partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
     });
   }
   return rooms.get(id);
@@ -122,6 +123,10 @@ function getRoom(id) {
 function broadcastPlayers(roomId) {
   const room = rooms.get(roomId);
   if (room) io.to(roomId).emit('players', Object.values(room.players));
+}
+function broadcastParty(roomId) {
+  const room = rooms.get(roomId);
+  if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
 function rid() { return Math.random().toString(36).slice(2, 9); }
@@ -236,6 +241,7 @@ io.on('connection', (socket) => {
       gmClaimed: !!room.gmPassword,
     });
     broadcastPlayers(joinedRoom);
+    broadcastParty(joinedRoom);
     socket.to(joinedRoom).emit('peer-joined', { peerId: socket.id, name: room.players[socket.id].name });
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
   });
@@ -388,6 +394,16 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('handout:clear');
   });
 
+  // ---- Party status (live sheet HP/AC) ----
+  socket.on('party:status', (st) => {
+    const room = rooms.get(joinedRoom); if (!room || !st) return;
+    room.partyStatus[socket.id] = {
+      name: String(st.name || 'Adventurer').slice(0, 24),
+      hp: Number(st.hp) || 0, maxhp: Number(st.maxhp) || 0, ac: Number(st.ac) || 0,
+    };
+    broadcastParty(joinedRoom);
+  });
+
   // ---- Weather / atmosphere ----
   socket.on('weather:set', (type) => {
     const room = rooms.get(joinedRoom); if (!room) return;
@@ -470,8 +486,10 @@ io.on('connection', (socket) => {
     if (room && room.players[socket.id]) {
       const name = room.players[socket.id].name;
       delete room.players[socket.id];
+      delete room.partyStatus[socket.id];
       socket.to(joinedRoom).emit('peer-left', { peerId: socket.id });
       broadcastPlayers(joinedRoom);
+      broadcastParty(joinedRoom);
       pushSystem(joinedRoom, `${name} left the table.`);
     }
   });

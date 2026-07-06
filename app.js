@@ -37,7 +37,32 @@ function join() {
   applyZoom();
   loadSheet();
   loadCS();
+  sendPartyStatus();
 }
+
+/* ============ PARTY STATUS (live HP/AC) ============ */
+function sendPartyStatus() {
+  if (!me.id && !me.room) return;
+  socket.emit('party:status', {
+    name: (cs && cs.name) || me.name,
+    hp: cs ? Number(cs.hp) || 0 : 0,
+    maxhp: cs ? Number(cs.maxhp) || 0 : 0,
+    ac: cs ? Number(cs.ac) || 0 : 0,
+  });
+}
+socket.on('party:list', (list) => {
+  const box = $('party-status'); if (!box) return;
+  if (!list.length) { box.innerHTML = '<div class="cs-empty">No character HP shared yet. Fill in your sheet.</div>'; return; }
+  box.innerHTML = list.map((p) => {
+    const pct = p.maxhp > 0 ? Math.max(0, Math.min(100, (p.hp / p.maxhp) * 100)) : 0;
+    const col = pct > 50 ? '#5fae54' : pct > 25 ? '#d9a434' : '#c0392b';
+    return `<div class="pmember">
+      <div class="pm-top"><span class="pm-name">${escapeHtml(p.name)}</span><span class="pm-ac">🛡️ ${p.ac || '—'}</span></div>
+      <div class="pm-hpbar"><i style="width:${pct}%;background:${col}"></i></div>
+      <div class="pm-hp">${p.maxhp > 0 ? `${p.hp} / ${p.maxhp} HP` : 'no HP set'}</div>
+    </div>`;
+  }).join('');
+});
 
 /* ============ INITIAL STATE ============ */
 socket.on('state', (s) => {
@@ -841,7 +866,7 @@ function csPopulateDeath() {
 
 function csOnChange(e) {
   const el = e.target;
-  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; }
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); }
   else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
@@ -871,7 +896,7 @@ function csOnClick(e) {
     const amt = Math.abs(Number($('cs-hp-amt').value) || 0);
     if (hp.dataset.hp === 'heal') cs.hp = Math.min(Number(cs.maxhp || 0), Number(cs.hp || 0) + amt);
     else { let rem = amt; const t = Number(cs.temphp || 0); const used = Math.min(t, rem); cs.temphp = t - used; rem -= used; cs.hp = Math.max(0, Number(cs.hp || 0) - rem); }
-    csPopulate(); saveCS(); return;
+    csPopulate(); saveCS(); sendPartyStatus(); return;
   }
   const rm = e.target.closest('[data-atk-rm]');
   if (rm) { cs.attacks.splice(Number(rm.dataset.atkRm), 1); csRenderAttacks(); saveCS(); return; }
@@ -1157,6 +1182,26 @@ socket.on('rtc:signal', async ({ from, data }) => {
   }, { passive: true });
 })();
 
+/* ============ RAIL TOOLTIPS ============ */
+(function () {
+  const tip = document.createElement('div');
+  tip.id = 'rail-tip'; tip.style.cssText = 'position:fixed;z-index:60;pointer-events:none;opacity:0;transition:opacity .1s;background:#0e1013;color:#f0e6d2;border:1px solid #2a2e37;border-radius:8px;padding:6px 10px;font-size:12px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,0.5);font-family:"EB Garamond",serif;';
+  document.body.appendChild(tip);
+  function show(el) {
+    const t = el.getAttribute('title'); if (!t) return;
+    tip.textContent = t;
+    const r = el.getBoundingClientRect();
+    tip.style.left = (r.right + 10) + 'px';
+    tip.style.top = (r.top + r.height / 2 - 14) + 'px';
+    tip.style.opacity = '1';
+  }
+  function hide() { tip.style.opacity = '0'; }
+  document.addEventListener('mouseover', (e) => { const b = e.target.closest('.topbar-actions button.ghost'); if (b) show(b); });
+  document.addEventListener('mouseout', (e) => { if (e.target.closest('.topbar-actions button.ghost')) hide(); });
+})();
+
 /* ============ helpers ============ */
+let _psTimer = null;
+function sendPartyStatusDebounced() { if (_psTimer) return; _psTimer = setTimeout(() => { _psTimer = null; sendPartyStatus(); }, 600); }
 function initials(name) { return name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase(); }
 function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
