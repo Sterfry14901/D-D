@@ -33,6 +33,7 @@ function join() {
   $('join-screen').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('room-label').textContent = `Table: ${me.room}`;
+  $('me-plate-name').textContent = me.name;
   applyZoom();
   loadSheet();
   loadCS();
@@ -64,6 +65,8 @@ socket.on('state', (s) => {
   setWeather(s.weather || 'clear');
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
+  $('me-plate-role').textContent = me.isGm ? 'Dungeon Master' : 'Player';
+  document.querySelector('#me-plate .ava').textContent = me.isGm ? '👑' : '🧙';
   $('fog-btn').classList.toggle('hidden', !me.isGm);
   $('save-btn').classList.toggle('hidden', !me.isGm);
   $('load-btn').classList.toggle('hidden', !me.isGm);
