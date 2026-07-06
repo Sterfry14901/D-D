@@ -37,7 +37,14 @@ function join() {
   applyZoom();
   loadSheet();
   loadCS();
+  linkedToken = localStorage.getItem('dnd-link-' + me.room) || null;
   sendPartyStatus();
+}
+
+let linkedToken = null;
+function syncLinkedToken() {
+  if (!linkedToken || !tokenEls[linkedToken] || !cs) return;
+  socket.emit('token:update', { id: linkedToken, hp: Number(cs.hp) || 0, maxhp: Number(cs.maxhp) || 0 });
 }
 
 /* ============ PARTY STATUS (live HP/AC) ============ */
@@ -49,6 +56,7 @@ function sendPartyStatus() {
     maxhp: cs ? Number(cs.maxhp) || 0 : 0,
     ac: cs ? Number(cs.ac) || 0 : 0,
   });
+  syncLinkedToken();
 }
 socket.on('party:list', (list) => {
   const box = $('party-status'); if (!box) return;
@@ -364,7 +372,7 @@ socket.on('token:move', ({ id, x, y }) => {
   el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
   refreshLighting();
 });
-socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; refreshLighting(); } });
+socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; refreshLighting(); } if (id === linkedToken) { linkedToken = null; localStorage.removeItem('dnd-link-' + me.room); } });
 
 function renderToken(t) {
   let el = tokenEls[t.id];
@@ -426,6 +434,7 @@ function openTokenModal(t) {
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
   $('tk-vision').value = t.vision ?? ''; $('tk-light').value = t.light ?? '';
+  $('tk-link').checked = (linkedToken === t.id);
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
   document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
   document.querySelectorAll('.img-opt').forEach((b) => b.classList.toggle('on', editImg === b.dataset.img));
@@ -474,6 +483,16 @@ $('tk-save').onclick = () => {
     light: $('tk-light').value === '' ? null : Number($('tk-light').value),
     statuses: editStatuses, emoji: editEmoji, img: editImg,
   });
+  // Link / unlink this token to my character sheet
+  if ($('tk-link').checked) {
+    linkedToken = editingToken.id;
+    localStorage.setItem('dnd-link-' + me.room, linkedToken);
+    if ($('tk-hp').value !== '') cs.hp = Number($('tk-hp').value);
+    if ($('tk-maxhp').value !== '') cs.maxhp = Number($('tk-maxhp').value);
+    saveCS(); if (csBuilt) { csPopulate(); csRecompute(); } sendPartyStatus();
+  } else if (linkedToken === editingToken.id) {
+    linkedToken = null; localStorage.removeItem('dnd-link-' + me.room);
+  }
   $('token-modal').classList.add('hidden');
 };
 $('tk-delete').onclick = () => { if (editingToken) socket.emit('token:remove', editingToken.id); $('token-modal').classList.add('hidden'); };
