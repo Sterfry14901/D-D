@@ -412,6 +412,9 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 #panel-resize { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 8; }
 #panel-resize:hover { background: linear-gradient(90deg, transparent, rgba(217,177,84,0.5)); }
 .cs-hint { color: #8a7a5c; font-size: 0.72rem; font-style: italic; margin-top: 8px; text-align: center; }
+#move-label { position: absolute; display: none; z-index: 6; pointer-events: none; white-space: nowrap;
+  background: rgba(15,17,21,0.92); color: var(--gold-bright); border: 1px solid var(--r20-line);
+  border-radius: 6px; padding: 2px 8px; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; }
 .tabs { background: #0e1013; border-bottom: 1px solid var(--r20-line); }
 .tab { font-size: 0; padding: 12px 2px; border-bottom: 2px solid transparent; }
 .tab::before { font-size: 20px; display: block; line-height: 1; }

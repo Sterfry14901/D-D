@@ -466,11 +466,23 @@ function styleToken(el, t) {
   el.querySelector('.statuses').innerHTML = (t.statuses || []).map((x) => `<span>${x}</span>`).join('');
 }
 
+let moveLabel = null;
+function showMoveLabel(el, x, y, startX, startY) {
+  if (!moveLabel) { moveLabel = document.createElement('div'); moveLabel.id = 'move-label'; $('stage').appendChild(moveLabel); }
+  const ft = Math.round(Math.hypot(x - startX, y - startY) / gridSize * 5 / 5) * 5;
+  moveLabel.style.display = 'block';
+  moveLabel.style.left = (x + (el._token.size || 1) * 64 + 6) + 'px';
+  moveLabel.style.top = y + 'px';
+  moveLabel.textContent = ft + ' ft';
+}
+function hideMoveLabel() { if (moveLabel) moveLabel.style.display = 'none'; }
+
 function makeDraggable(el) {
-  let dragging = false, grabX = 0, grabY = 0;
+  let dragging = false, grabX = 0, grabY = 0, startX = 0, startY = 0;
   el.addEventListener('mousedown', (e) => {
     if (e.altKey || fogMode) return;
     dragging = true; const c = boardCoords(e); grabX = c.x - el._token.x; grabY = c.y - el._token.y;
+    startX = el._token.x; startY = el._token.y;
     e.preventDefault(); e.stopPropagation();
   });
   window.addEventListener('mousemove', (e) => {
@@ -478,10 +490,11 @@ function makeDraggable(el) {
     const c = boardCoords(e); const x = c.x - grabX, y = c.y - grabY;
     el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
     socket.emit('token:move', { id: el._token.id, x, y });
+    showMoveLabel(el, x, y, startX, startY);
     refreshLighting();
   });
   window.addEventListener('mouseup', () => {
-    if (!dragging) return; dragging = false;
+    if (!dragging) return; dragging = false; hideMoveLabel();
     const sx = Math.round(el._token.x / gridSize) * gridSize, sy = Math.round(el._token.y / gridSize) * gridSize;
     el.style.left = sx + 'px'; el.style.top = sy + 'px'; el._token.x = sx; el._token.y = sy;
     socket.emit('token:move', { id: el._token.id, x: sx, y: sy });
