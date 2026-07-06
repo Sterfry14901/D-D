@@ -747,6 +747,10 @@ function buildCS() {
         <button data-hp="dmg" class="cs-dmg">Damage</button>
         <button data-hp="heal" class="cs-heal">Heal</button>
       </div>
+      <div class="cs-rest">
+        <button data-rest="short" class="cs-short">☕ Short Rest</button>
+        <button data-rest="long" class="cs-long">🌙 Long Rest</button>
+      </div>
     </div>
     <div class="cs-acspeed">
       <div class="cs-badge big">AC <b><input data-cs="ac" type="number" /></b></div>
@@ -898,6 +902,8 @@ function csOnClick(e) {
     else { let rem = amt; const t = Number(cs.temphp || 0); const used = Math.min(t, rem); cs.temphp = t - used; rem -= used; cs.hp = Math.max(0, Number(cs.hp || 0) - rem); }
     csPopulate(); saveCS(); sendPartyStatus(); return;
   }
+  const rest = e.target.closest('[data-rest]');
+  if (rest) { doRest(rest.dataset.rest); return; }
   const rm = e.target.closest('[data-atk-rm]');
   if (rm) { cs.attacks.splice(Number(rm.dataset.atkRm), 1); csRenderAttacks(); saveCS(); return; }
   if (e.target.id === 'cs-atk-addbtn') {
@@ -937,6 +943,34 @@ function csRenderAttacks() {
     <span class="cs-atk-dmg-txt">${escapeHtml(a.dmg || '')}</span>
     <button class="cs-atk-rm" data-atk-rm="${i}" title="Remove">✕</button>
   </div>`).join('') || '<div class="cs-empty">No attacks yet.</div>';
+}
+
+function doRest(type) {
+  const announce = (text) => socket.emit('chat', { text: `🛌 ${text}` });
+  if (type === 'long') {
+    cs.hp = Number(cs.maxhp) || cs.hp; cs.temphp = 0;
+    for (let l = 1; l <= 9; l++) if (cs.slots[l]) cs.slots[l].used = 0;
+    cs.deathSucc = 0; cs.deathFail = 0;
+    const total = parseInt(cs.hitDiceTotal) || 0;
+    if (total > 0) cs.hitDiceUsed = Math.max(0, (Number(cs.hitDiceUsed) || 0) - Math.max(1, Math.floor(total / 2)));
+    csPopulate(); csRecompute(); saveCS(); sendPartyStatus();
+    announce('takes a long rest — HP and spell slots restored, half of hit dice recovered.');
+  } else {
+    cs.deathSucc = 0; cs.deathFail = 0;
+    const total = parseInt(cs.hitDiceTotal) || 0;
+    const m = (cs.hitDiceTotal || '').match(/d(\d+)/i); const die = m ? parseInt(m[1]) : 8;
+    const used = Number(cs.hitDiceUsed) || 0;
+    let msg = 'takes a short rest.';
+    if (total > 0 && used < total && Number(cs.hp) < Number(cs.maxhp)) {
+      const conMod = csMod(cs.scores.con), roll = 1 + Math.floor(Math.random() * die);
+      const heal = Math.max(0, roll + conMod);
+      cs.hp = Math.min(Number(cs.maxhp) || 0, (Number(cs.hp) || 0) + heal);
+      cs.hitDiceUsed = used + 1;
+      msg = `takes a short rest, spending a hit die (d${die} ${csFmt(conMod)} = ${heal} HP recovered).`;
+    }
+    csPopulate(); csRecompute(); saveCS(); sendPartyStatus();
+    announce(msg);
+  }
 }
 
 function csRoll(spec) {
