@@ -1116,6 +1116,44 @@ $('aoe-btn').onclick = () => {
   };
 });
 $('aoe-clear').onclick = () => socket.emit('aoe:clear');
+$('aoe-apply').onclick = () => {
+  const a = aoes[aoes.length - 1];
+  if (!a) { alert('Place a spell area first, then Apply.'); return; }
+  const dmg = Math.abs(Number($('aoe-dmg').value) || 0);
+  if (!dmg) { alert('Enter a damage amount.'); return; }
+  let hit = 0;
+  Object.values(tokenEls).forEach((el) => {
+    const t = el._token; if (!t || !(Number(t.maxhp) > 0)) return;
+    const cx = t.x + (t.size || 1) * 32, cy = t.y + (t.size || 1) * 32;
+    if (!pointInAoe(a, cx, cy)) return;
+    const newHp = Math.max(0, (Number(t.hp) || 0) - dmg);
+    socket.emit('token:update', { id: t.id, hp: newHp });
+    hit++;
+  });
+  socket.emit('chat', { text: `💥 Area damage: ${hit} token${hit === 1 ? '' : 's'} took ${dmg} damage.` });
+};
+
+function distToSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+  let tt = l2 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+  tt = Math.max(0, Math.min(1, tt));
+  return Math.hypot(px - (x1 + tt * dx), py - (y1 + tt * dy));
+}
+function pointInTri(px, py, a, b, c) {
+  const d1 = (px - b.x) * (a.y - b.y) - (a.x - b.x) * (py - b.y);
+  const d2 = (px - c.x) * (b.y - c.y) - (b.x - c.x) * (py - c.y);
+  const d3 = (px - a.x) * (c.y - a.y) - (c.x - a.x) * (py - a.y);
+  const neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(neg && pos);
+}
+function pointInAoe(a, px, py) {
+  if (a.type === 'circle') return Math.hypot(px - a.x, py - a.y) <= ft2px(a.size);
+  if (a.type === 'line') return distToSeg(px, py, a.x, a.y, a.x2, a.y2) <= ft2px(5) / 2;
+  const dx = a.x2 - a.x, dy = a.y2 - a.y, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len, pxp = -uy, pyp = ux, half = len * 0.5;
+  const bx = a.x + ux * len, by = a.y + uy * len;
+  return pointInTri(px, py, { x: a.x, y: a.y }, { x: bx + pxp * half, y: by + pyp * half }, { x: bx - pxp * half, y: by - pyp * half });
+}
 
 const aoeSizeFt = () => Math.max(5, parseInt($('aoe-size').value) || 20);
 const ft2px = (ft) => (ft / 5) * gridSize;
