@@ -266,6 +266,26 @@ function spawnMonster(m) {
 }
 buildMonsters();
 
+/* ============ RESIZABLE SIDE PANEL ============ */
+(function () {
+  const panel = $('panel'), handle = $('panel-resize');
+  if (!panel || !handle) return;
+  const saved = parseInt(localStorage.getItem('dnd-panelw'));
+  if (saved) panel.style.width = saved + 'px';
+  let resizing = false;
+  handle.addEventListener('mousedown', (e) => { resizing = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+  window.addEventListener('mousemove', (e) => {
+    if (!resizing) return;
+    let w = window.innerWidth - e.clientX;
+    w = Math.max(280, Math.min(700, w));
+    panel.style.width = w + 'px';
+  });
+  window.addEventListener('mouseup', () => {
+    if (!resizing) return; resizing = false; document.body.style.cursor = '';
+    localStorage.setItem('dnd-panelw', parseInt(panel.style.width) || 384);
+  });
+})();
+
 /* ============ TABS ============ */
 document.querySelectorAll('.tab').forEach((t) => {
   t.onclick = () => {
@@ -792,7 +812,8 @@ function buildCS() {
   const condChips = CS_CONDS.map((c) => `<button class="cs-cond" data-cond="${c}">${c}</button>`).join('');
   h.push(`<div class="cs-grid">
     <div class="cs-col">
-      <div class="cs-sec"><div class="cs-sec-t">Abilities</div><div class="cs-abils">${abilCards}</div></div>
+      <div class="cs-sec"><div class="cs-sec-t">Abilities</div><div class="cs-abils">${abilCards}</div>
+        <div class="cs-hint">Click to roll · Shift-click = advantage · Ctrl-click = disadvantage</div></div>
       <div class="cs-sec"><div class="cs-sec-t">Saving Throws</div>${saveRows}</div>
     </div>
     <div class="cs-col">
@@ -905,7 +926,7 @@ function csOnChange(e) {
 
 function csOnClick(e) {
   const rollEl = e.target.closest('[data-roll]');
-  if (rollEl) { csRoll(rollEl.dataset.roll); return; }
+  if (rollEl) { csRoll(rollEl.dataset.roll, e); return; }
   const insp = e.target.closest('[data-insp]');
   if (insp) { cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS(); return; }
   const cond = e.target.closest('[data-cond]');
@@ -992,7 +1013,7 @@ function doRest(type) {
   }
 }
 
-function csRoll(spec) {
+function csRoll(spec, ev) {
   const [type, key] = spec.split(':');
   const prof = csProf();
   let label = '', mod = 0;
@@ -1001,8 +1022,14 @@ function csRoll(spec) {
   else if (type === 'skill') { const ab = Object.fromEntries(CS_SKILLS)[key]; label = key; mod = csMod(cs.scores[ab]) + (cs.skills[key] ? prof : 0); }
   else if (type === 'init') { label = 'Initiative'; mod = csMod(cs.scores.dex); }
   else if (type === 'atk') { const a = cs.attacks[Number(key)]; if (!a) return; label = a.name + ' to hit'; mod = Number(a.bonus) || 0; }
-  const r = 1 + Math.floor(Math.random() * 20);
-  socket.emit('roll', { formula: (cs.name ? cs.name + ' — ' : '') + label, result: r + mod, detail: `d20[${r}] ${csFmt(mod)}` });
+  const adv = ev && ev.shiftKey, dis = ev && (ev.ctrlKey || ev.metaKey || ev.altKey);
+  let r, tag = '';
+  if (adv || dis) {
+    const x = 1 + Math.floor(Math.random() * 20), y = 1 + Math.floor(Math.random() * 20);
+    r = adv ? Math.max(x, y) : Math.min(x, y);
+    tag = adv ? ` ADV[${x},${y}]` : ` DIS[${x},${y}]`;
+  } else r = 1 + Math.floor(Math.random() * 20);
+  socket.emit('roll', { formula: (cs.name ? cs.name + ' — ' : '') + label, result: r + mod, detail: `d20[${r}]${tag} ${csFmt(mod)}` });
   const btn = $('open-cs'); // subtle flash so the user knows it registered
   if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 300); }
 }
