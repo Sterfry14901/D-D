@@ -266,6 +266,44 @@ function spawnMonster(m) {
 }
 buildMonsters();
 
+/* ============ ENCOUNTER BUILDER ============ */
+const ENCOUNTERS = [
+  { name: 'Goblin Ambush', e: '🏹', mobs: [{ n: 'Goblin', hp: 7, e: '👹', c: 4 }] },
+  { name: 'Wolf Pack', e: '🐺', mobs: [{ n: 'Wolf', hp: 11, e: '🐺', c: 3 }, { n: 'Dire Wolf', hp: 37, e: '🐺', size: 2, c: 1 }] },
+  { name: 'Undead Horde', e: '💀', mobs: [{ n: 'Skeleton', hp: 13, e: '💀', c: 3 }, { n: 'Zombie', hp: 22, e: '🧟', c: 2 }] },
+  { name: 'Bandit Camp', e: '🗡️', mobs: [{ n: 'Bandit', hp: 11, e: '🗡️', c: 4 }, { n: 'Cultist', hp: 9, e: '🕯️', c: 1 }] },
+  { name: 'Spider Nest', e: '🕷️', mobs: [{ n: 'Giant Spider', hp: 26, e: '🕷️', size: 2, c: 3 }] },
+  { name: 'Ogre Gang', e: '👹', mobs: [{ n: 'Ogre', hp: 59, e: '👹', size: 2, c: 2 }] },
+  { name: "Dragon's Lair", e: '🐉', mobs: [{ n: 'Young Dragon', hp: 178, e: '🐉', size: 3, c: 1 }, { n: 'Kobold', hp: 5, e: '🦎', c: 3 }] },
+  { name: 'Ghostly Haunt', e: '👻', mobs: [{ n: 'Ghost', hp: 45, e: '👻', c: 2 }] },
+];
+function buildEncounters() {
+  const g = $('enc-grid'); if (!g) return;
+  ENCOUNTERS.forEach((enc) => {
+    const total = enc.mobs.reduce((s, m) => s + m.c, 0);
+    const b = document.createElement('button'); b.className = 'mon-btn';
+    b.innerHTML = `<span class="me">${enc.e}</span><span class="mn">${enc.name}</span><em>${total}</em>`;
+    b.onclick = () => spawnEncounter(enc);
+    g.appendChild(b);
+  });
+}
+function spawnEncounter(enc) {
+  let i = 0;
+  enc.mobs.forEach((m) => {
+    for (let k = 0; k < m.c; k++) {
+      const cx = 3 + (i % 5) * (m.size || 1);
+      const cy = 3 + Math.floor(i / 5) * 1.4;
+      socket.emit('token:add', {
+        x: Math.round(cx * gridSize), y: Math.round(cy * gridSize),
+        color: '#7a2318', label: m.n, size: m.size || 1, statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
+      });
+      i++;
+    }
+  });
+  socket.emit('chat', { text: `🐲 Encounter dropped: ${enc.name} (${enc.mobs.map((m) => m.c + '× ' + m.n).join(', ')}).` });
+}
+buildEncounters();
+
 /* ============ RESIZABLE SIDE PANEL ============ */
 (function () {
   const panel = $('panel'), handle = $('panel-resize');
