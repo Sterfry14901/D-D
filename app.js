@@ -299,14 +299,17 @@ function spawnEncounter(enc) {
     for (let k = 0; k < m.c; k++) {
       const cx = 3 + (i % 5) * (m.size || 1);
       const cy = 3 + Math.floor(i / 5) * 1.4;
+      const nm = m.c > 1 ? `${m.n} ${k + 1}` : m.n;
       socket.emit('token:add', {
         x: Math.round(cx * gridSize), y: Math.round(cy * gridSize),
-        color: '#7a2318', label: m.n, size: m.size || 1, statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
+        color: '#7a2318', label: nm, size: m.size || 1, statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
       });
+      socket.emit('init:add', { name: nm, init: 1 + Math.floor(Math.random() * 20) + 2 }); // auto-roll initiative
       i++;
     }
   });
-  socket.emit('chat', { text: `🐲 Encounter dropped: ${enc.name} (${enc.mobs.map((m) => m.c + '× ' + m.n).join(', ')}).` });
+  socket.emit('init:sort');
+  socket.emit('chat', { text: `🐲 Encounter dropped: ${enc.name} (${enc.mobs.map((m) => m.c + '× ' + m.n).join(', ')}). Initiative rolled.` });
 }
 buildEncounters();
 
