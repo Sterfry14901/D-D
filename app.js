@@ -46,6 +46,12 @@ function syncLinkedToken() {
   if (!linkedToken || !tokenEls[linkedToken] || !cs) return;
   socket.emit('token:update', { id: linkedToken, hp: Number(cs.hp) || 0, maxhp: Number(cs.maxhp) || 0 });
 }
+const COND_EMOJI = { Blinded: '🙈', Charmed: '💗', Deafened: '🔇', Frightened: '😱', Grappled: '🤼', Incapacitated: '💫', Invisible: '👻', Paralyzed: '⚡', Petrified: '🗿', Poisoned: '☠️', Prone: '⬇️', Restrained: '🕸️', Stunned: '😵', Unconscious: '💤' };
+function syncLinkedConditions() {
+  if (!linkedToken || !tokenEls[linkedToken] || !cs) return;
+  const st = (cs.conditions || []).map((c) => COND_EMOJI[c]).filter(Boolean);
+  socket.emit('token:update', { id: linkedToken, statuses: st });
+}
 
 /* ============ PARTY STATUS (live HP/AC) ============ */
 function sendPartyStatus() {
@@ -547,7 +553,7 @@ $('tk-save').onclick = () => {
     localStorage.setItem('dnd-link-' + me.room, linkedToken);
     if ($('tk-hp').value !== '') cs.hp = Number($('tk-hp').value);
     if ($('tk-maxhp').value !== '') cs.maxhp = Number($('tk-maxhp').value);
-    saveCS(); if (csBuilt) { csPopulate(); csRecompute(); } sendPartyStatus();
+    saveCS(); if (csBuilt) { csPopulate(); csRecompute(); } sendPartyStatus(); syncLinkedConditions();
   } else if (linkedToken === editingToken.id) {
     linkedToken = null; localStorage.removeItem('dnd-link-' + me.room);
   }
@@ -968,7 +974,7 @@ function csOnClick(e) {
   const insp = e.target.closest('[data-insp]');
   if (insp) { cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS(); return; }
   const cond = e.target.closest('[data-cond]');
-  if (cond) { const c = cond.dataset.cond; if (cs.conditions.includes(c)) cs.conditions = cs.conditions.filter((x) => x !== c); else cs.conditions.push(c); cond.classList.toggle('on'); saveCS(); return; }
+  if (cond) { const c = cond.dataset.cond; if (cs.conditions.includes(c)) cs.conditions = cs.conditions.filter((x) => x !== c); else cs.conditions.push(c); cond.classList.toggle('on'); saveCS(); syncLinkedConditions(); return; }
   const slot = e.target.closest('[data-slot]');
   if (slot) { const [l, i] = slot.dataset.slot.split(':'); const s = cs.slots[l]; if (!s) return; const idx = Number(i); s.used = idx < s.used ? idx : idx + 1; csRenderSlots(); saveCS(); return; }
   const dp = e.target.closest('[data-death]');
