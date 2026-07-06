@@ -1121,16 +1121,25 @@ $('aoe-apply').onclick = () => {
   if (!a) { alert('Place a spell area first, then Apply.'); return; }
   const dmg = Math.abs(Number($('aoe-dmg').value) || 0);
   if (!dmg) { alert('Enter a damage amount.'); return; }
-  let hit = 0;
+  const saveHalf = $('aoe-save').checked;
+  const dc = Number($('aoe-dc').value) || 0;
+  const sb = Number($('aoe-savebonus').value) || 0;
+  let hit = 0; const notes = [];
   Object.values(tokenEls).forEach((el) => {
     const t = el._token; if (!t || !(Number(t.maxhp) > 0)) return;
     const cx = t.x + (t.size || 1) * 32, cy = t.y + (t.size || 1) * 32;
     if (!pointInAoe(a, cx, cy)) return;
-    const newHp = Math.max(0, (Number(t.hp) || 0) - dmg);
-    socket.emit('token:update', { id: t.id, hp: newHp });
+    let applied = dmg;
+    if (saveHalf && dc > 0) {
+      const roll = 1 + Math.floor(Math.random() * 20), total = roll + sb;
+      if (total >= dc) { applied = Math.floor(dmg / 2); notes.push(`${t.label || 'token'} saved (${total}≥${dc}) → ${applied}`); }
+      else notes.push(`${t.label || 'token'} failed (${total}<${dc}) → ${applied}`);
+    }
+    socket.emit('token:update', { id: t.id, hp: Math.max(0, (Number(t.hp) || 0) - applied) });
     hit++;
   });
-  socket.emit('chat', { text: `💥 Area damage: ${hit} token${hit === 1 ? '' : 's'} took ${dmg} damage.` });
+  const detail = notes.length ? ' — ' + notes.join('; ') : '';
+  socket.emit('chat', { text: `💥 Area effect: ${hit} token${hit === 1 ? '' : 's'} hit for up to ${dmg}${saveHalf && dc ? ` (DC ${dc} save for half)` : ''}.${detail}` });
 };
 
 function distToSeg(px, py, x1, y1, x2, y2) {
