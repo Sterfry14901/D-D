@@ -451,6 +451,9 @@ function renderToken(t) {
   el._token = t;
   el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
   styleToken(el, t);
+  if (typeof combat !== 'undefined' && combat.list && combat.list.length) {
+    el.classList.toggle('active-turn', el._token.label === combat.list[combat.turnIndex].name);
+  }
 }
 function styleToken(el, t) {
   const s = (t.size || 1) * 64;
@@ -604,6 +607,13 @@ function renderInit(list, turnIndex, round) {
   if (key !== combat._key) { combat.turnStart = Date.now(); combat._key = key; }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
+  highlightActiveToken();
+}
+function highlightActiveToken() {
+  const name = combat.list.length ? combat.list[combat.turnIndex].name : null;
+  Object.values(tokenEls).forEach((el) => {
+    el.classList.toggle('active-turn', !!name && el._token && el._token.label === name);
+  });
 }
 function updateTurnBanner() {
   const banner = $('turn-banner');
