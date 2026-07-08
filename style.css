@@ -155,6 +155,19 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
   50%      { box-shadow: 0 0 0 4px var(--gold-bright), 0 0 24px 9px rgba(242,207,122,0.85); }
 }
 
+/* ===== Token right-click context menu ===== */
+#ctx-menu { position: fixed; z-index: 9999; min-width: 176px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--gold); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); padding: 5px; font-size: 13px; color: var(--ink); user-select: none; animation: ctxPop .1s ease-out; }
+@keyframes ctxPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+#ctx-menu .ctx-hdr { font-weight: 700; color: var(--gold-bright); padding: 4px 8px 6px; border-bottom: 1px solid rgba(217,177,84,0.25); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+#ctx-menu .ctx-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; cursor: pointer; }
+#ctx-menu .ctx-item:hover { background: var(--panel-3); }
+#ctx-menu .ctx-item.danger:hover { background: #5a1f18; color: #ffd7cf; }
+#ctx-menu .ctx-ic { width: 16px; text-align: center; }
+#ctx-menu .ctx-conds { display: flex; flex-wrap: wrap; gap: 2px; padding: 5px 6px; border-top: 1px solid rgba(217,177,84,0.2); border-bottom: 1px solid rgba(217,177,84,0.2); margin: 4px 0; max-width: 200px; }
+#ctx-menu .ctx-cond { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 14px; opacity: 0.4; transition: all .1s; }
+#ctx-menu .ctx-cond:hover { background: var(--panel-3); opacity: 0.9; }
+#ctx-menu .ctx-cond.on { opacity: 1; background: rgba(217,177,84,0.25); box-shadow: inset 0 0 0 1px var(--gold); }
+
 /* ===== Right panel ===== */
 #panel { width: 384px; background: linear-gradient(180deg, #1b1610, #161009); border-left: 1px solid var(--line-gold); display: flex; flex-direction: column; box-shadow: -4px 0 18px rgba(0,0,0,0.4); }
 .tabs { display: flex; border-bottom: 1px solid var(--line-gold); background: rgba(0,0,0,0.2); }

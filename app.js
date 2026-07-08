@@ -506,6 +506,77 @@ function makeDraggable(el) {
     socket.emit('token:move', { id: el._token.id, x: sx, y: sy });
   });
   el.addEventListener('dblclick', (e) => { e.stopPropagation(); openTokenModal(el._token); });
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); showTokenCtx(el._token, e.clientX, e.clientY); });
+}
+
+/* ============ TOKEN CONTEXT MENU (right-click) ============ */
+let ctxMenuEl = null;
+function closeTokenCtx() { if (ctxMenuEl) { ctxMenuEl.remove(); ctxMenuEl = null; } }
+window.addEventListener('mousedown', (e) => { if (ctxMenuEl && !ctxMenuEl.contains(e.target)) closeTokenCtx(); });
+window.addEventListener('scroll', closeTokenCtx, true);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTokenCtx(); });
+function tokenHP(t) { return Number(t.hp) || 0; }
+function centerOnToken(t) {
+  const wrap = $('board-wrap'); if (!wrap) return;
+  const s = (t.size || 1) * 64;
+  wrap.scrollTo({ left: (t.x + s / 2) * zoom - wrap.clientWidth / 2, top: (t.y + s / 2) * zoom - wrap.clientHeight / 2, behavior: 'smooth' });
+}
+function showTokenCtx(t, px, py) {
+  closeTokenCtx();
+  const m = document.createElement('div');
+  m.id = 'ctx-menu'; ctxMenuEl = m;
+  const row = (icon, label, fn, cls) => {
+    const d = document.createElement('div');
+    d.className = 'ctx-item' + (cls ? ' ' + cls : '');
+    d.innerHTML = `<span class="ctx-ic">${icon}</span>${label}`;
+    d.onclick = (ev) => { ev.stopPropagation(); fn(); };
+    m.appendChild(d);
+    return d;
+  };
+  const hdr = document.createElement('div'); hdr.className = 'ctx-hdr';
+  hdr.textContent = t.label || 'Token'; m.appendChild(hdr);
+  row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
+  row('💥', 'Damage…', () => {
+    const n = parseInt(prompt('Damage amount:', '5')); closeTokenCtx();
+    if (n > 0) socket.emit('token:update', { id: t.id, hp: Math.max(0, tokenHP(t) - n) });
+  });
+  row('💚', 'Heal…', () => {
+    const n = parseInt(prompt('Heal amount:', '5')); closeTokenCtx();
+    if (n > 0) { const mx = Number(t.maxhp) || Infinity; socket.emit('token:update', { id: t.id, hp: Math.min(mx, tokenHP(t) + n) }); }
+  });
+  // Conditions strip
+  const cs2 = document.createElement('div'); cs2.className = 'ctx-conds';
+  Object.entries(COND_EMOJI).forEach(([name, em]) => {
+    const b = document.createElement('span');
+    const on = (t.statuses || []).includes(em);
+    b.className = 'ctx-cond' + (on ? ' on' : '');
+    b.textContent = em; b.title = name;
+    b.onclick = (ev) => {
+      ev.stopPropagation();
+      let st = [...(t.statuses || [])];
+      if (st.includes(em)) st = st.filter((x) => x !== em); else st.push(em);
+      t.statuses = st; b.classList.toggle('on');
+      socket.emit('token:update', { id: t.id, statuses: st });
+    };
+    cs2.appendChild(b);
+  });
+  m.appendChild(cs2);
+  row('📋', 'Duplicate', () => {
+    closeTokenCtx();
+    const c = { x: t.x + gridSize, y: t.y, color: t.color, label: t.label, size: t.size || 1,
+      statuses: [...(t.statuses || [])], emoji: t.emoji || '', img: t.img || null,
+      hp: t.hp ?? null, maxhp: t.maxhp ?? null, vision: t.vision ?? null, light: t.light ?? null };
+    socket.emit('token:add', c);
+  });
+  row('🎯', 'Center camera', () => { closeTokenCtx(); centerOnToken(t); });
+  row('🗑️', 'Delete', () => { closeTokenCtx(); if (confirm('Delete this token?')) socket.emit('token:remove', t.id); }, 'danger');
+  document.body.appendChild(m);
+  // Position, keeping on-screen
+  const r = m.getBoundingClientRect();
+  let x = px, y = py;
+  if (x + r.width > innerWidth) x = innerWidth - r.width - 6;
+  if (y + r.height > innerHeight) y = innerHeight - r.height - 6;
+  m.style.left = Math.max(6, x) + 'px'; m.style.top = Math.max(6, y) + 'px';
 }
 
 /* Token modal */
