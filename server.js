@@ -49,6 +49,7 @@ function saveRooms() {
         aoes: room.aoes,
         handout: room.handout,
         weather: room.weather,
+        notes: room.notes,
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -83,6 +84,9 @@ function loadRooms() {
         aoes: room.aoes || [],
         handout: room.handout || null,
         weather: room.weather || 'clear',
+        notes: room.notes || '',
+        round: room.round || 1,
+        partyStatus: {},
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -114,6 +118,7 @@ function getRoom(id) {
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
       weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
+      notes: '',               // shared campaign journal text
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
     });
   }
@@ -236,6 +241,7 @@ io.on('connection', (socket) => {
       aoes: room.aoes,
       handout: room.handout,
       weather: room.weather,
+      notes: room.notes || '',
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -410,6 +416,14 @@ io.on('connection', (socket) => {
     const allowed = ['clear', 'rain', 'snow', 'fog', 'embers'];
     room.weather = allowed.includes(type) ? type : 'clear';
     io.to(joinedRoom).emit('weather:set', room.weather);
+  });
+
+  // ---- Shared campaign journal ----
+  socket.on('notes:set', (text) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.notes = String(text || '').slice(0, 20000);
+    // broadcast to everyone else (sender already has it locally)
+    socket.to(joinedRoom).emit('notes:set', room.notes);
   });
 
   // ---- Save / Load campaign ----

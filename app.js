@@ -78,6 +78,32 @@ socket.on('party:list', (list) => {
   }).join('');
 });
 
+/* ============ SHARED CAMPAIGN JOURNAL ============ */
+let notesTimer = null, notesSaved = true;
+function applyNotes(text) {
+  const ta = $('journal-text'); if (!ta) return;
+  // don't clobber what the user is actively typing
+  if (document.activeElement === ta) return;
+  ta.value = text;
+  const st = $('journal-status'); if (st) st.textContent = 'Synced';
+}
+function initJournal() {
+  const ta = $('journal-text'); if (!ta) return;
+  ta.addEventListener('input', () => {
+    notesSaved = false;
+    const st = $('journal-status'); if (st) st.textContent = 'Saving…';
+    if (notesTimer) clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => {
+      socket.emit('notes:set', ta.value);
+      notesSaved = true;
+      const s2 = $('journal-status'); if (s2) s2.textContent = 'Saved';
+    }, 500);
+  });
+}
+socket.on('notes:set', (text) => applyNotes(text));
+document.addEventListener('DOMContentLoaded', initJournal);
+if (document.readyState !== 'loading') initJournal();
+
 /* ============ INITIAL STATE ============ */
 socket.on('state', (s) => {
   me.id = s.youId;
@@ -102,6 +128,7 @@ socket.on('state', (s) => {
   renderAoes();
   if (s.handout) showHandout(s.handout); else hideHandout();
   setWeather(s.weather || 'clear');
+  applyNotes(s.notes || '');
   $('board').classList.toggle('gm-fog', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('me-plate-role').textContent = me.isGm ? 'Dungeon Master' : 'Player';

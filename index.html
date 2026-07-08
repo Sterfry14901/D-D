@@ -138,6 +138,7 @@
           <button class="tab" data-tab="dice">Dice</button>
           <button class="tab" data-tab="sheet">Sheet</button>
           <button class="tab" data-tab="players">Party</button>
+          <button class="tab" data-tab="journal">Journal</button>
         </nav>
 
         <!-- Chat + AI DM -->
@@ -245,6 +246,16 @@
           <div class="party-title">At the table</div>
           <ul id="player-list"></ul>
           <div id="voice-peers"></div>
+        </div>
+
+        <!-- Shared campaign journal -->
+        <div class="tabpane" id="tab-journal">
+          <div class="journal-head">
+            <span class="party-title">Campaign Journal</span>
+            <span id="journal-status" class="journal-status">Synced</span>
+          </div>
+          <div class="journal-hint">Shared notes — everyone at the table sees edits live.</div>
+          <textarea id="journal-text" class="journal-text" placeholder="Session notes, quest log, NPCs met, loot found…"></textarea>
         </div>
       </aside>
     </main>
