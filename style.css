@@ -172,6 +172,15 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .rules-empty { color: #9c8f74; font-size: 13px; padding: 12px 4px; }
 .rules-foot { font-size: 10px; color: #7d715a; text-align: center; padding-top: 6px; }
 
+/* ===== Books / references ===== */
+#tab-books { display: flex; flex-direction: column; height: 100%; padding: 10px; box-sizing: border-box; overflow-y: auto; }
+.books-intro { font-size: 12px; color: #b7a988; line-height: 1.5; margin-bottom: 10px; }
+.book { border: 1px solid rgba(217,177,84,0.2); border-radius: 9px; padding: 9px 11px; margin-bottom: 8px; background: linear-gradient(180deg, rgba(36,29,20,0.55), rgba(20,16,10,0.55)); }
+.book-t { font-weight: 700; color: var(--gold); font-size: 13.5px; margin-bottom: 3px; }
+.book-d { font-size: 12px; line-height: 1.5; color: #dcd2bd; margin-bottom: 6px; }
+.book-l a { color: var(--gold-bright); font-size: 12px; text-decoration: none; font-weight: 600; }
+.book-l a:hover { text-decoration: underline; }
+
 /* ===== Spell library ===== */
 #tab-spells { display: flex; flex-direction: column; height: 100%; padding: 10px; box-sizing: border-box; }
 .spell-lvls { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
