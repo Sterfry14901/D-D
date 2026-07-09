@@ -140,6 +140,7 @@
           <button class="tab" data-tab="players">Party</button>
           <button class="tab" data-tab="journal">Journal</button>
           <button class="tab" data-tab="rules">Rules</button>
+          <button class="tab" data-tab="spells">Spells</button>
         </nav>
 
         <!-- Chat + AI DM -->
@@ -268,6 +269,14 @@
           <div class="rules-cats" id="rules-cats"></div>
           <div id="rules-content" class="rules-content"></div>
           <div class="rules-foot">D&amp;D 5E SRD 5.1 · CC-BY-4.0</div>
+        </div>
+
+        <!-- 5E spell library (SRD 5.1, CC-BY-4.0) -->
+        <div class="tabpane" id="tab-spells">
+          <div class="rules-search"><input id="spell-q" type="text" placeholder="Search spells… (name, school, effect)" /></div>
+          <div class="spell-lvls" id="spell-lvls"></div>
+          <div id="spell-content" class="rules-content"></div>
+          <div class="rules-foot"><span id="spell-count"></span> · SRD 5.1 · CC-BY-4.0</div>
         </div>
       </aside>
     </main>
@@ -399,5 +408,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
   <script src="rules.js"></script>
+  <script src="spells.js"></script>
 </body>
 </html>

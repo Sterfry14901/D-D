@@ -172,6 +172,19 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .rules-empty { color: #9c8f74; font-size: 13px; padding: 12px 4px; }
 .rules-foot { font-size: 10px; color: #7d715a; text-align: center; padding-top: 6px; }
 
+/* ===== Spell library ===== */
+#tab-spells { display: flex; flex-direction: column; height: 100%; padding: 10px; box-sizing: border-box; }
+.spell-lvls { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.spell-lvl { font-size: 11px; padding: 3px 9px; border-radius: 12px; cursor: pointer; background: var(--panel-2); color: var(--ink); border: 1px solid rgba(217,177,84,0.25); }
+.spell-lvl:hover { border-color: var(--gold); }
+.spell-lvl.on { background: rgba(217,177,84,0.22); border-color: var(--gold); color: var(--gold-bright); }
+.spell { border: 1px solid rgba(217,177,84,0.18); border-radius: 8px; padding: 8px 10px; margin-bottom: 7px; background: linear-gradient(180deg, rgba(36,29,20,0.5), rgba(20,16,10,0.5)); }
+.spell-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.spell-n { font-weight: 700; color: var(--gold); font-size: 13.5px; }
+.spell-lv { font-size: 10px; color: #b7a988; white-space: nowrap; }
+.spell-meta { font-size: 10.5px; color: #9c8f74; margin: 2px 0 4px; }
+.spell-x { font-size: 12.5px; line-height: 1.5; color: #dcd2bd; }
+
 /* ===== Bestiary search + pan cursor ===== */
 .mon-search { width: 100%; box-sizing: border-box; margin: 6px 0 8px; background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 7px; padding: 6px 9px; font-family: inherit; font-size: 12.5px; }
 .mon-search:focus { outline: none; border-color: var(--gold); }
