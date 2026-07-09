@@ -172,6 +172,14 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .rules-empty { color: #9c8f74; font-size: 13px; padding: 12px 4px; }
 .rules-foot { font-size: 10px; color: #7d715a; text-align: center; padding-top: 6px; }
 
+/* ===== Bestiary search + pan cursor ===== */
+.mon-search { width: 100%; box-sizing: border-box; margin: 6px 0 8px; background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 7px; padding: 6px 9px; font-family: inherit; font-size: 12.5px; }
+.mon-search:focus { outline: none; border-color: var(--gold); }
+.mon-empty { color: #9c8f74; font-size: 12px; padding: 8px 2px; grid-column: 1 / -1; }
+#board-wrap { cursor: grab; }
+#board-wrap:active { cursor: grabbing; }
+#board.ruler-on, #board.fog-painting { cursor: crosshair; }
+
 /* ===== GM-only UI (hidden for players) ===== */
 body:not(.is-gm) .gm-only { display: none !important; }
 .gm-tag { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; color: #0d0b08; background: var(--gold); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }

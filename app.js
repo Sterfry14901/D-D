@@ -271,21 +271,53 @@ $('add-me-init').onclick = () => {
 
 /* ============ MONSTER QUICK-ADD ============ */
 const MONSTERS = [
-  { n: 'Goblin', hp: 7, e: '👹' }, { n: 'Orc', hp: 15, e: '👹' },
-  { n: 'Kobold', hp: 5, e: '🦎' }, { n: 'Skeleton', hp: 13, e: '💀' },
-  { n: 'Zombie', hp: 22, e: '🧟' }, { n: 'Bandit', hp: 11, e: '🗡️' },
-  { n: 'Guard', hp: 11, e: '🛡️' }, { n: 'Cultist', hp: 9, e: '🕯️' },
-  { n: 'Wolf', hp: 11, e: '🐺' }, { n: 'Dire Wolf', hp: 37, e: '🐺', size: 2 },
-  { n: 'Giant Spider', hp: 26, e: '🕷️', size: 2 }, { n: 'Ogre', hp: 59, e: '👹', size: 2 },
-  { n: 'Troll', hp: 84, e: '🧌', size: 2 }, { n: 'Wyrmling', hp: 33, e: '🐉', size: 2 },
-  { n: 'Young Dragon', hp: 178, e: '🐉', size: 3 }, { n: 'Ghost', hp: 45, e: '👻' },
+  // — Fodder / CR ≤ 1 —
+  { n: 'Rat', hp: 1, e: '🐀', cr: '0' }, { n: 'Bat', hp: 1, e: '🦇', cr: '0' },
+  { n: 'Commoner', hp: 4, e: '🧑‍🌾', cr: '0' }, { n: 'Kobold', hp: 5, e: '🦎', cr: '1/8' },
+  { n: 'Giant Rat', hp: 7, e: '🐀', cr: '1/8' }, { n: 'Goblin', hp: 7, e: '👺', cr: '1/4' },
+  { n: 'Cultist', hp: 9, e: '🕯️', cr: '1/8' }, { n: 'Bandit', hp: 11, e: '🗡️', cr: '1/8' },
+  { n: 'Guard', hp: 11, e: '🛡️', cr: '1/8' }, { n: 'Acolyte', hp: 9, e: '📿', cr: '1/4' },
+  { n: 'Skeleton', hp: 13, e: '💀', cr: '1/4' }, { n: 'Wolf', hp: 11, e: '🐺', cr: '1/4' },
+  { n: 'Boar', hp: 11, e: '🐗', cr: '1/4' }, { n: 'Panther', hp: 13, e: '🐆', cr: '1/4' },
+  { n: 'Zombie', hp: 22, e: '🧟', cr: '1/4' }, { n: 'Orc', hp: 15, e: '👹', cr: '1/2' },
+  { n: 'Hobgoblin', hp: 11, e: '🪓', cr: '1/2' }, { n: 'Gnoll', hp: 22, e: '🐕', cr: '1/2' },
+  { n: 'Lizardfolk', hp: 22, e: '🦎', cr: '1/2' }, { n: 'Thug', hp: 32, e: '🥊', cr: '1/2' },
+  { n: 'Scout', hp: 16, e: '🏹', cr: '1/2' }, { n: 'Giant Spider', hp: 26, e: '🕷️', size: 2, cr: '1' },
+  { n: 'Ghoul', hp: 22, e: '🧟', cr: '1' }, { n: 'Dire Wolf', hp: 37, e: '🐺', size: 2, cr: '1' },
+  { n: 'Brown Bear', hp: 34, e: '🐻', size: 2, cr: '1' }, { n: 'Giant Eagle', hp: 26, e: '🦅', size: 2, cr: '1' },
+  { n: 'Goblin Boss', hp: 21, e: '👑', cr: '1' }, { n: 'Imp', hp: 10, e: '😈', cr: '1' },
+  // — Mid / CR 2–5 —
+  { n: 'Ogre', hp: 59, e: '👹', size: 2, cr: '2' }, { n: 'Bandit Captain', hp: 65, e: '⚔️', cr: '2' },
+  { n: 'Cult Fanatic', hp: 33, e: '🔥', cr: '2' }, { n: 'Bugbear', hp: 27, e: '🐾', cr: '1' },
+  { n: 'Gargoyle', hp: 52, e: '🗿', cr: '2' }, { n: 'Wight', hp: 45, e: '☠️', cr: '3' },
+  { n: 'Ghost', hp: 45, e: '👻', cr: '4' }, { n: 'Owlbear', hp: 59, e: '🦉', size: 2, cr: '3' },
+  { n: 'Knight', hp: 52, e: '🛡️', cr: '3' }, { n: 'Mummy', hp: 58, e: '🧟', cr: '3' },
+  { n: 'Manticore', hp: 68, e: '🦁', size: 2, cr: '3' }, { n: 'Werewolf', hp: 58, e: '🐺', cr: '3' },
+  { n: 'Basilisk', hp: 52, e: '🦎', cr: '3' }, { n: 'Wyrmling Dragon', hp: 33, e: '🐉', size: 2, cr: '3' },
+  { n: 'Veteran', hp: 58, e: '⚔️', cr: '3' }, { n: 'Mage', hp: 40, e: '🧙', cr: '6' },
+  { n: 'Priest', hp: 27, e: '✝️', cr: '2' }, { n: 'Troll', hp: 84, e: '🧌', size: 2, cr: '5' },
+  { n: 'Flesh Golem', hp: 93, e: '🧟', size: 2, cr: '5' }, { n: 'Gelatinous Cube', hp: 84, e: '🟩', size: 3, cr: '2' },
+  { n: 'Wraith', hp: 67, e: '👻', cr: '5' }, { n: 'Air Elemental', hp: 90, e: '🌪️', size: 2, cr: '5' },
+  { n: 'Fire Elemental', hp: 102, e: '🔥', size: 2, cr: '5' }, { n: 'Water Elemental', hp: 114, e: '🌊', size: 2, cr: '5' },
+  { n: 'Earth Elemental', hp: 126, e: '🪨', size: 2, cr: '5' }, { n: 'Vampire Spawn', hp: 82, e: '🧛', cr: '5' },
+  // — Big / CR 6+ —
+  { n: 'Ettin', hp: 85, e: '👹', size: 2, cr: '4' }, { n: 'Hill Giant', hp: 105, e: '🗻', size: 3, cr: '5' },
+  { n: 'Young Dragon', hp: 178, e: '🐉', size: 3, cr: '10' }, { n: 'Stone Giant', hp: 126, e: '🗿', size: 3, cr: '7' },
+  { n: 'Frost Giant', hp: 138, e: '❄️', size: 3, cr: '8' }, { n: 'Fire Giant', hp: 162, e: '🔥', size: 3, cr: '9' },
+  { n: 'Assassin', hp: 78, e: '🗡️', cr: '8' }, { n: 'Mind Flayer', hp: 71, e: '🦑', cr: '7' },
+  { n: 'Vampire', hp: 144, e: '🧛', cr: '13' }, { n: 'Lich', hp: 135, e: '💀', cr: '21' },
 ];
+let monsterFilter = '';
 function buildMonsters() {
   const g = $('mon-grid'); if (!g) return;
-  MONSTERS.forEach((m) => {
+  g.innerHTML = '';
+  const q = monsterFilter.trim().toLowerCase();
+  const list = q ? MONSTERS.filter((m) => (m.n + ' cr' + (m.cr || '')).toLowerCase().includes(q)) : MONSTERS;
+  if (!list.length) { g.innerHTML = '<div class="mon-empty">No monsters match.</div>'; return; }
+  list.forEach((m) => {
     const b = document.createElement('button');
     b.className = 'mon-btn';
-    b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp</em>`;
+    b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp${m.cr ? ' · CR ' + m.cr : ''}</em>`;
     b.onclick = () => spawnMonster(m);
     g.appendChild(b);
   });
@@ -300,6 +332,10 @@ function spawnMonster(m) {
   });
 }
 buildMonsters();
+(function () {
+  const q = $('mon-q');
+  if (q) q.addEventListener('input', () => { monsterFilter = q.value; buildMonsters(); });
+})();
 
 /* ============ ENCOUNTER BUILDER ============ */
 const ENCOUNTERS = [
@@ -311,6 +347,14 @@ const ENCOUNTERS = [
   { name: 'Ogre Gang', e: '👹', mobs: [{ n: 'Ogre', hp: 59, e: '👹', size: 2, c: 2 }] },
   { name: "Dragon's Lair", e: '🐉', mobs: [{ n: 'Young Dragon', hp: 178, e: '🐉', size: 3, c: 1 }, { n: 'Kobold', hp: 5, e: '🦎', c: 3 }] },
   { name: 'Ghostly Haunt', e: '👻', mobs: [{ n: 'Ghost', hp: 45, e: '👻', c: 2 }] },
+  { name: 'Orc War Band', e: '👹', mobs: [{ n: 'Orc', hp: 15, e: '👹', c: 4 }, { n: 'Ogre', hp: 59, e: '👹', size: 2, c: 1 }] },
+  { name: 'Hobgoblin Patrol', e: '🪓', mobs: [{ n: 'Hobgoblin', hp: 11, e: '🪓', c: 4 }, { n: 'Bugbear', hp: 27, e: '🐾', c: 1 }] },
+  { name: 'Gnoll Hunt', e: '🐕', mobs: [{ n: 'Gnoll', hp: 22, e: '🐕', c: 4 }] },
+  { name: 'Cult Ritual', e: '🔥', mobs: [{ n: 'Cultist', hp: 9, e: '🕯️', c: 4 }, { n: 'Cult Fanatic', hp: 33, e: '🔥', c: 1 }] },
+  { name: 'Owlbear', e: '🦉', mobs: [{ n: 'Owlbear', hp: 59, e: '🦉', size: 2, c: 1 }] },
+  { name: 'Giant Rampage', e: '🗻', mobs: [{ n: 'Hill Giant', hp: 105, e: '🗻', size: 3, c: 1 }, { n: 'Ogre', hp: 59, e: '👹', size: 2, c: 1 }] },
+  { name: 'Vampire & Spawn', e: '🧛', mobs: [{ n: 'Vampire Spawn', hp: 82, e: '🧛', c: 2 }] },
+  { name: 'Elemental Fury', e: '🌪️', mobs: [{ n: 'Fire Elemental', hp: 102, e: '🔥', size: 2, c: 1 }, { n: 'Air Elemental', hp: 90, e: '🌪️', size: 2, c: 1 }] },
 ];
 function buildEncounters() {
   const g = $('enc-grid'); if (!g) return;
