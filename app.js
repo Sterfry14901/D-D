@@ -130,6 +130,7 @@ socket.on('state', (s) => {
   setWeather(s.weather || 'clear');
   applyNotes(s.notes || '');
   $('board').classList.toggle('gm-fog', me.isGm);
+  document.body.classList.toggle('is-gm', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
   $('me-plate-role').textContent = me.isGm ? 'Dungeon Master' : 'Player';
   document.querySelector('#me-plate .ava').textContent = me.isGm ? '👑' : '🧙';
@@ -290,6 +291,7 @@ function buildMonsters() {
   });
 }
 function spawnMonster(m) {
+  if (!me.isGm) return;
   socket.emit('token:add', {
     x: gridSize * (2 + Math.floor(Math.random() * 6)),
     y: gridSize * (1 + Math.floor(Math.random() * 3)),
@@ -321,6 +323,7 @@ function buildEncounters() {
   });
 }
 function spawnEncounter(enc) {
+  if (!me.isGm) return;
   let i = 0;
   enc.mobs.forEach((m) => {
     for (let k = 0; k < m.c; k++) {
@@ -692,13 +695,29 @@ $('init-prev').onclick = () => socket.emit('init:turn', 'prev');
 $('init-clear').onclick = () => socket.emit('init:clear');
 let combat = { list: [], turnIndex: 0, round: 1, turnStart: Date.now(), _key: '' };
 socket.on('init:state', ({ list, turnIndex, round }) => renderInit(list, turnIndex, round));
+let initDragId = null;
 function renderInit(list, turnIndex, round) {
   const ol = $('init-list'); ol.innerHTML = '';
   list.forEach((e, i) => {
     const li = document.createElement('li');
     li.className = i === turnIndex ? 'active' : '';
-    li.innerHTML = `<span class="ini">${e.init}</span> <span class="nm">${escapeHtml(e.name)}</span> <button class="ini-x" title="Remove">✕</button>`;
+    li.draggable = true; li.dataset.id = e.id;
+    li.innerHTML = `<span class="ini-grip" title="Drag to reorder">⠿</span><span class="ini">${e.init}</span> <span class="nm">${escapeHtml(e.name)}</span> <button class="ini-x" title="Remove">✕</button>`;
     li.querySelector('.ini-x').onclick = () => socket.emit('init:remove', e.id);
+    li.addEventListener('dragstart', (ev) => { initDragId = e.id; li.classList.add('dragging'); ev.dataTransfer.effectAllowed = 'move'; });
+    li.addEventListener('dragend', () => { li.classList.remove('dragging'); document.querySelectorAll('#init-list li').forEach((x) => x.classList.remove('drop-into')); });
+    li.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; li.classList.add('drop-into'); });
+    li.addEventListener('dragleave', () => li.classList.remove('drop-into'));
+    li.addEventListener('drop', (ev) => {
+      ev.preventDefault(); li.classList.remove('drop-into');
+      if (!initDragId || initDragId === e.id) return;
+      const ids = [...document.querySelectorAll('#init-list li')].map((x) => x.dataset.id);
+      const from = ids.indexOf(initDragId); ids.splice(from, 1);
+      const to = ids.indexOf(e.id);
+      ids.splice(to, 0, initDragId);
+      socket.emit('init:reorder', ids);
+      initDragId = null;
+    });
     ol.appendChild(li);
   });
   const key = (round || 1) + ':' + turnIndex;

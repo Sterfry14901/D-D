@@ -139,6 +139,7 @@
           <button class="tab" data-tab="sheet">Sheet</button>
           <button class="tab" data-tab="players">Party</button>
           <button class="tab" data-tab="journal">Journal</button>
+          <button class="tab" data-tab="rules">Rules</button>
         </nav>
 
         <!-- Chat + AI DM -->
@@ -169,12 +170,12 @@
           <ol id="init-list"></ol>
           <p class="sheet-hint">Add players &amp; monsters, Sort by initiative, then Next to advance turns. Everyone sees whose turn it is.</p>
 
-          <div class="monster-add">
-            <div class="mon-title">⚔️ Quick monsters — click to drop a token with HP</div>
+          <div class="monster-add gm-only">
+            <div class="mon-title">⚔️ Quick monsters — click to drop a token with HP <span class="gm-tag">DM</span></div>
             <div id="mon-grid" class="mon-grid"></div>
           </div>
-          <div class="monster-add">
-            <div class="mon-title">🐲 Encounters — drop a whole group at once</div>
+          <div class="monster-add gm-only">
+            <div class="mon-title">🐲 Encounters — drop a whole group at once <span class="gm-tag">DM</span></div>
             <div id="enc-grid" class="mon-grid"></div>
           </div>
         </div>
@@ -256,6 +257,16 @@
           </div>
           <div class="journal-hint">Shared notes — everyone at the table sees edits live.</div>
           <textarea id="journal-text" class="journal-text" placeholder="Session notes, quest log, NPCs met, loot found…"></textarea>
+        </div>
+
+        <!-- 5E rules & DM guide (SRD 5.1, CC-BY-4.0) -->
+        <div class="tabpane" id="tab-rules">
+          <div class="rules-search">
+            <input id="rules-q" type="text" placeholder="Search rules… (e.g. grappled, cover, DC, rest)" />
+          </div>
+          <div class="rules-cats" id="rules-cats"></div>
+          <div id="rules-content" class="rules-content"></div>
+          <div class="rules-foot">D&amp;D 5E SRD 5.1 · CC-BY-4.0</div>
         </div>
       </aside>
     </main>
@@ -386,5 +397,6 @@
   <audio id="remote-audio-container"></audio>
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
+  <script src="rules.js"></script>
 </body>
 </html>

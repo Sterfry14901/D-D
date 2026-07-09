@@ -155,6 +155,34 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
   50%      { box-shadow: 0 0 0 4px var(--gold-bright), 0 0 24px 9px rgba(242,207,122,0.85); }
 }
 
+/* ===== 5E Rules & DM guide ===== */
+#tab-rules { display: flex; flex-direction: column; height: 100%; padding: 10px; box-sizing: border-box; }
+.rules-search input { width: 100%; box-sizing: border-box; background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.35); border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 13px; }
+.rules-search input:focus { outline: none; border-color: var(--gold); }
+.rules-cats { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.rules-cat { font-size: 11px; padding: 4px 9px; border-radius: 12px; cursor: pointer; background: var(--panel-2); color: var(--ink); border: 1px solid var(--r20-line, rgba(217,177,84,0.25)); }
+.rules-cat:hover { border-color: var(--gold); }
+.rules-cat.on { background: rgba(217,177,84,0.22); border-color: var(--gold); color: var(--gold-bright); }
+.rules-content { flex: 1; overflow-y: auto; padding-right: 4px; }
+.rules-heading { font-weight: 700; color: var(--gold-bright); font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; margin: 4px 0 8px; }
+.rule { border: 1px solid rgba(217,177,84,0.18); border-radius: 8px; padding: 8px 10px; margin-bottom: 7px; background: linear-gradient(180deg, rgba(36,29,20,0.5), rgba(20,16,10,0.5)); }
+.rule-t { font-weight: 700; color: var(--gold); font-size: 13px; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+.rule-cat { font-size: 9px; font-weight: 600; color: #b7a988; background: rgba(217,177,84,0.12); border-radius: 4px; padding: 1px 5px; }
+.rule-b { font-size: 12.5px; line-height: 1.5; color: #dcd2bd; }
+.rules-empty { color: #9c8f74; font-size: 13px; padding: 12px 4px; }
+.rules-foot { font-size: 10px; color: #7d715a; text-align: center; padding-top: 6px; }
+
+/* ===== GM-only UI (hidden for players) ===== */
+body:not(.is-gm) .gm-only { display: none !important; }
+.gm-tag { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; color: #0d0b08; background: var(--gold); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+
+/* ===== Initiative drag-to-reorder ===== */
+#init-list li { cursor: default; }
+#init-list li .ini-grip { cursor: grab; opacity: 0.4; margin-right: 4px; font-size: 12px; letter-spacing: -1px; }
+#init-list li:hover .ini-grip { opacity: 0.85; }
+#init-list li.dragging { opacity: 0.45; }
+#init-list li.drop-into { box-shadow: inset 0 2px 0 var(--gold-bright); }
+
 /* ===== Shared campaign journal ===== */
 #tab-journal { display: flex; flex-direction: column; height: 100%; padding: 10px; box-sizing: border-box; }
 .journal-head { display: flex; align-items: center; justify-content: space-between; }
@@ -409,16 +437,18 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 }
 .topbar-actions::-webkit-scrollbar { width: 0; }
 .topbar-actions button.ghost {
-  width: 40px; height: 40px; min-width: 40px; padding: 0 0 0 10px; border-radius: 10px;
-  font-size: 17px; line-height: 38px; text-align: left; overflow: hidden; white-space: nowrap;
+  width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 10px;
+  font-size: 19px; line-height: 40px; text-align: center; overflow: hidden; white-space: nowrap;
+  display: flex; align-items: center; justify-content: center;
   background: var(--r20-chrome2); border: 1px solid var(--r20-line); color: var(--ink); flex: 0 0 auto;
 }
 .topbar-actions button.ghost:hover { border-color: var(--gold); background: #262a35; transform: none; }
 .topbar-actions button.ghost.on, #voice-btn.on { border-color: var(--gold); }
 
-/* Floating vertical zoom control (right of panel, like Roll20) */
+/* Floating vertical zoom control — anchored to the left rail's edge, vertically
+   centered, so it never collides with the (resizable) right panel or nameplate. */
 .zoom-ctrl {
-  position: fixed; right: 398px; top: 84px; z-index: 7;
+  position: fixed; left: 64px; top: 50%; transform: translateY(-50%); right: auto; z-index: 7;
   flex-direction: column; gap: 6px; align-items: center;
   background: rgba(15,17,21,0.94); border: 1px solid var(--r20-line);
   border-radius: 14px; padding: 9px 7px; box-shadow: 0 8px 22px rgba(0,0,0,0.55);
@@ -475,7 +505,7 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .pm-hp { color: var(--muted); font-size: 0.72rem; margin-top: 3px; text-align: right; }
 
 @media (max-width: 820px) {
-  .zoom-ctrl { right: 10px; top: 70px; }
+  .zoom-ctrl { left: auto; right: 10px; top: auto; bottom: 46%; transform: none; flex-direction: row; }
   #me-plate { left: 60px; bottom: auto; top: 8px; padding: 4px 10px 4px 4px; }
   #me-plate .ava { width: 30px; height: 30px; font-size: 15px; }
 }
@@ -511,6 +541,9 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .fog-hint { color: var(--muted); font-size: 12px; font-style: italic; margin-left: auto; }
 
 /* Fog cells: opaque for players, translucent for GM */
+/* Fog is visual only — never let it intercept clicks (fog painting is driven by
+   board-level mouse handlers). This is what let players actually drag tokens. */
+#fog { pointer-events: none !important; }
 #board.fog-painting #fog { cursor: crosshair; }
 .fog-cell { position: absolute; background: #050403; }
 #board.gm-fog .fog-cell { background: rgba(40,24,70,0.45); border: 1px solid rgba(124,82,214,0.25); }

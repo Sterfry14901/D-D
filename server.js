@@ -329,6 +329,19 @@ io.on('connection', (socket) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     room.initiative = []; room.turnIndex = 0; room.round = 1; emitInit();
   });
+  socket.on('init:reorder', (orderIds) => {
+    const room = rooms.get(joinedRoom); if (!room || !Array.isArray(orderIds)) return;
+    const activeId = room.initiative[room.turnIndex] ? room.initiative[room.turnIndex].id : null;
+    const byId = new Map(room.initiative.map((e) => [e.id, e]));
+    const next = [];
+    orderIds.forEach((id) => { if (byId.has(id)) { next.push(byId.get(id)); byId.delete(id); } });
+    byId.forEach((e) => next.push(e)); // keep any not listed
+    if (next.length !== room.initiative.length) return; // safety: no drops
+    room.initiative = next;
+    const idx = next.findIndex((e) => e.id === activeId);
+    if (idx >= 0) room.turnIndex = idx;
+    emitInit();
+  });
 
   // ---- Fog of war (GM only) ----
   socket.on('fog:active', (active) => {
