@@ -108,6 +108,16 @@
       </div>`).join('');
   }
 
+  // Expose for the loot generator (weighted by rarity)
+  window.MAGIC_ITEMS = ITEMS;
+  window.rollLootItem = function (tier) {
+    // tier 1-4 caps the rarity ceiling
+    const ceilings = { 1: 'Uncommon', 2: 'Rare', 3: 'Very Rare', 4: 'Legendary' };
+    const cap = RARITY.indexOf(ceilings[tier] || 'Rare');
+    const pool = ITEMS.filter((i) => RARITY.indexOf(i.r) <= cap);
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
   function init() {
     if (built) return;
     const q = document.getElementById('item-q'); if (!q) return;

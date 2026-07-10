@@ -339,6 +339,20 @@ buildMonsters();
 (function () {
   const q = $('mon-q');
   if (q) q.addEventListener('input', () => { monsterFilter = q.value; buildMonsters(); });
+  const lootBtn = $('loot-roll');
+  if (lootBtn) lootBtn.onclick = () => {
+    if (!me.isGm) return;
+    const tier = parseInt($('loot-tier').value) || 1;
+    const d6 = () => Math.floor(Math.random() * 6) + 1;
+    const gp = tier * (d6() + d6()) * (tier >= 3 ? 100 : 10);
+    const sp = (d6() + d6()) * 10;
+    let text = `💰 Treasure (Tier ${tier}): ${gp} gp, ${sp} sp`;
+    if (Math.random() < 0.55 && typeof window.rollLootItem === 'function') {
+      const it = window.rollLootItem(tier);
+      if (it) text += ` — and a magic item: ${it.n} (${it.r})`;
+    }
+    socket.emit('chat', { text });
+  };
 })();
 
 /* ============ ENCOUNTER BUILDER ============ */
