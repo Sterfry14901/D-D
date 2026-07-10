@@ -225,6 +225,33 @@ document.querySelectorAll('.die').forEach((b) => { b.onclick = () => rollFormula
 $('dice-roll').onclick = () => rollFormula($('dice-formula').value.trim() || '1d20');
 $('dice-formula').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('dice-roll').click(); });
 function rollDie(s) { return Math.floor(Math.random() * s) + 1; }
+/* ============ SAVED ROLL MACROS (Roll20-style) ============ */
+function loadMacros() { try { return JSON.parse(localStorage.getItem('dnd-macros') || '[]'); } catch { return []; } }
+function saveMacros(a) { try { localStorage.setItem('dnd-macros', JSON.stringify(a)); } catch {} }
+function renderMacros() {
+  const list = $('macro-list'); if (!list) return;
+  const macros = loadMacros();
+  list.innerHTML = '';
+  if (!macros.length) { list.innerHTML = '<span class="macro-empty">No saved rolls yet — add one below (e.g. Longsword · 1d20+5).</span>'; return; }
+  macros.forEach((mac, i) => {
+    const b = document.createElement('button'); b.className = 'macro-btn';
+    b.innerHTML = `<span class="mac-n">${escapeHtml(mac.name)}</span><em>${escapeHtml(mac.formula)}</em><span class="macro-x" title="Delete">✕</span>`;
+    b.onclick = () => { const inp = $('dice-formula'); if (inp) inp.value = mac.formula; rollFormula(mac.formula); };
+    b.querySelector('.macro-x').onclick = (e) => { e.stopPropagation(); const a = loadMacros(); a.splice(i, 1); saveMacros(a); renderMacros(); };
+    list.appendChild(b);
+  });
+}
+if ($('macro-save')) $('macro-save').onclick = () => {
+  const name = $('macro-name').value.trim(), formula = $('macro-formula').value.trim().replace(/\s+/g, '');
+  if (!name || !formula) return;
+  if (!/^\d*d\d+([+-]\d+)?$/i.test(formula)) { alert('Use a formula like 1d20+5, 2d6+3, or d20.'); return; }
+  const a = loadMacros(); a.push({ name, formula }); saveMacros(a);
+  $('macro-name').value = ''; $('macro-formula').value = ''; renderMacros();
+};
+if ($('macro-name')) $('macro-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('macro-formula').focus(); });
+if ($('macro-formula')) $('macro-formula').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('macro-save').click(); });
+renderMacros();
+
 function rollFormula(formula) {
   const adv = $('adv').checked, dis = $('dis').checked, quickmod = parseInt($('quickmod').value) || 0;
   let detail = [], total = 0;
