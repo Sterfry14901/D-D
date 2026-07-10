@@ -481,8 +481,14 @@ function setMap(src) {
   $('board').classList.add('has-map');
 }
 socket.on('map:set', setMap);
-function applyGrid(size) { $('grid').style.backgroundSize = `${size}px ${size}px`; renderFog(); }
+function applyGrid(size) { $('grid').style.backgroundSize = `${size}px ${size}px`; renderFog(); syncGridSlider(size); }
+function syncGridSlider(size) { const gs = $('grid-slider'); if (gs) { gs.value = size; } const gv = $('grid-val'); if (gv) gv.textContent = size; }
 socket.on('grid:set', (s) => { gridSize = s; applyGrid(s); renderWalls(); refreshLighting(); });
+if ($('grid-slider')) $('grid-slider').oninput = () => {
+  const v = Math.max(40, Math.min(200, parseInt($('grid-slider').value) || 70));
+  gridSize = v; applyGrid(v); renderWalls(); refreshLighting();
+  socket.emit('grid:set', v);
+};
 
 /* ============ ZOOM & PAN ============ */
 function applyZoom() {

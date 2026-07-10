@@ -177,6 +177,12 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .xp-out b { color: var(--gold); }
 .loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
 
+/* ===== Grid size control (map modal) ===== */
+.grid-ctrl { margin: 10px 2px 4px; display: flex; flex-direction: column; gap: 6px; }
+.grid-ctrl label { font-size: 12.5px; color: #cdbf9e; }
+.grid-ctrl #grid-val { color: var(--gold-bright); font-weight: 700; }
+.grid-ctrl input[type=range] { width: 100%; accent-color: var(--gold); }
+
 /* ===== Character export/import ===== */
 .cs-io { position: absolute; top: 12px; left: 16px; display: flex; gap: 6px; z-index: 2; }
 .cs-io-btn { background: var(--panel-3, #2e2418); color: var(--gold-bright); border: 1px solid var(--gold); border-radius: 7px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
