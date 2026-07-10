@@ -177,6 +177,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .xp-out b { color: var(--gold); }
 .loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
 
+/* ===== Token auras ===== */
+.token { overflow: visible; }
+.token .tk-aura { position: absolute; display: none; border-radius: 50%; pointer-events: none; z-index: 0; }
+.token .lbl, .token .hpbar, .token .statuses { position: relative; z-index: 1; }
+
 /* ===== Freehand map drawing ===== */
 #draw { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; overflow: visible; }
 #board.draw-on { cursor: crosshair; }

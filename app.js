@@ -628,11 +628,17 @@ socket.on('token:move', ({ id, x, y }) => {
 });
 socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; refreshLighting(); } if (id === linkedToken) { linkedToken = null; localStorage.removeItem('dnd-link-' + me.room); } });
 
+function hexA(hex, a) {
+  const h = String(hex || '#f2cf7a').replace('#', '');
+  const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(n.substr(0, 2), 16) || 0, g = parseInt(n.substr(2, 2), 16) || 0, b = parseInt(n.substr(4, 2), 16) || 0;
+  return `rgba(${r},${g},${b},${a})`;
+}
 function renderToken(t) {
   let el = tokenEls[t.id];
   if (!el) {
     el = document.createElement('div'); el.className = 'token';
-    el.innerHTML = `<span class="lbl"></span><div class="hpbar"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
+    el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
     $('tokens').appendChild(el); tokenEls[t.id] = el; makeDraggable(el);
   }
   el._token = t;
@@ -656,6 +662,19 @@ function styleToken(el, t) {
     fill.style.width = pct + '%';
     fill.style.background = pct > 50 ? '#5fae54' : pct > 25 ? '#d9a434' : '#c0392b';
   } else bar.style.display = 'none';
+  const aura = el.querySelector('.tk-aura');
+  if (aura) {
+    const ft = Number(t.aura) || 0;
+    if (ft > 0) {
+      const rad = (ft / 5) * gridSize;
+      const c = t.auraColor || '#f2cf7a';
+      aura.style.display = 'block';
+      aura.style.width = aura.style.height = (rad * 2) + 'px';
+      aura.style.left = (s / 2 - rad) + 'px'; aura.style.top = (s / 2 - rad) + 'px';
+      aura.style.background = `radial-gradient(circle, ${hexA(c, 0.30)} 0%, ${hexA(c, 0.12)} 60%, transparent 73%)`;
+      aura.style.border = `1px solid ${hexA(c, 0.5)}`;
+    } else aura.style.display = 'none';
+  }
   const st = (t.statuses || []).slice();
   if (t.conc) st.unshift('🧠');
   el.querySelector('.statuses').innerHTML = st.map((x) => `<span>${x}</span>`).join('');
@@ -814,6 +833,7 @@ function openTokenModal(t) {
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
   $('tk-vision').value = t.vision ?? ''; $('tk-light').value = t.light ?? '';
+  $('tk-aura').value = t.aura ?? ''; $('tk-aura-color').value = t.auraColor || '#f2cf7a';
   $('tk-link').checked = (linkedToken === t.id);
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
   document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
@@ -861,6 +881,8 @@ $('tk-save').onclick = () => {
     maxhp: $('tk-maxhp').value === '' ? null : Number($('tk-maxhp').value),
     vision: $('tk-vision').value === '' ? null : Number($('tk-vision').value),
     light: $('tk-light').value === '' ? null : Number($('tk-light').value),
+    aura: $('tk-aura').value === '' ? null : Number($('tk-aura').value),
+    auraColor: $('tk-aura-color').value,
     statuses: editStatuses, emoji: editEmoji, img: editImg,
   });
   // Link / unlink this token to my character sheet
