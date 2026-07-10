@@ -571,7 +571,7 @@ function renderToken(t) {
   let el = tokenEls[t.id];
   if (!el) {
     el = document.createElement('div'); el.className = 'token';
-    el.innerHTML = `<span class="lbl"></span><div class="hpbar"><i></i></div><div class="statuses"></div>`;
+    el.innerHTML = `<span class="lbl"></span><div class="hpbar"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
     $('tokens').appendChild(el); tokenEls[t.id] = el; makeDraggable(el);
   }
   el._token = t;
@@ -595,7 +595,19 @@ function styleToken(el, t) {
     fill.style.width = pct + '%';
     fill.style.background = pct > 50 ? '#5fae54' : pct > 25 ? '#d9a434' : '#c0392b';
   } else bar.style.display = 'none';
-  el.querySelector('.statuses').innerHTML = (t.statuses || []).map((x) => `<span>${x}</span>`).join('');
+  const st = (t.statuses || []).slice();
+  if (t.conc) st.unshift('🧠');
+  el.querySelector('.statuses').innerHTML = st.map((x) => `<span>${x}</span>`).join('');
+  el.classList.toggle('concentrating', !!t.conc);
+  // Death saves — shown only when downed (0 HP with a max)
+  const death = el.querySelector('.tk-death');
+  if (death) {
+    if (Number(t.maxhp) > 0 && Number(t.hp) === 0) {
+      const s = Math.min(3, t.dsSucc || 0), f = Math.min(3, t.dsFail || 0);
+      death.style.display = 'flex';
+      death.innerHTML = `<span class="ds-s">${'●'.repeat(s)}${'○'.repeat(3 - s)}</span><span class="ds-f">${'●'.repeat(f)}${'○'.repeat(3 - f)}</span>`;
+    } else death.style.display = 'none';
+  }
 }
 
 let moveLabel = null;
@@ -647,6 +659,24 @@ function centerOnToken(t) {
   const s = (t.size || 1) * 64;
   wrap.scrollTo({ left: (t.x + s / 2) * zoom - wrap.clientWidth / 2, top: (t.y + s / 2) * zoom - wrap.clientHeight / 2, behavior: 'smooth' });
 }
+function rollDeathSave(t) {
+  const d = 1 + Math.floor(Math.random() * 20);
+  if (d === 20) {
+    socket.emit('token:update', { id: t.id, hp: 1, dsSucc: 0, dsFail: 0 });
+    socket.emit('chat', { text: `🎲 ${t.label} death save: 20 — 💚 regains 1 HP and is up!` });
+    return;
+  }
+  let s = Math.min(3, t.dsSucc || 0), f = Math.min(3, t.dsFail || 0), msg;
+  if (d === 1) { f = Math.min(3, f + 2); msg = 'nat 1 — two failures'; }
+  else if (d >= 10) { s = Math.min(3, s + 1); msg = 'success'; }
+  else { f = Math.min(3, f + 1); msg = 'failure'; }
+  const upd = { id: t.id, dsSucc: s, dsFail: f };
+  let tail = '';
+  if (s >= 3) { tail = ' — stabilized'; upd.dsSucc = 0; upd.dsFail = 0; }
+  else if (f >= 3) { tail = ' — has died 💀'; }
+  socket.emit('token:update', upd);
+  socket.emit('chat', { text: `🎲 ${t.label} death save: ${d} (${msg})${tail}` });
+}
 function showTokenCtx(t, px, py) {
   closeTokenCtx();
   const m = document.createElement('div');
@@ -673,6 +703,12 @@ function showTokenCtx(t, px, py) {
     const n = parseInt(prompt('Heal amount:', '5')); closeTokenCtx();
     if (n > 0) { const mx = Number(t.maxhp) || Infinity; socket.emit('token:update', { id: t.id, hp: Math.min(mx, tokenHP(t) + n) }); }
   });
+  row('🧠', 'Concentration' + (t.conc ? ' ✓' : ''), () => {
+    closeTokenCtx(); socket.emit('token:update', { id: t.id, conc: !t.conc });
+  });
+  if (Number(t.maxhp) > 0 && Number(t.hp) === 0) {
+    row('🎲', 'Death save', () => { closeTokenCtx(); rollDeathSave(t); });
+  }
   // Conditions strip
   const cs2 = document.createElement('div'); cs2.className = 'ctx-conds';
   Object.entries(COND_EMOJI).forEach(([name, em]) => {
