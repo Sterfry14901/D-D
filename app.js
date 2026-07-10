@@ -566,6 +566,7 @@ $('board-wrap').addEventListener('mousedown', (e) => {
   if (rulerMode) { rulerStart = snapPt(boardCoords(e)); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
   if (drawMode) { drawStroke = { points: [drawPt(e)], color: drawColor, w: 3 }; e.preventDefault(); return; }
+  if (!e.shiftKey && typeof clearSelection === 'function') clearSelection();
   panning = true; panStart = { x: e.clientX, y: e.clientY, sl: $('board-wrap').scrollLeft, st: $('board-wrap').scrollTop };
 });
 window.addEventListener('mousemove', (e) => {
@@ -754,12 +755,24 @@ function showMoveLabel(el, x, y, startX, startY) {
 }
 function hideMoveLabel() { if (moveLabel) moveLabel.style.display = 'none'; }
 
+const selectedTokens = new Set();
+function toggleSelect(id) {
+  if (selectedTokens.has(id)) selectedTokens.delete(id); else selectedTokens.add(id);
+  const el = tokenEls[id]; if (el) el.classList.toggle('selected', selectedTokens.has(id));
+}
+function clearSelection() {
+  selectedTokens.forEach((id) => { const el = tokenEls[id]; if (el) el.classList.remove('selected'); });
+  selectedTokens.clear();
+}
 function makeDraggable(el) {
-  let dragging = false, grabX = 0, grabY = 0, startX = 0, startY = 0;
+  let dragging = false, grabX = 0, grabY = 0, startX = 0, startY = 0, groupDrag = false, group = [];
   el.addEventListener('mousedown', (e) => {
     if (e.altKey || fogMode) return;
+    if (e.shiftKey) { toggleSelect(el._token.id); e.preventDefault(); e.stopPropagation(); return; } // shift-click = (de)select
     dragging = true; const c = boardCoords(e); grabX = c.x - el._token.x; grabY = c.y - el._token.y;
     startX = el._token.x; startY = el._token.y;
+    groupDrag = selectedTokens.has(el._token.id) && selectedTokens.size > 1;
+    group = groupDrag ? [...selectedTokens].filter((id) => id !== el._token.id && tokenEls[id]).map((id) => { const g = tokenEls[id]; return { el: g, t: g._token, x0: g._token.x, y0: g._token.y }; }) : [];
     e.preventDefault(); e.stopPropagation();
   });
   window.addEventListener('mousemove', (e) => {
@@ -767,6 +780,10 @@ function makeDraggable(el) {
     const c = boardCoords(e); const x = c.x - grabX, y = c.y - grabY;
     el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
     socket.emit('token:move', { id: el._token.id, x, y });
+    if (groupDrag) {
+      const ddx = x - startX, ddy = y - startY;
+      group.forEach((g) => { const nx = g.x0 + ddx, ny = g.y0 + ddy; g.el.style.left = nx + 'px'; g.el.style.top = ny + 'px'; g.t.x = nx; g.t.y = ny; socket.emit('token:move', { id: g.t.id, x: nx, y: ny }); });
+    }
     showMoveLabel(el, x, y, startX, startY);
     refreshLighting();
   });
@@ -775,6 +792,10 @@ function makeDraggable(el) {
     const sx = Math.round(el._token.x / gridSize) * gridSize, sy = Math.round(el._token.y / gridSize) * gridSize;
     el.style.left = sx + 'px'; el.style.top = sy + 'px'; el._token.x = sx; el._token.y = sy;
     socket.emit('token:move', { id: el._token.id, x: sx, y: sy });
+    if (groupDrag) {
+      group.forEach((g) => { const gx = Math.round(g.t.x / gridSize) * gridSize, gy = Math.round(g.t.y / gridSize) * gridSize; g.el.style.left = gx + 'px'; g.el.style.top = gy + 'px'; g.t.x = gx; g.t.y = gy; socket.emit('token:move', { id: g.t.id, x: gx, y: gy }); });
+      groupDrag = false; group = [];
+    }
   });
   el.addEventListener('dblclick', (e) => { e.stopPropagation(); openTokenModal(el._token); });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); showTokenCtx(el._token, e.clientX, e.clientY); });
