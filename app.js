@@ -685,6 +685,9 @@ function renderToken(t) {
   el._token = t;
   el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
   styleToken(el, t);
+  // GM layer: hidden tokens are invisible to players, dimmed for the GM.
+  el.style.display = (t.hidden && !me.isGm) ? 'none' : '';
+  el.classList.toggle('gm-hidden', !!t.hidden && me.isGm);
   if (typeof combat !== 'undefined' && combat.list && combat.list.length) {
     el.classList.toggle('active-turn', el._token.label === combat.list[combat.turnIndex].name);
   }
@@ -839,6 +842,9 @@ function showTokenCtx(t, px, py) {
   });
   row('🧠', 'Concentration' + (t.conc ? ' ✓' : ''), () => {
     closeTokenCtx(); socket.emit('token:update', { id: t.id, conc: !t.conc });
+  });
+  if (me.isGm) row(t.hidden ? '👁️' : '🙈', t.hidden ? 'Reveal to players' : 'Hide from players', () => {
+    closeTokenCtx(); socket.emit('token:update', { id: t.id, hidden: !t.hidden });
   });
   if (Number(t.maxhp) > 0 && Number(t.hp) === 0) {
     row('🎲', 'Death save', () => { closeTokenCtx(); rollDeathSave(t); });
