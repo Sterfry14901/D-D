@@ -665,7 +665,7 @@ function renderToken(t) {
   let el = tokenEls[t.id];
   if (!el) {
     el = document.createElement('div'); el.className = 'token';
-    el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
+    el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="hpbar2"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
     $('tokens').appendChild(el); tokenEls[t.id] = el; makeDraggable(el);
   }
   el._token = t;
@@ -689,6 +689,15 @@ function styleToken(el, t) {
     fill.style.width = pct + '%';
     fill.style.background = pct > 50 ? '#5fae54' : pct > 25 ? '#d9a434' : '#c0392b';
   } else bar.style.display = 'none';
+  const bar2 = el.querySelector('.hpbar2'), fill2 = bar2 && bar2.querySelector('i');
+  if (bar2) {
+    const temp = Number(t.temphp) || 0;
+    if (temp > 0) {
+      bar2.style.display = 'block';
+      const denom = Number(t.maxhp) > 0 ? Number(t.maxhp) : temp;
+      fill2.style.width = Math.max(8, Math.min(100, (temp / denom) * 100)) + '%';
+    } else bar2.style.display = 'none';
+  }
   const aura = el.querySelector('.tk-aura');
   if (aura) {
     const ft = Number(t.aura) || 0;
@@ -804,7 +813,11 @@ function showTokenCtx(t, px, py) {
   }
   row('💥', 'Damage…', () => {
     const n = parseInt(prompt('Damage amount:', '5')); closeTokenCtx();
-    if (n > 0) socket.emit('token:update', { id: t.id, hp: Math.max(0, tokenHP(t) - n) });
+    if (n > 0) {
+      const temp = Number(t.temphp) || 0;
+      const absorbed = Math.min(temp, n);
+      socket.emit('token:update', { id: t.id, temphp: temp - absorbed, hp: Math.max(0, tokenHP(t) - (n - absorbed)) });
+    }
   });
   row('💚', 'Heal…', () => {
     const n = parseInt(prompt('Heal amount:', '5')); closeTokenCtx();
@@ -859,6 +872,7 @@ function openTokenModal(t) {
   $('tk-label').value = t.label || ''; $('tk-color').value = t.color || '#c0392b';
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
+  $('tk-temp').value = t.temphp ? t.temphp : '';
   $('tk-vision').value = t.vision ?? ''; $('tk-light').value = t.light ?? '';
   $('tk-aura').value = t.aura ?? ''; $('tk-aura-color').value = t.auraColor || '#f2cf7a';
   $('tk-link').checked = (linkedToken === t.id);
@@ -906,6 +920,7 @@ $('tk-save').onclick = () => {
     size: parseInt($('tk-size').value),
     hp: $('tk-hp').value === '' ? null : Number($('tk-hp').value),
     maxhp: $('tk-maxhp').value === '' ? null : Number($('tk-maxhp').value),
+    temphp: $('tk-temp').value === '' ? 0 : Number($('tk-temp').value),
     vision: $('tk-vision').value === '' ? null : Number($('tk-vision').value),
     light: $('tk-light').value === '' ? null : Number($('tk-light').value),
     aura: $('tk-aura').value === '' ? null : Number($('tk-aura').value),

@@ -177,6 +177,10 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .xp-out b { color: var(--gold); }
 .loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
 
+/* ===== Temp HP bar (second token bar) ===== */
+.token .hpbar2 { position: absolute; left: 6%; right: 6%; width: 88%; bottom: -9px; height: 4px; background: rgba(0,0,0,0.55); border-radius: 3px; display: none; overflow: hidden; z-index: 1; }
+.token .hpbar2 i { display: block; height: 100%; background: #4a9fe0; box-shadow: 0 0 4px rgba(74,159,224,0.8); }
+
 /* ===== Token auras ===== */
 .token { overflow: visible; }
 .token .tk-aura { position: absolute; display: none; border-radius: 50%; pointer-events: none; z-index: 0; }
