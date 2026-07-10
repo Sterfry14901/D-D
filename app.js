@@ -339,6 +339,19 @@ buildMonsters();
 (function () {
   const q = $('mon-q');
   if (q) q.addEventListener('input', () => { monsterFilter = q.value; buildMonsters(); });
+  const npcBtn = $('npc-roll');
+  if (npcBtn) npcBtn.onclick = () => {
+    if (!me.isGm) return;
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const first = ['Bram', 'Elara', 'Osric', 'Mira', 'Doran', 'Sela', 'Halvard', 'Wynn', 'Garrick', 'Thistle', 'Corin', 'Yselda', 'Peteran', 'Rowan', 'Ismark', 'Ada', 'Fenn', 'Voss', 'Nella', 'Torvin'];
+    const last = ['Underbough', 'Ashfield', 'Stormwind', 'Blackwater', 'Greycloak', 'Ironhand', 'Meadows', 'Thorne', 'Copperpot', 'Vayne', 'Frostbeard', 'Nightingale', 'Marsh', 'Holt'];
+    const race = ['human', 'half-elf', 'dwarf', 'elf', 'halfling', 'tiefling', 'half-orc', 'gnome', 'dragonborn'];
+    const role = ['innkeeper', 'blacksmith', 'town guard', 'merchant', 'hedge wizard', 'farmer', 'sellsword', 'priest', 'thief', 'noble', 'fisher', 'scholar', 'bard', 'herbalist', 'stablehand'];
+    const quirk = ['speaks in a whisper', 'never makes eye contact', 'laughs at their own jokes', 'is missing two fingers', 'quotes old proverbs', 'smells of woodsmoke', 'is deeply superstitious', 'owes someone dangerous money', 'hides a heart of gold', 'is secretly terrified', 'collects odd trinkets', 'has a twin no one mentions', 'is always hungry', 'distrusts magic'];
+    const want = ['wants coin above all', 'is looking for a lost sibling', 'seeks revenge quietly', 'just wants a quiet life', 'is hiding from the law', 'craves adventure', 'protects a secret', 'serves a hidden master'];
+    const name = pick(first) + ' ' + pick(last);
+    socket.emit('chat', { text: `🎭 NPC: ${name}, a ${pick(race)} ${pick(role)} who ${pick(quirk)} and ${pick(want)}.` });
+  };
   const lootBtn = $('loot-roll');
   if (lootBtn) lootBtn.onclick = () => {
     if (!me.isGm) return;
