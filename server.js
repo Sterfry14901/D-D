@@ -50,6 +50,7 @@ function saveRooms() {
         handout: room.handout,
         weather: room.weather,
         notes: room.notes,
+        drawings: (room.drawings || []).slice(-500),
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -85,6 +86,7 @@ function loadRooms() {
         handout: room.handout || null,
         weather: room.weather || 'clear',
         notes: room.notes || '',
+        drawings: room.drawings || [],
         round: room.round || 1,
         partyStatus: {},
       });
@@ -119,6 +121,7 @@ function getRoom(id) {
       handout: null,           // image data-url currently shown to the table
       weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
       notes: '',               // shared campaign journal text
+      drawings: [],            // freehand map annotations [{points:[[x,y]...], color, w}]
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
     });
   }
@@ -242,6 +245,7 @@ io.on('connection', (socket) => {
       handout: room.handout,
       weather: room.weather,
       notes: room.notes || '',
+      drawings: room.drawings || [],
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -437,6 +441,20 @@ io.on('connection', (socket) => {
     room.notes = String(text || '').slice(0, 20000);
     // broadcast to everyone else (sender already has it locally)
     socket.to(joinedRoom).emit('notes:set', room.notes);
+  });
+
+  // ---- Freehand map drawing ----
+  socket.on('draw:add', (stroke) => {
+    const room = rooms.get(joinedRoom); if (!room || !stroke || !Array.isArray(stroke.points)) return;
+    if (!room.drawings) room.drawings = [];
+    room.drawings.push(stroke);
+    if (room.drawings.length > 1000) room.drawings.shift();
+    socket.to(joinedRoom).emit('draw:add', stroke);
+  });
+  socket.on('draw:clear', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    room.drawings = [];
+    io.to(joinedRoom).emit('draw:clear');
   });
 
   // ---- Save / Load campaign ----

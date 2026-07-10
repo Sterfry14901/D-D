@@ -128,6 +128,8 @@ socket.on('state', (s) => {
   refreshLighting();
   aoes = s.aoes || [];
   renderAoes();
+  drawings = s.drawings || [];
+  renderDrawings();
   if (s.handout) showHandout(s.handout); else hideHandout();
   setWeather(s.weather || 'clear');
   applyNotes(s.notes || '');
@@ -558,18 +560,50 @@ $('board-wrap').addEventListener('mousedown', (e) => {
   if (aoeMode) { aoeStart = boardCoords(e); e.preventDefault(); return; }
   if (rulerMode) { rulerStart = boardCoords(e); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
+  if (drawMode) { drawStroke = { points: [drawPt(e)], color: drawColor, w: 3 }; e.preventDefault(); return; }
   panning = true; panStart = { x: e.clientX, y: e.clientY, sl: $('board-wrap').scrollLeft, st: $('board-wrap').scrollTop };
 });
 window.addEventListener('mousemove', (e) => {
   if (panning) { $('board-wrap').scrollLeft = panStart.sl - (e.clientX - panStart.x); $('board-wrap').scrollTop = panStart.st - (e.clientY - panStart.y); }
   else if (rulerStart) { const c = boardCoords(e); drawRuler(rulerStart.x, rulerStart.y, c.x, c.y); }
   else if (aoeStart) { renderAoes(previewFrom(e)); }
+  else if (drawStroke) { drawStroke.points.push(drawPt(e)); renderDrawings(drawStroke); }
   else if (fogPainting && me.isGm) paintFog(e);
 });
 window.addEventListener('mouseup', (e) => {
   if (aoeStart) { finalizeAoe(e); aoeStart = null; }
+  if (drawStroke) { if (drawStroke.points.length > 1) { drawings.push(drawStroke); socket.emit('draw:add', drawStroke); } drawStroke = null; renderDrawings(); }
   panning = false; fogPainting = false; rulerStart = null;
 });
+
+/* ============ FREEHAND MAP DRAWING ============ */
+let drawMode = false, drawStroke = null, drawColor = '#e07a3a', drawings = [];
+function drawPt(e) { const p = boardCoords(e); return [Math.round(p.x), Math.round(p.y)]; }
+function renderDrawings(temp) {
+  const svg = $('draw'); if (!svg) return;
+  const all = temp ? drawings.concat([temp]) : drawings;
+  svg.innerHTML = all.map((s) => {
+    const pts = (s.points || []).map((p) => p.join(',')).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color || '#e07a3a'}" stroke-width="${s.w || 3}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  }).join('');
+}
+socket.on('draw:add', (stroke) => { drawings.push(stroke); renderDrawings(); });
+socket.on('draw:clear', () => { drawings = []; renderDrawings(); });
+if ($('draw-btn')) $('draw-btn').onclick = () => {
+  drawMode = !drawMode;
+  $('draw-btn').classList.toggle('on', drawMode);
+  $('draw-bar').classList.toggle('hidden', !drawMode);
+  $('board').classList.toggle('draw-on', drawMode);
+  if (drawMode) { // turn off conflicting tools
+    rulerMode = false; $('ruler-btn').classList.remove('on'); $('board').classList.remove('ruler-on');
+    if (typeof aoeMode !== 'undefined' && aoeMode) { aoeMode = false; $('aoe-btn').classList.remove('on'); $('aoe-bar').classList.add('hidden'); }
+    if (fogMode) { fogMode = false; $('fog-btn').classList.remove('on'); $('fog-bar').classList.add('hidden'); $('board').classList.remove('fog-painting'); }
+  }
+};
+document.querySelectorAll('.draw-color').forEach((b) => {
+  b.onclick = () => { drawColor = b.dataset.c; document.querySelectorAll('.draw-color').forEach((x) => x.classList.toggle('active', x === b)); };
+});
+if ($('draw-clear')) $('draw-clear').onclick = () => { if (confirm('Erase all drawings for everyone?')) socket.emit('draw:clear'); };
 
 /* ============ PINGS ============ */
 socket.on('ping', ({ x, y, color }) => showPing(x, y, color));
