@@ -970,7 +970,46 @@ function renderInit(list, turnIndex, round) {
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
   highlightActiveToken();
+  tickTimers(combat.round);
 }
+
+/* ============ EFFECT ROUND TIMERS (DM, per-device) ============ */
+let effectTimers = [], _lastTimerRound = null;
+function loadTimers() { try { effectTimers = JSON.parse(localStorage.getItem('dnd-timers') || '[]'); } catch { effectTimers = []; } }
+function saveTimers() { try { localStorage.setItem('dnd-timers', JSON.stringify(effectTimers)); } catch {} }
+function renderTimers() {
+  const list = $('timer-list'); if (!list) return;
+  list.innerHTML = '';
+  if (!effectTimers.length) { list.innerHTML = '<span class="macro-empty">No active timers.</span>'; return; }
+  effectTimers.forEach((t, i) => {
+    const d = document.createElement('div'); d.className = 'timer-item';
+    d.innerHTML = `<span class="ti-n">${escapeHtml(t.name)}</span><span class="ti-r">${t.rounds} rd</span><span class="ti-x" title="Remove">✕</span>`;
+    d.querySelector('.ti-x').onclick = () => { effectTimers.splice(i, 1); saveTimers(); renderTimers(); };
+    list.appendChild(d);
+  });
+}
+function tickTimers(round) {
+  if (round == null) return;
+  if (_lastTimerRound === null) { _lastTimerRound = round; renderTimers(); return; }
+  if (round > _lastTimerRound) {
+    const dec = round - _lastTimerRound;
+    effectTimers.forEach((t) => { t.rounds -= dec; });
+    const expired = effectTimers.filter((t) => t.rounds <= 0);
+    expired.forEach((t) => socket.emit('chat', { text: `⏱️ Effect ended: ${t.name}` }));
+    effectTimers = effectTimers.filter((t) => t.rounds > 0);
+    saveTimers(); renderTimers();
+  }
+  _lastTimerRound = round;
+}
+if ($('timer-add')) $('timer-add').onclick = () => {
+  const name = $('timer-name').value.trim(), rounds = parseInt($('timer-rounds').value);
+  if (!name || !(rounds > 0)) return;
+  effectTimers.push({ name, rounds }); saveTimers(); renderTimers();
+  $('timer-name').value = ''; $('timer-rounds').value = '';
+};
+if ($('timer-rounds')) $('timer-rounds').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('timer-add').click(); });
+loadTimers(); renderTimers();
+
 function highlightActiveToken() {
   const name = combat.list.length ? combat.list[combat.turnIndex].name : null;
   Object.values(tokenEls).forEach((el) => {

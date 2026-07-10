@@ -188,6 +188,14 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .draw-color { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); cursor: pointer; padding: 0; }
 .draw-color.active { border-color: var(--gold-bright); box-shadow: 0 0 0 2px var(--gold); }
 
+/* ===== Effect round timers ===== */
+.timer-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.timer-item { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid rgba(217,177,84,0.2); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.timer-item .ti-n { flex: 1; color: var(--ink); }
+.timer-item .ti-r { color: var(--gold-bright); font-weight: 700; }
+.timer-item .ti-x { opacity: 0.5; cursor: pointer; font-size: 11px; }
+.timer-item .ti-x:hover { opacity: 1; color: #e07a6a; }
+
 /* ===== Saved roll macros ===== */
 .macro-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .macro-empty { font-size: 11.5px; color: #9c8f74; }
