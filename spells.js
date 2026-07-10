@@ -172,12 +172,16 @@
     if (q) list = list.filter((s) => (s.n + ' ' + s.s + ' ' + s.x).toLowerCase().includes(q));
     list.sort((a, b) => a.l - b.l || a.n.localeCompare(b.n));
     if (!list.length) { box.innerHTML = '<div class="rules-empty">No spells match.</div>'; return; }
-    box.innerHTML = list.map((s) => `
+    box.innerHTML = list.map((s) => {
+      const dm = s.x.match(/(\d+)d(\d+)/);
+      const rb = dm ? `<button class="sb-roll spell-roll" data-name="${esc(s.n)}" data-n="${dm[1]}" data-die="${dm[2]}" title="Roll ${dm[0]}">🎲 ${dm[0]}</button>` : '';
+      return `
       <div class="spell">
         <div class="spell-h"><span class="spell-n">${esc(s.n)}</span><span class="spell-lv">${esc(lvlName(s.l))} · ${esc(SCHOOL_ABBR[s.s] || s.s)}</span></div>
         <div class="spell-meta">${esc(s.t)} · ${esc(s.r)} · ${esc(s.c)} · ${esc(s.d)}</div>
-        <div class="spell-x">${esc(s.x)}</div>
-      </div>`).join('');
+        <div class="spell-x">${esc(s.x)} ${rb}</div>
+      </div>`;
+    }).join('');
   }
 
   function init() {
@@ -187,6 +191,14 @@
     const cnt = document.getElementById('spell-count'); if (cnt) cnt.textContent = SPELLS.length + ' spells';
     renderChips(); apply();
     q.addEventListener('input', apply);
+    const box = document.getElementById('spell-content');
+    if (box) box.addEventListener('click', (e) => {
+      const rb = e.target.closest && e.target.closest('.spell-roll'); if (!rb) return;
+      const n = parseInt(rb.dataset.n, 10) || 0, die = parseInt(rb.dataset.die, 10) || 0;
+      let sum = 0; const rolls = [];
+      for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * die); sum += r; rolls.push(r); }
+      if (typeof window.emitChat === 'function') window.emitChat(`🔮 ${rb.dataset.name} — ${n}d${die}: ${sum} (${rolls.join('+')})`);
+    });
   }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
