@@ -552,20 +552,25 @@ function boardCoords(e) {
   const r = $('stage').getBoundingClientRect();
   return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
 }
+let snapGrid = true;
+function snapPt(p) {
+  if (!snapGrid) return p;
+  return { x: (Math.floor(p.x / gridSize) + 0.5) * gridSize, y: (Math.floor(p.y / gridSize) + 0.5) * gridSize };
+}
 
 let panning = false, panStart = null;
 $('board-wrap').addEventListener('mousedown', (e) => {
   if (e.target.closest('.token')) return;
   if (e.altKey) { const c = boardCoords(e); socket.emit('ping', c); showPing(c.x, c.y, me.color); return; }
-  if (aoeMode) { aoeStart = boardCoords(e); e.preventDefault(); return; }
-  if (rulerMode) { rulerStart = boardCoords(e); e.preventDefault(); return; }
+  if (aoeMode) { aoeStart = snapPt(boardCoords(e)); e.preventDefault(); return; }
+  if (rulerMode) { rulerStart = snapPt(boardCoords(e)); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
   if (drawMode) { drawStroke = { points: [drawPt(e)], color: drawColor, w: 3 }; e.preventDefault(); return; }
   panning = true; panStart = { x: e.clientX, y: e.clientY, sl: $('board-wrap').scrollLeft, st: $('board-wrap').scrollTop };
 });
 window.addEventListener('mousemove', (e) => {
   if (panning) { $('board-wrap').scrollLeft = panStart.sl - (e.clientX - panStart.x); $('board-wrap').scrollTop = panStart.st - (e.clientY - panStart.y); }
-  else if (rulerStart) { const c = boardCoords(e); drawRuler(rulerStart.x, rulerStart.y, c.x, c.y); }
+  else if (rulerStart) { const c = snapPt(boardCoords(e)); drawRuler(rulerStart.x, rulerStart.y, c.x, c.y); }
   else if (aoeStart) { renderAoes(previewFrom(e)); }
   else if (drawStroke) { drawStroke.points.push(drawPt(e)); renderDrawings(drawStroke); }
   else if (fogPainting && me.isGm) paintFog(e);
@@ -606,6 +611,14 @@ document.querySelectorAll('.draw-color').forEach((b) => {
 if ($('draw-clear')) $('draw-clear').onclick = () => { if (confirm('Erase all drawings for everyone?')) socket.emit('draw:clear'); };
 
 /* ============ KEYBOARD SHORTCUTS ============ */
+let _hintTimer = null;
+function flashHint(msg) {
+  const h = $('board-hint'); if (!h) return;
+  if (!h.dataset.orig) h.dataset.orig = h.textContent;
+  h.textContent = msg;
+  if (_hintTimer) clearTimeout(_hintTimer);
+  _hintTimer = setTimeout(() => { h.textContent = h.dataset.orig; }, 1600);
+}
 document.addEventListener('keydown', (e) => {
   if (!me.id) return;                       // not seated at the table yet
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -620,6 +633,7 @@ document.addEventListener('keydown', (e) => {
     case 'f': if (gm) click('fog-btn'); e.preventDefault(); break;
     case 'm': click('map-btn'); e.preventDefault(); break;
     case 'c': click('open-cs'); e.preventDefault(); break;
+    case 'g': snapGrid = !snapGrid; flashHint('Grid snap: ' + (snapGrid ? 'ON' : 'OFF')); e.preventDefault(); break;
     case 'n': if (gm) { click('init-next'); e.preventDefault(); } break;
     case ' ': if (gm) { click('init-next'); e.preventDefault(); } break;
     case '=': case '+': click('zoom-in'); e.preventDefault(); break;
@@ -628,7 +642,7 @@ document.addEventListener('keydown', (e) => {
       if (typeof closeTokenCtx === 'function') closeTokenCtx();
       ['token-modal', 'map-modal', 'handout-modal', 'cs-modal', 'sb-modal'].forEach((id) => { const m = $(id); if (m) m.classList.add('hidden'); });
       break;
-    case '?': alert('Keyboard shortcuts:\n  R   Ruler\n  D   Draw\n  E   AoE template\n  F   Fog (GM)\n  M   Battle maps\n  C   Character sheet\n  N / Space   Next turn (GM)\n  + / −   Zoom\n  Esc   Close menus'); e.preventDefault(); break;
+    case '?': alert('Keyboard shortcuts:\n  R   Ruler\n  D   Draw\n  E   AoE template\n  F   Fog (GM)\n  G   Grid snap on/off\n  M   Battle maps\n  C   Character sheet\n  N / Space   Next turn (GM)\n  + / −   Zoom\n  Esc   Close menus'); e.preventDefault(); break;
   }
 });
 
@@ -1710,7 +1724,7 @@ const aoeSizeFt = () => Math.max(5, parseInt($('aoe-size').value) || 20);
 const ft2px = (ft) => (ft / 5) * gridSize;
 
 function previewFrom(e) {
-  const c = boardCoords(e);
+  const c = snapPt(boardCoords(e));
   if (aoeShape === 'circle') return { type: 'circle', x: aoeStart.x, y: aoeStart.y, size: aoeSizeFt(), color: me.color };
   return { type: aoeShape, x: aoeStart.x, y: aoeStart.y, x2: c.x, y2: c.y, size: aoeSizeFt(), color: me.color };
 }
