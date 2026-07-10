@@ -477,6 +477,11 @@
   <div id="cs-modal" class="overlay hidden">
     <div class="cs-card">
       <button id="cs-close" class="cs-close" title="Close">✕</button>
+      <div class="cs-io">
+        <button id="cs-export" class="cs-io-btn" title="Download this character as a file">⬇️ Export</button>
+        <button id="cs-import-btn" class="cs-io-btn" title="Load a character from a file">⬆️ Import</button>
+        <input id="cs-import-file" type="file" accept="application/json" hidden />
+      </div>
       <div id="cs-body"></div>
     </div>
   </div>

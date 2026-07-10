@@ -177,6 +177,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .xp-out b { color: var(--gold); }
 .loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
 
+/* ===== Character export/import ===== */
+.cs-io { position: absolute; top: 12px; left: 16px; display: flex; gap: 6px; z-index: 2; }
+.cs-io-btn { background: var(--panel-3, #2e2418); color: var(--gold-bright); border: 1px solid var(--gold); border-radius: 7px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cs-io-btn:hover { background: rgba(217,177,84,0.22); }
+
 /* ===== Loot roller ===== */
 .loot-row { display: flex; gap: 6px; }
 .loot-row select { flex: 1; background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 7px; padding: 6px 8px; font-family: inherit; font-size: 12px; }

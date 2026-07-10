@@ -1029,6 +1029,35 @@ function csFmt(n) { return n >= 0 ? '+' + n : '' + n; }
 $('open-cs').onclick = () => { if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks(); $('cs-modal').classList.remove('hidden'); };
 $('cs-close').onclick = () => $('cs-modal').classList.add('hidden');
 $('cs-modal').addEventListener('click', (e) => { if (e.target.id === 'cs-modal') $('cs-modal').classList.add('hidden'); });
+// Export / import character to a portable JSON file
+$('cs-export').onclick = () => {
+  const safe = String(cs.name || 'character').replace(/[^\w-]+/g, '_') || 'character';
+  const blob = new Blob([JSON.stringify(cs, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'character-' + safe + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+};
+$('cs-import-btn').onclick = () => $('cs-import-file').click();
+$('cs-import-file').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const backup = cs;
+    try {
+      const obj = JSON.parse(rd.result);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('bad');
+      cs = Object.assign(csDefault(), obj);            // merge onto defaults so missing keys are safe
+      cs.scores = Object.assign(csDefault().scores, obj.scores || {});
+      cs.slots = Object.assign(csDefault().slots, obj.slots || {});
+      saveCS();
+      if (!csBuilt) buildCS();
+      csPopulate(); csRecompute(); csRenderAttacks();
+      sendPartyStatus(); syncLinkedConditions();
+    } catch (err) { cs = backup; alert('That does not look like a valid character file.'); }
+    e.target.value = '';
+  };
+  rd.readAsText(f);
+};
 
 function buildCS() {
   const h = [];
