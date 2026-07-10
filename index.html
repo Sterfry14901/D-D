@@ -142,6 +142,7 @@
           <button class="tab" data-tab="rules">Rules</button>
           <button class="tab" data-tab="spells">Spells</button>
           <button class="tab" data-tab="books">Books</button>
+          <button class="tab" data-tab="items">Items</button>
         </nav>
 
         <!-- Chat + AI DM -->
@@ -330,6 +331,14 @@
           </div>
           <div class="rules-foot">Rulebooks © Wizards of the Coast — linked from official free sources.</div>
         </div>
+
+        <!-- Magic items (SRD 5.1, CC-BY-4.0) -->
+        <div class="tabpane" id="tab-items">
+          <div class="rules-search"><input id="item-q" type="text" placeholder="Search magic items… (name, type, effect)" /></div>
+          <div class="spell-lvls" id="item-rars"></div>
+          <div id="item-content" class="rules-content"></div>
+          <div class="rules-foot"><span id="item-count"></span> · SRD 5.1 · CC-BY-4.0</div>
+        </div>
       </aside>
     </main>
 
@@ -458,9 +467,10 @@
 
   <audio id="remote-audio-container"></audio>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="bestiary.js"></script>
   <script src="app.js"></script>
   <script src="rules.js"></script>
   <script src="spells.js"></script>
-  <script src="bestiary.js"></script>
+  <script src="items.js"></script>
 </body>
 </html>
