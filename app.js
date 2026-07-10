@@ -317,8 +317,12 @@ function buildMonsters() {
   list.forEach((m) => {
     const b = document.createElement('button');
     b.className = 'mon-btn';
-    b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp${m.cr ? ' · CR ' + m.cr : ''}</em>`;
+    const canView = typeof window.hasStatBlock === 'function' && window.hasStatBlock(m.n);
+    b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp${m.cr ? ' · CR ' + m.cr : ''}</em>${canView ? '<span class="mon-info" title="View stat block">📖</span>' : ''}`;
     b.onclick = () => spawnMonster(m);
+    b.oncontextmenu = (e) => { if (canView) { e.preventDefault(); window.showStatBlock(m.n); } };
+    const info = b.querySelector('.mon-info');
+    if (info) info.onclick = (e) => { e.stopPropagation(); window.showStatBlock(m.n); };
     g.appendChild(b);
   });
 }
@@ -610,6 +614,9 @@ function showTokenCtx(t, px, py) {
   const hdr = document.createElement('div'); hdr.className = 'ctx-hdr';
   hdr.textContent = t.label || 'Token'; m.appendChild(hdr);
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
+  if (typeof window.hasStatBlock === 'function' && window.hasStatBlock(t.label)) {
+    row('📖', 'Stat block', () => { closeTokenCtx(); window.showStatBlock(t.label); });
+  }
   row('💥', 'Damage…', () => {
     const n = parseInt(prompt('Damage amount:', '5')); closeTokenCtx();
     if (n > 0) socket.emit('token:update', { id: t.id, hp: Math.max(0, tokenHP(t) - n) });
