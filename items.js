@@ -100,12 +100,16 @@
     if (q) list = list.filter((i) => (i.n + ' ' + i.y + ' ' + i.x).toLowerCase().includes(q));
     list.sort((a, b) => RARITY.indexOf(a.r) - RARITY.indexOf(b.r) || a.n.localeCompare(b.n));
     if (!list.length) { box.innerHTML = '<div class="rules-empty">No items match.</div>'; return; }
-    box.innerHTML = list.map((i) => `
+    box.innerHTML = list.map((i) => {
+      const dm = i.x.match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);
+      const rb = dm ? `<button class="sb-roll item-roll" data-name="${esc(i.n)}" data-n="${dm[1]}" data-die="${dm[2]}" data-mod="${dm[3] || 0}" title="Roll ${dm[0]}">🎲 ${dm[0]}</button>` : '';
+      return `
       <div class="spell" style="border-left:3px solid ${RCOLOR[i.r]}">
         <div class="spell-h"><span class="spell-n">${esc(i.n)}</span><span class="spell-lv" style="color:${RCOLOR[i.r]}">${esc(i.r)}</span></div>
         <div class="spell-meta">${esc(i.y)}${i.a ? ' · requires attunement' : ''}</div>
-        <div class="spell-x">${esc(i.x)}</div>
-      </div>`).join('');
+        <div class="spell-x">${esc(i.x)} ${rb}</div>
+      </div>`;
+    }).join('');
   }
 
   // Expose for the loot generator (weighted by rarity)
@@ -125,6 +129,15 @@
     const c = document.getElementById('item-count'); if (c) c.textContent = ITEMS.length + ' items';
     renderChips(); apply();
     q.addEventListener('input', apply);
+    const box = document.getElementById('item-content');
+    if (box) box.addEventListener('click', (e) => {
+      const rb = e.target.closest && e.target.closest('.item-roll'); if (!rb) return;
+      const n = parseInt(rb.dataset.n, 10) || 0, die = parseInt(rb.dataset.die, 10) || 0, dmod = parseInt(rb.dataset.mod, 10) || 0;
+      let sum = 0; const rolls = [];
+      for (let k = 0; k < n; k++) { const r = 1 + Math.floor(Math.random() * die); sum += r; rolls.push(r); }
+      sum += dmod;
+      if (typeof window.emitChat === 'function') window.emitChat(`💎 ${rb.dataset.name} — ${n}d${die}${dmod ? '+' + dmod : ''}: ${sum} (${rolls.join('+')}${dmod ? '+' + dmod : ''})`);
+    });
   }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
