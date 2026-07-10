@@ -216,6 +216,9 @@ function sendChat() {
   socket.emit('chat', { text }); $('chat-input').value = '';
 }
 $('dm-btn').onclick = () => { socket.emit('dm:ask', { text: $('chat-input').value.trim() }); $('chat-input').value = ''; };
+document.querySelectorAll('.dm-quick button').forEach((b) => {
+  b.onclick = () => socket.emit('dm:ask', { text: b.dataset.dm });
+});
 
 /* ============ DICE ============ */
 document.querySelectorAll('.die').forEach((b) => { b.onclick = () => rollFormula(`1d${b.dataset.die}`); });

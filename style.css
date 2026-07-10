@@ -177,6 +177,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .xp-out b { color: var(--gold); }
 .loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
 
+/* ===== AI DM quick prompts ===== */
+.dm-quick { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0 4px; }
+.dm-quick button { background: var(--panel-2); color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 12px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; }
+.dm-quick button:hover { border-color: var(--gold); background: var(--panel-3); color: var(--gold-bright); }
+
 /* ===== Grid size control (map modal) ===== */
 .grid-ctrl { margin: 10px 2px 4px; display: flex; flex-direction: column; gap: 6px; }
 .grid-ctrl label { font-size: 12.5px; color: #cdbf9e; }
