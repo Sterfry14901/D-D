@@ -1,6 +1,8 @@
 /* D&D VTT client. Talks to the server over Socket.io. */
 const socket = io();
 const $ = (id) => document.getElementById(id);
+// Let other scripts (bestiary.js) post to the shared chat/roll log.
+window.emitChat = (text) => socket.emit('chat', { text });
 
 let me = { id: null, name: '', color: '#c0392b', room: '', isGm: false };
 let gridSize = 70;

@@ -183,17 +183,53 @@
   function ab(v) { const m = Math.floor((v - 10) / 2); return v + ' (' + (m >= 0 ? '+' : '') + m + ')'; }
   function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
 
+  let sbCreature = '';
+  // Parse a "+7 to hit ... 2d6+4" style action into a rollable button.
+  function rollBtn(name, text) {
+    const h = text.match(/([+−+-]?\d+)\s*to hit/);
+    if (!h) return '';
+    const hit = parseInt(h[1].replace('−', '-'), 10);
+    const d = text.match(/(\d+)d(\d+)(?:\s*([+−-])\s*(\d+))?/);
+    let dn = 0, die = 0, dmod = 0;
+    if (d) { dn = +d[1]; die = +d[2]; dmod = d[3] ? (d[3] === '+' ? 1 : -1) * (+d[4]) : 0; }
+    return `<button class="sb-roll" data-name="${esc(name)}" data-hit="${hit}" data-n="${dn}" data-die="${die}" data-mod="${dmod}" title="Roll to hit + damage">🎲</button>`;
+  }
+  function actionRow(t) {
+    return `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])} ${rollBtn(t[0], t[1])}</div>`;
+  }
+
   window.hasStatBlock = function (name) { const k = ALIAS[name] !== undefined ? ALIAS[name] : name; return !!(k && SB[k]); };
 
   window.showStatBlock = function (name) {
     const key = ALIAS[name] !== undefined ? ALIAS[name] : name;
     const s = key && SB[key];
+    sbCreature = name;
     let modal = document.getElementById('sb-modal');
     if (!modal) {
       modal = document.createElement('div'); modal.id = 'sb-modal'; modal.className = 'overlay hidden';
       modal.innerHTML = '<div class="sb-card"><button class="sb-x" title="Close">✕</button><div id="sb-body"></div></div>';
       document.body.appendChild(modal);
-      modal.addEventListener('click', (e) => { if (e.target === modal || e.target.classList.contains('sb-x')) modal.classList.add('hidden'); });
+      modal.addEventListener('click', (e) => {
+        const rb = e.target.closest && e.target.closest('.sb-roll');
+        if (rb) {
+          e.stopPropagation();
+          const hit = parseInt(rb.dataset.hit, 10) || 0;
+          const n = parseInt(rb.dataset.n, 10) || 0, die = parseInt(rb.dataset.die, 10) || 0, dmod = parseInt(rb.dataset.mod, 10) || 0;
+          const d20 = 1 + Math.floor(Math.random() * 20);
+          const toHit = d20 + hit;
+          let dmgTxt = '';
+          if (n && die) {
+            let sum = 0; const rolls = [];
+            for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * die); sum += r; rolls.push(r); }
+            sum += dmod;
+            dmgTxt = ` · damage ${Math.max(0, sum)} (${n}d${die}${dmod ? (dmod > 0 ? '+' + dmod : dmod) : ''}: ${rolls.join('+')}${dmod ? (dmod > 0 ? '+' + dmod : dmod) : ''})`;
+          }
+          const crit = d20 === 20 ? ' 💥CRIT' : d20 === 1 ? ' ⚠️nat 1' : '';
+          if (typeof window.emitChat === 'function') window.emitChat(`🎲 ${sbCreature} — ${rb.dataset.name}: to hit ${toHit} (d20 ${d20}${hit >= 0 ? '+' + hit : hit})${crit}${dmgTxt}`);
+          return;
+        }
+        if (e.target === modal || e.target.classList.contains('sb-x')) modal.classList.add('hidden');
+      });
     }
     const body = document.getElementById('sb-body');
     if (!s) { body.innerHTML = `<div class="sb-name">${esc(name)}</div><div class="sb-none">No detailed stat block yet for this creature.</div>`; }
@@ -207,9 +243,9 @@
         <div class="sb-line"><b>Senses</b> ${esc(s.sen)} &nbsp; <b>CR</b> ${esc(s.cr)}</div>
         ${(s.tr || []).map((t) => `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])}</div>`).join('')}
         ${s.act ? '<div class="sb-h">Actions</div>' : ''}
-        ${(s.act || []).map((t) => `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])}</div>`).join('')}
+        ${(s.act || []).map(actionRow).join('')}
         ${s.rc ? '<div class="sb-h">Reactions / Legendary</div>' : ''}
-        ${(s.rc || []).map((t) => `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])}</div>`).join('')}
+        ${(s.rc || []).map(actionRow).join('')}
         <div class="sb-foot">SRD 5.1 · CC-BY-4.0</div>`;
     }
     modal.classList.remove('hidden');
