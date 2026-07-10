@@ -605,6 +605,33 @@ document.querySelectorAll('.draw-color').forEach((b) => {
 });
 if ($('draw-clear')) $('draw-clear').onclick = () => { if (confirm('Erase all drawings for everyone?')) socket.emit('draw:clear'); };
 
+/* ============ KEYBOARD SHORTCUTS ============ */
+document.addEventListener('keydown', (e) => {
+  if (!me.id) return;                       // not seated at the table yet
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const el = e.target;
+  if (el && ((el.matches && el.matches('input, textarea, select')) || el.isContentEditable)) return;
+  const gm = me.isGm;
+  const click = (id) => { const b = $(id); if (b && !b.classList.contains('hidden')) b.click(); };
+  switch (e.key.toLowerCase()) {
+    case 'r': click('ruler-btn'); e.preventDefault(); break;
+    case 'd': click('draw-btn'); e.preventDefault(); break;
+    case 'e': click('aoe-btn'); e.preventDefault(); break;
+    case 'f': if (gm) click('fog-btn'); e.preventDefault(); break;
+    case 'm': click('map-btn'); e.preventDefault(); break;
+    case 'c': click('open-cs'); e.preventDefault(); break;
+    case 'n': if (gm) { click('init-next'); e.preventDefault(); } break;
+    case ' ': if (gm) { click('init-next'); e.preventDefault(); } break;
+    case '=': case '+': click('zoom-in'); e.preventDefault(); break;
+    case '-': case '_': click('zoom-out'); e.preventDefault(); break;
+    case 'escape':
+      if (typeof closeTokenCtx === 'function') closeTokenCtx();
+      ['token-modal', 'map-modal', 'handout-modal', 'cs-modal', 'sb-modal'].forEach((id) => { const m = $(id); if (m) m.classList.add('hidden'); });
+      break;
+    case '?': alert('Keyboard shortcuts:\n  R   Ruler\n  D   Draw\n  E   AoE template\n  F   Fog (GM)\n  M   Battle maps\n  C   Character sheet\n  N / Space   Next turn (GM)\n  + / −   Zoom\n  Esc   Close menus'); e.preventDefault(); break;
+  }
+});
+
 /* ============ PINGS ============ */
 socket.on('ping', ({ x, y, color }) => showPing(x, y, color));
 function showPing(x, y, color) {
