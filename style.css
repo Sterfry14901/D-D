@@ -277,6 +277,8 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .tab.active { color: var(--gold-bright); border-bottom-color: var(--gold); background: rgba(217,177,84,0.08); }
 .tabpane { display: none; flex: 1; min-height: 0; flex-direction: column; padding: 14px; }
 .tabpane.active { display: flex; }
+/* Guarantee only the active tab shows, even for panes with an ID display rule. */
+.tabpane:not(.active) { display: none !important; }
 
 /* Chat */
 #chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-right: 5px; }
@@ -497,12 +499,13 @@ body:not(.is-gm) .gm-only { display: none !important; }
   z-index: 7; overflow-y: auto; overflow-x: hidden;
 }
 .topbar-actions::-webkit-scrollbar { width: 0; }
-.topbar-actions button.ghost {
+/* Rail buttons: show ONLY the leading emoji (labels hidden, names on hover via title). */
+.topbar-actions > button.ghost {
   width: 40px; height: 40px; min-width: 40px; padding: 0; border-radius: 10px;
-  font-size: 19px; line-height: 40px; text-align: center; overflow: hidden; white-space: nowrap;
-  display: flex; align-items: center; justify-content: center;
+  display: block; text-align: center; line-height: 40px; font-size: 0; overflow: hidden; white-space: nowrap;
   background: var(--r20-chrome2); border: 1px solid var(--r20-line); color: var(--ink); flex: 0 0 auto;
 }
+.topbar-actions > button.ghost::first-letter { font-size: 20px; }
 .topbar-actions button.ghost:hover { border-color: var(--gold); background: #262a35; transform: none; }
 .topbar-actions button.ghost.on, #voice-btn.on { border-color: var(--gold); }
 
@@ -533,13 +536,21 @@ body:not(.is-gm) .gm-only { display: none !important; }
   background: rgba(15,17,21,0.92); color: var(--gold-bright); border: 1px solid var(--r20-line);
   border-radius: 6px; padding: 2px 8px; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 700; }
 .tabs { background: #0e1013; border-bottom: 1px solid var(--r20-line); }
-.tab { font-size: 0; padding: 12px 2px; border-bottom: 2px solid transparent; }
-.tab::before { font-size: 20px; display: block; line-height: 1; }
+.tabs { flex-wrap: wrap; }
+.tab { font-size: 0; flex: 1 0 auto; min-width: 34px; padding: 10px 2px; text-align: center; border-bottom: 2px solid transparent; }
+.tab::before { font-size: 19px; display: block; line-height: 1; }
 .tab[data-tab="chat"]::before { content: "💬"; }
 .tab[data-tab="combat"]::before { content: "⚔️"; }
 .tab[data-tab="dice"]::before { content: "🎲"; }
 .tab[data-tab="sheet"]::before { content: "📋"; }
 .tab[data-tab="players"]::before { content: "👥"; }
+.tab[data-tab="journal"]::before { content: "📓"; }
+.tab[data-tab="rules"]::before { content: "📜"; }
+.tab[data-tab="spells"]::before { content: "🔮"; }
+.tab[data-tab="books"]::before { content: "📚"; }
+.tab[data-tab="items"]::before { content: "💎"; }
+.tab.active { border-bottom-color: var(--gold); }
+.tab:hover::before { filter: brightness(1.2); }
 .tab.active { background: rgba(217,177,84,0.10); border-bottom-color: var(--gold); }
 
 /* Player nameplate (bottom-left, like Roll20) */
