@@ -172,6 +172,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 .rules-empty { color: #9c8f74; font-size: 13px; padding: 12px 4px; }
 .rules-foot { font-size: 10px; color: #7d715a; text-align: center; padding-top: 6px; }
 
+/* ===== XP budget ===== */
+.xp-out { font-size: 12px; color: #dcd2bd; margin-top: 6px; line-height: 1.5; }
+.xp-out b { color: var(--gold); }
+.loot-row label input { background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 5px; padding: 3px 5px; font-family: inherit; }
+
 /* ===== Loot roller ===== */
 .loot-row { display: flex; gap: 6px; }
 .loot-row select { flex: 1; background: #120e08; color: var(--ink); border: 1px solid rgba(217,177,84,0.3); border-radius: 7px; padding: 6px 8px; font-family: inherit; font-size: 12px; }
