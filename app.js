@@ -896,6 +896,16 @@ function showTokenCtx(t, px, py) {
       hp: t.hp ?? null, maxhp: t.maxhp ?? null, vision: t.vision ?? null, light: t.light ?? null };
     socket.emit('token:add', c);
   });
+  (() => {
+    const SZ = [[1, 'Medium'], [2, 'Large'], [3, 'Huge'], [4, 'Gargantuan']];
+    const cur = Math.max(1, Math.min(4, Number(t.size) || 1));
+    const name = (SZ.find(([n]) => n === cur) || SZ[0])[1];
+    const nextName = (SZ.find(([n]) => n === (cur % 4) + 1) || SZ[0])[1];
+    row('📐', `Size: ${name} → ${nextName}`, () => {
+      closeTokenCtx();
+      socket.emit('token:update', { id: t.id, size: (cur % 4) + 1 });
+    });
+  })();
   row('⬆️', 'Bring to front', () => {
     closeTokenCtx();
     const zs = Object.values(tokenEls).map((e) => Number(e._token && e._token.z) || 0);
