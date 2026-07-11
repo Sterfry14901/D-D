@@ -1707,10 +1707,11 @@ $('aoe-btn').onclick = () => {
     rulerMode = false; $('ruler-btn').classList.remove('on'); $('board').classList.remove('ruler-on');
   }
 };
-[['circle','aoe-circle'],['cone','aoe-cone'],['line','aoe-line']].forEach(([shape, id]) => {
-  $(id).onclick = () => {
+[['circle','aoe-circle'],['cone','aoe-cone'],['line','aoe-line'],['rect','aoe-rect']].forEach(([shape, id]) => {
+  const btn = $(id); if (!btn) return;
+  btn.onclick = () => {
     aoeShape = shape;
-    ['aoe-circle','aoe-cone','aoe-line'].forEach((x) => $(x).classList.toggle('active', x === id));
+    ['aoe-circle','aoe-cone','aoe-line','aoe-rect'].forEach((x) => { const b = $(x); if (b) b.classList.toggle('active', x === id); });
   };
 });
 $('aoe-clear').onclick = () => socket.emit('aoe:clear');
@@ -1756,6 +1757,7 @@ function pointInTri(px, py, a, b, c) {
 function pointInAoe(a, px, py) {
   if (a.type === 'circle') return Math.hypot(px - a.x, py - a.y) <= ft2px(a.size);
   if (a.type === 'line') return distToSeg(px, py, a.x, a.y, a.x2, a.y2) <= ft2px(5) / 2;
+  if (a.type === 'rect') return px >= Math.min(a.x, a.x2) && px <= Math.max(a.x, a.x2) && py >= Math.min(a.y, a.y2) && py <= Math.max(a.y, a.y2);
   const dx = a.x2 - a.x, dy = a.y2 - a.y, len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len, pxp = -uy, pyp = ux, half = len * 0.5;
   const bx = a.x + ux * len, by = a.y + uy * len;
@@ -1792,6 +1794,11 @@ function aoeSvg(a) {
   if (a.type === 'line') {
     const w = ft2px(5);
     return `<line x1="${a.x}" y1="${a.y}" x2="${a.x2}" y2="${a.y2}" stroke="${col}" stroke-opacity="0.55" stroke-width="${w}" stroke-linecap="round" />`;
+  }
+  if (a.type === 'rect') {
+    const x = Math.min(a.x, a.x2), y = Math.min(a.y, a.y2);
+    const w = Math.abs(a.x2 - a.x), h = Math.abs(a.y2 - a.y);
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" ${common} />`;
   }
   // cone: apex at origin, spreads ~53° toward the drag point
   const dx = a.x2 - a.x, dy = a.y2 - a.y;
