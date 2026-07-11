@@ -734,6 +734,18 @@ function renderToken(t) {
     el = document.createElement('div'); el.className = 'token';
     el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="hpbar2"><i></i></div><div class="statuses"></div><div class="tk-death"></div><span class="tk-name"></span>`;
     $('tokens').appendChild(el); tokenEls[t.id] = el; makeDraggable(el);
+    // Scroll wheel over a token nudges its HP (±1, or ±5 with Shift). GM or the token's owner only.
+    el.addEventListener('wheel', (ev) => {
+      const tk = el._token; if (!tk) return;
+      if (!(Number(tk.maxhp) > 0)) return;
+      if (!(me.isGm || tk.ownerId === me.id)) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const step = ev.shiftKey ? 5 : 1;
+      const dir = ev.deltaY < 0 ? 1 : -1;
+      const mx = Number(tk.maxhp);
+      const next = Math.max(0, Math.min(mx, (Number(tk.hp) || 0) + dir * step));
+      if (next !== (Number(tk.hp) || 0)) socket.emit('token:update', { id: tk.id, hp: next });
+    }, { passive: false });
   }
   el._token = t;
   el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
