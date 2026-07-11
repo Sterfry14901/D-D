@@ -137,6 +137,23 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+// Airtight GM layer: hidden tokens never leave the server for non-GM players.
+function tokensFor(room, socketId) {
+  if (isGm(room, socketId)) return room.tokens;
+  const out = {};
+  for (const [id, t] of Object.entries(room.tokens || {})) if (!t || !t.hidden) out[id] = t;
+  return out;
+}
+// Emit a token event per-socket, respecting each viewer's visibility.
+function emitTokenPerSocket(room, ev, token, extra) {
+  for (const sid of Object.keys(room.players || {})) {
+    if (token && token.hidden && !isGm(room, sid)) {
+      io.to(sid).emit('token:remove', token.id); // players must not hold a hidden token
+    } else {
+      io.to(sid).emit(ev, extra || token);
+    }
+  }
+}
 function rid() { return Math.random().toString(36).slice(2, 9); }
 
 // ---- AI Dungeon Master ----
@@ -231,7 +248,7 @@ io.on('connection', (socket) => {
     room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
 
     socket.emit('state', {
-      tokens: room.tokens,
+      tokens: tokensFor(room, socket.id),
       chat: room.chat.slice(-100),
       mapImage: room.mapImage,
       gridSize: room.gridSize,
@@ -262,17 +279,23 @@ io.on('connection', (socket) => {
     token.id = token.id || 't_' + rid();
     token.ownerId = socket.id;
     room.tokens[token.id] = token;
-    io.to(joinedRoom).emit('token:add', token);
+    emitTokenPerSocket(room, 'token:add', token);
   });
   socket.on('token:move', ({ id, x, y }) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[id]) return;
     room.tokens[id].x = x; room.tokens[id].y = y;
-    socket.to(joinedRoom).emit('token:move', { id, x, y });
+    const t = room.tokens[id];
+    // Hidden tokens: only GMs (other than the mover) receive live movement.
+    for (const sid of Object.keys(room.players || {})) {
+      if (sid === socket.id) continue;
+      if (t.hidden && !isGm(room, sid)) continue;
+      io.to(sid).emit('token:move', { id, x, y });
+    }
   });
   socket.on('token:update', (token) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
     room.tokens[token.id] = { ...room.tokens[token.id], ...token };
-    io.to(joinedRoom).emit('token:update', room.tokens[token.id]);
+    emitTokenPerSocket(room, 'token:update', room.tokens[token.id]);
   });
   socket.on('token:remove', (id) => {
     const room = rooms.get(joinedRoom); if (!room) return;
@@ -484,7 +507,7 @@ io.on('connection', (socket) => {
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
-        tokens: room.tokens, chat: room.chat.slice(-100), mapImage: room.mapImage,
+        tokens: tokensFor(room, sid), chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
         fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,

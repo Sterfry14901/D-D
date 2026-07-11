@@ -662,7 +662,7 @@ $('addtoken-btn').onclick = () => {
   socket.emit('token:add', { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), size: 1, statuses: [] });
 };
 socket.on('token:add', (t) => { renderToken(t); refreshLighting(); });
-socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); refreshLighting(); } });
+socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); refreshLighting(); } else { renderToken(t); refreshLighting(); } });
 socket.on('token:move', ({ id, x, y }) => {
   const el = tokenEls[id]; if (!el) return;
   el.style.left = x + 'px'; el.style.top = y + 'px'; el._token.x = x; el._token.y = y;
