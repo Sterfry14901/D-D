@@ -368,6 +368,9 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .msg.roll .who { color: #93d68a; }
 .msg.roll .who::before { content: "🎲 "; }
 .msg.system { background: transparent; border: none; color: var(--muted); font-size: 12px; text-align: center; font-style: italic; box-shadow: none; }
+.msg.whisper { background: rgba(150,110,200,0.12); border: 1px solid rgba(160,120,210,0.45); }
+.msg.whisper .who { color: #c8a9ec; text-transform: none; }
+.msg.whisper .wto { color: #a888d8; font-style: normal; font-weight: 700; }
 .dm-typing { color: #c4a6f7; font-style: italic; font-size: 13px; padding: 6px 2px; }
 .dm-typing::after { content: " ✦"; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .3; } }

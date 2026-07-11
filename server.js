@@ -530,6 +530,27 @@ io.on('connection', (socket) => {
     const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'roll', text: `rolled ${formula} → ${result}  (${detail})`, ts: Date.now() };
     room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
+  // Private whisper: player → GM(s), or GM → a named player. Not persisted to room history.
+  socket.on('chat:whisper', ({ to, text }) => {
+    const room = rooms.get(joinedRoom); if (!room || !text || !text.trim()) return;
+    const from = room.players[socket.id]; if (!from) return;
+    const sysTo = (t) => io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: t, ts: Date.now() });
+    const targets = [];
+    let label;
+    if (from.isGm && to && to.trim()) {
+      const tName = to.trim().toLowerCase();
+      for (const [sid, pl] of Object.entries(room.players)) if ((pl.name || '').toLowerCase() === tName) targets.push(sid);
+      if (!targets.length) { sysTo(`No player named "${to.trim()}" is at the table.`); return; }
+      label = `→ ${to.trim()}`;
+    } else {
+      for (const [sid, pl] of Object.entries(room.players)) if (pl.isGm) targets.push(sid);
+      if (!targets.length) { sysTo('No GM is at the table to whisper to.'); return; }
+      label = '→ GM';
+    }
+    const msg = { id: 'm_' + rid(), author: from.name || 'Someone', role: 'whisper', whisperTo: label, text: text.trim(), ts: Date.now() };
+    const set = new Set(targets); set.add(socket.id);
+    set.forEach((sid) => io.to(sid).emit('chat', msg));
+  });
   socket.on('dm:ask', async ({ text }) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     const p = room.players[socket.id];

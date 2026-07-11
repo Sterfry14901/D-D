@@ -197,6 +197,7 @@ function addChat(m) {
   const div = document.createElement('div');
   div.className = 'msg ' + (m.role || 'player');
   if (m.role === 'system') div.textContent = m.text;
+  else if (m.role === 'whisper') div.innerHTML = `<span class="who">🔒 ${escapeHtml(m.author)} <em class="wto">${escapeHtml(m.whisperTo || '')}</em></span>${escapeHtml(m.text)}`;
   else div.innerHTML = `<span class="who">${escapeHtml(m.author)}</span>${escapeHtml(m.text)}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
@@ -218,8 +219,23 @@ function sendChat() {
   const text = $('chat-input').value.trim(); if (!text) return;
   const cmd = text.match(/^\/(?:roll|r)\s+(.+)$/i);
   if (cmd) { chatRoll(cmd[1]); $('chat-input').value = ''; return; }
+  const wm = text.match(/^\/(?:w|whisper|gm)\b\s*(.*)$/i);
+  if (wm) { chatWhisper(wm[1]); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
 }
+// Private whisper: player → GM with /w <message>; GM → player with /w <name> <message> or /w <name>: <message>.
+function chatWhisper(rest) {
+  rest = (rest || '').trim();
+  let to = '';
+  if (me.isGm) {
+    const c = rest.match(/^([^:]+):\s*(.+)$/);
+    if (c) { to = c[1].trim(); rest = c[2].trim(); }
+    else { const sp = rest.match(/^(\S+)\s+(.+)$/); if (sp) { to = sp[1]; rest = sp[2].trim(); } }
+  }
+  if (!rest) { addChat({ role: 'system', text: me.isGm ? 'Usage: /w <player> <message>' : 'Usage: /w <message to the GM>' }); return; }
+  socket.emit('chat:whisper', { to, text: rest });
+}
+
 // Roll20-style /roll parser in the chat box: /roll 2d6+3, /r 1d20 adv, /roll d100
 function chatRoll(expr) {
   const advm = /\b(adv|advantage)\b/i.test(expr);
