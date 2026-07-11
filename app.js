@@ -730,6 +730,14 @@ socket.on('token:move', ({ id, x, y }) => {
 });
 socket.on('token:remove', (id) => { if (tokenEls[id]) { tokenEls[id].remove(); delete tokenEls[id]; refreshLighting(); } if (id === linkedToken) { linkedToken = null; localStorage.removeItem('dnd-link-' + me.room); } });
 
+// Pick black or white text for legibility on a given token color (WCAG-ish luminance).
+function contrastText(hex) {
+  const h = String(hex || '#888').replace('#', '');
+  const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(n.substr(0, 2), 16) || 0, g = parseInt(n.substr(2, 2), 16) || 0, b = parseInt(n.substr(4, 2), 16) || 0;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? '#12100a' : '#f6efdd';
+}
 function hexA(hex, a) {
   const h = String(hex || '#f2cf7a').replace('#', '');
   const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
@@ -770,8 +778,12 @@ function styleToken(el, t) {
   el.style.width = s + 'px'; el.style.height = s + 'px';
   el.style.setProperty('--tk', s + 'px');
   const lbl = el.querySelector('.lbl');
-  if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; }
-  else { el.style.background = t.color; if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; } else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; } }
+  if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; lbl.style.color = ''; }
+  else {
+    el.style.background = t.color;
+    if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; lbl.style.color = ''; }
+    else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; lbl.style.color = contrastText(t.color); }
+  }
   el.classList.toggle('mine', t.ownerId === me.id);
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
