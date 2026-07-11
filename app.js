@@ -1792,8 +1792,16 @@ const aoeSizeFt = () => Math.max(5, parseInt($('aoe-size').value) || 20);
 const ft2px = (ft) => (ft / 5) * gridSize;
 
 function previewFrom(e) {
-  const c = snapPt(boardCoords(e));
+  let c = snapPt(boardCoords(e));
   if (aoeShape === 'circle') return { type: 'circle', x: aoeStart.x, y: aoeStart.y, size: aoeSizeFt(), color: me.color };
+  // Hold Shift to snap the cone/line direction to the nearest 45°.
+  if (e.shiftKey && (aoeShape === 'cone' || aoeShape === 'line')) {
+    const dx = c.x - aoeStart.x, dy = c.y - aoeStart.y;
+    const dist = Math.hypot(dx, dy);
+    const step = Math.PI / 4;
+    const ang = Math.round(Math.atan2(dy, dx) / step) * step;
+    c = { x: aoeStart.x + Math.cos(ang) * dist, y: aoeStart.y + Math.sin(ang) * dist };
+  }
   return { type: aoeShape, x: aoeStart.x, y: aoeStart.y, x2: c.x, y2: c.y, size: aoeSizeFt(), color: me.color };
 }
 function finalizeAoe(e) {
