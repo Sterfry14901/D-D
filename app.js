@@ -13,6 +13,7 @@ let fog = { active: false, hidden: {} };
 let fogMode = false;        // GM painting mode
 let fogPaintHide = true;    // paint hides (true) or reveals (false)
 let fogPainting = false;
+let fogBrush = 1;           // brush size in cells (odd: 1, 3, 5)
 let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
 let walls = {};             // "cx,cy": true — sight-blocking cells
 let lighting = false;       // dynamic line-of-sight active
@@ -1161,6 +1162,13 @@ function setPaintTarget(t) {
 $('fog-paint-hide').onclick = () => setPaintTarget('hide');
 $('fog-paint-reveal').onclick = () => setPaintTarget('reveal');
 $('fog-paint-wall').onclick = () => setPaintTarget('wall');
+[['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
+  const b = $(id); if (!b) return;
+  b.onclick = () => {
+    fogBrush = n;
+    ['fog-brush-1', 'fog-brush-3', 'fog-brush-5'].forEach((x) => { const el = $(x); if (el) el.classList.toggle('active', x === id); });
+  };
+});
 $('fog-cover-all').onclick = () => socket.emit('fog:all', true);
 $('fog-clear-all').onclick = () => socket.emit('fog:all', false);
 $('wall-clear').onclick = () => socket.emit('wall:clear');
@@ -1171,19 +1179,23 @@ function paintFog(e) {
   const c = boardCoords(e);
   const cx = Math.floor(c.x / gridSize), cy = Math.floor(c.y / gridSize);
   if (cx < 0 || cy < 0) return;
-  const key = `${cx},${cy}`;
-  if (paintTarget === 'wall') {
-    if (walls[key]) return;
-    walls[key] = true;
-    socket.emit('wall:cell', { key, on: true });
-    renderWalls(); refreshLighting();
-    return;
+  const r = Math.floor(Math.max(1, fogBrush) / 2);
+  let touchedFog = false, touchedWall = false;
+  for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+    const x = cx + dx, y = cy + dy; if (x < 0 || y < 0) continue;
+    const key = `${x},${y}`;
+    if (paintTarget === 'wall') {
+      if (walls[key]) continue;
+      walls[key] = true; socket.emit('wall:cell', { key, on: true }); touchedWall = true;
+    } else {
+      const wantHidden = (paintTarget === 'hide');
+      if (!!fog.hidden[key] === wantHidden) continue;
+      if (wantHidden) fog.hidden[key] = true; else delete fog.hidden[key];
+      socket.emit('fog:cell', { key, hidden: wantHidden }); touchedFog = true;
+    }
   }
-  const wantHidden = (paintTarget === 'hide');
-  if (!!fog.hidden[key] === wantHidden) return;
-  if (wantHidden) fog.hidden[key] = true; else delete fog.hidden[key];
-  socket.emit('fog:cell', { key, hidden: wantHidden });
-  renderFog();
+  if (touchedWall) { renderWalls(); refreshLighting(); }
+  if (touchedFog) renderFog();
 }
 
 /* ============ DYNAMIC LIGHTING ============ */
