@@ -680,7 +680,7 @@ function renderToken(t) {
   let el = tokenEls[t.id];
   if (!el) {
     el = document.createElement('div'); el.className = 'token';
-    el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="hpbar2"><i></i></div><div class="statuses"></div><div class="tk-death"></div>`;
+    el.innerHTML = `<div class="tk-aura"></div><span class="lbl"></span><div class="hpbar"><i></i></div><div class="hpbar2"><i></i></div><div class="statuses"></div><div class="tk-death"></div><span class="tk-name"></span>`;
     $('tokens').appendChild(el); tokenEls[t.id] = el; makeDraggable(el);
   }
   el._token = t;
@@ -700,6 +700,7 @@ function styleToken(el, t) {
   if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; }
   else { el.style.background = t.color; if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; } else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; } }
   el.classList.toggle('mine', t.ownerId === me.id);
+  const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
   if (t.maxhp && Number(t.maxhp) > 0) {
@@ -1697,6 +1698,19 @@ socket.on('handout:clear', () => { hideHandout(); $('handout-img').src = ''; });
 $('handout-close').onclick = hideHandout;                        // dismiss on my screen only
 $('handout-remove').onclick = () => socket.emit('handout:clear'); // GM removes for everyone
 $('handout-modal').addEventListener('click', (e) => { if (e.target.id === 'handout-modal') hideHandout(); });
+
+/* ============ TOKEN NAMEPLATES ============ */
+(function () {
+  const btn = $('names-btn'); if (!btn) return;
+  const on = localStorage.getItem('dnd-names') === '1';
+  document.body.classList.toggle('show-names', on);
+  btn.classList.toggle('on', on);
+  btn.onclick = () => {
+    const now = document.body.classList.toggle('show-names');
+    btn.classList.toggle('on', now);
+    localStorage.setItem('dnd-names', now ? '1' : '0');
+  };
+})();
 
 /* ============ SPELL / AoE TEMPLATES ============ */
 $('aoe-btn').onclick = () => {

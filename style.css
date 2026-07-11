@@ -179,6 +179,11 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 
 /* ===== Multi-select tokens ===== */
 .token.selected { outline: 2px solid #4a9fe0; outline-offset: 2px; box-shadow: 0 0 10px rgba(74,159,224,0.7); }
+.token .tk-name { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 3px); display: none;
+  white-space: nowrap; font: 600 11px/1.2 "Cinzel", serif; color: #f2e6c8; padding: 1px 6px;
+  background: rgba(15,12,8,0.82); border: 1px solid rgba(217,177,84,0.5); border-radius: 6px;
+  text-shadow: 0 1px 2px #000; pointer-events: none; z-index: 2; }
+body.show-names .token .tk-name:not(:empty) { display: block; }
 
 /* ===== GM-hidden tokens (invisible to players, dimmed for GM) ===== */
 .token.gm-hidden { opacity: 0.45; outline: 2px dashed rgba(217,177,84,0.7); outline-offset: 1px; }
