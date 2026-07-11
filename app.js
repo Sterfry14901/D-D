@@ -224,6 +224,19 @@ document.querySelectorAll('.dm-quick button').forEach((b) => {
 
 /* ============ DICE ============ */
 document.querySelectorAll('.die').forEach((b) => { b.onclick = () => rollFormula(`1d${b.dataset.die}`); });
+// One-tap dice-tray presets (advantage/disadvantage + common formulas).
+document.querySelectorAll('#dice-presets button').forEach((b) => {
+  b.onclick = () => {
+    const p = b.dataset.preset;
+    if (p === 'adv' || p === 'dis') {
+      $('adv').checked = (p === 'adv'); $('dis').checked = (p === 'dis');
+      rollFormula('1d20');
+      $('adv').checked = false; $('dis').checked = false;
+    } else {
+      rollFormula(p);
+    }
+  };
+});
 $('dice-roll').onclick = () => rollFormula($('dice-formula').value.trim() || '1d20');
 $('dice-formula').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('dice-roll').click(); });
 function rollDie(s) { return Math.floor(Math.random() * s) + 1; }

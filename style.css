@@ -386,6 +386,12 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .dice-custom input { flex: 1; padding: 11px 13px; border-radius: 9px; border: 1px solid var(--line); background: #120e09; color: var(--ink); }
 .dice-mods { display: flex; gap: 16px; align-items: center; margin-top: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
 .dice-mods input[type=number] { background: #120e09; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 4px; }
+.dice-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.dice-presets button { padding: 6px 10px; font-size: 12px; font-weight: 700; border-radius: 8px;
+  border: 1px solid var(--line-gold); background: rgba(217,177,84,0.08); color: var(--gold-bright); cursor: pointer;
+  transition: background .12s, box-shadow .12s; }
+.dice-presets button:hover { background: rgba(217,177,84,0.22); box-shadow: 0 0 8px rgba(217,177,84,0.3); }
+.dice-presets button:active { transform: translateY(1px); }
 .dice-result { margin-top: 20px; font-size: 15px; min-height: 70px; text-align: center; }
 .dice-result .big { font-size: 56px; font-weight: 700; line-height: 1.1;
   background: linear-gradient(180deg, var(--gold-bright), var(--gold) 60%, #9c7a2e);
