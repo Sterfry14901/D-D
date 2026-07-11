@@ -760,10 +760,12 @@ function renderToken(t) {
 function styleToken(el, t) {
   const s = (t.size || 1) * 64;
   el.style.width = s + 'px'; el.style.height = s + 'px';
+  el.style.setProperty('--tk', s + 'px');
   const lbl = el.querySelector('.lbl');
   if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; }
   else { el.style.background = t.color; if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; } else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; } }
   el.classList.toggle('mine', t.ownerId === me.id);
+  el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');

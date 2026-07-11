@@ -179,6 +179,10 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 
 /* ===== Multi-select tokens ===== */
 .token.selected { outline: 2px solid #4a9fe0; outline-offset: 2px; box-shadow: 0 0 10px rgba(74,159,224,0.7); }
+.token.downed { filter: grayscale(0.65) brightness(0.68); }
+.token.downed::after { content: '✕'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #d13b2c; font-weight: 900; font-size: calc(var(--tk, 64px) * 0.72); line-height: 1; text-shadow: 0 0 5px #000, 0 0 3px #000;
+  pointer-events: none; z-index: 4; }
 .token .tk-name { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 3px); display: none;
   white-space: nowrap; font: 600 11px/1.2 "Cinzel", serif; color: #f2e6c8; padding: 1px 6px;
   background: rgba(15,12,8,0.82); border: 1px solid rgba(217,177,84,0.5); border-radius: 6px;
