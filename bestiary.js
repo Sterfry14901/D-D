@@ -210,6 +210,16 @@
       modal.innerHTML = '<div class="sb-card"><button class="sb-x" title="Close">✕</button><div id="sb-body"></div></div>';
       document.body.appendChild(modal);
       modal.addEventListener('click', (e) => {
+        const ac = e.target.closest && e.target.closest('.sb-abil');
+        if (ac) {
+          e.stopPropagation();
+          const mod = parseInt(ac.dataset.mod, 10) || 0;
+          const d20 = 1 + Math.floor(Math.random() * 20);
+          const total = d20 + mod;
+          const crit = d20 === 20 ? ' 💥nat 20' : d20 === 1 ? ' ⚠️nat 1' : '';
+          if (typeof window.emitChat === 'function') window.emitChat(`🎲 ${sbCreature} — ${ac.dataset.abil} save/check: ${total} (d20 ${d20}${mod >= 0 ? '+' + mod : mod})${crit}`);
+          return;
+        }
         const rb = e.target.closest && e.target.closest('.sb-roll');
         if (rb) {
           e.stopPropagation();
@@ -239,7 +249,7 @@
         <div class="sb-name">${esc(name)}</div>
         <div class="sb-type">${esc(s.m)}</div>
         <div class="sb-line"><b>AC</b> ${esc(String(s.ac))} &nbsp; <b>HP</b> ${esc(s.hp)} &nbsp; <b>Speed</b> ${esc(s.sp)}</div>
-        <div class="sb-abils">${s.a.map((v, i) => `<div><span>${abil[i]}</span>${ab(v)}</div>`).join('')}</div>
+        <div class="sb-abils">${s.a.map((v, i) => { const m = Math.floor((v - 10) / 2); return `<div class="sb-abil" data-abil="${abil[i]}" data-mod="${m}" title="Roll a d20 ${m >= 0 ? '+' : ''}${m} save/check"><span>${abil[i]}</span>${ab(v)}</div>`; }).join('')}</div>
         <div class="sb-line"><b>Senses</b> ${esc(s.sen)} &nbsp; <b>CR</b> ${esc(s.cr)}</div>
         ${(s.tr || []).map((t) => `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])}</div>`).join('')}
         ${s.act ? '<div class="sb-h">Actions</div>' : ''}

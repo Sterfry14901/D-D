@@ -265,6 +265,8 @@ body.show-names .token .tk-name:not(:empty) { display: block; }
 .sb-line b { color: var(--gold); }
 .sb-abils { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 8px 0; text-align: center; }
 .sb-abils > div { background: rgba(217,177,84,0.08); border-radius: 6px; padding: 4px 2px; font-size: 11px; }
+.sb-abils > div.sb-abil { cursor: pointer; transition: background .12s, box-shadow .12s; }
+.sb-abils > div.sb-abil:hover { background: rgba(217,177,84,0.22); box-shadow: 0 0 0 1px var(--line-gold) inset; }
 .sb-abils span { display: block; font-weight: 800; color: var(--gold); font-size: 10px; }
 .sb-h { font-family: 'Cinzel', Georgia, serif; color: var(--gold-bright); border-bottom: 1px solid var(--gold); font-size: 13px; margin: 10px 0 6px; padding-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
 .sb-p { font-size: 12.5px; line-height: 1.5; margin-bottom: 6px; color: #ddd3bd; }
