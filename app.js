@@ -700,6 +700,7 @@ function styleToken(el, t) {
   if (t.img) { el.style.background = `center/cover url(${t.img})`; lbl.textContent = ''; lbl.className = 'lbl'; }
   else { el.style.background = t.color; if (t.emoji) { lbl.textContent = t.emoji; lbl.className = 'lbl emoji'; } else { lbl.textContent = t.label || ''; lbl.className = 'lbl'; } }
   el.classList.toggle('mine', t.ownerId === me.id);
+  if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
   if (t.maxhp && Number(t.maxhp) > 0) {
     bar.style.display = 'block';
@@ -893,6 +894,18 @@ function showTokenCtx(t, px, py) {
       statuses: [...(t.statuses || [])], emoji: t.emoji || '', img: t.img || null,
       hp: t.hp ?? null, maxhp: t.maxhp ?? null, vision: t.vision ?? null, light: t.light ?? null };
     socket.emit('token:add', c);
+  });
+  row('⬆️', 'Bring to front', () => {
+    closeTokenCtx();
+    const zs = Object.values(tokenEls).map((e) => Number(e._token && e._token.z) || 0);
+    const top = zs.length ? Math.max(...zs) : 0;
+    socket.emit('token:update', { id: t.id, z: top + 1 });
+  });
+  row('⬇️', 'Send to back', () => {
+    closeTokenCtx();
+    const zs = Object.values(tokenEls).map((e) => Number(e._token && e._token.z) || 0);
+    const bot = zs.length ? Math.min(...zs) : 0;
+    socket.emit('token:update', { id: t.id, z: bot - 1 });
   });
   row('🎯', 'Center camera', () => { closeTokenCtx(); centerOnToken(t); });
   row('🗑️', 'Delete', () => { closeTokenCtx(); if (confirm('Delete this token?')) socket.emit('token:remove', t.id); }, 'danger');
