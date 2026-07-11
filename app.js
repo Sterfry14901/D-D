@@ -1077,9 +1077,11 @@ function updateTurnBanner() {
   if (combat.list.length) {
     const s = Math.floor((Date.now() - combat.turnStart) / 1000);
     const mm = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
-    banner.textContent = `⚔️ Round ${combat.round} · ${combat.list[combat.turnIndex].name} · ${mm}:${ss}`;
+    const slow = s >= 60;
+    banner.textContent = `⚔️ Round ${combat.round} · ${combat.list[combat.turnIndex].name} · ${mm}:${ss}${slow ? ' ⏳' : ''}`;
     banner.classList.remove('hidden');
-  } else banner.classList.add('hidden');
+    banner.classList.toggle('long-turn', slow);
+  } else { banner.classList.add('hidden'); banner.classList.remove('long-turn'); }
 }
 setInterval(() => { if (combat.list.length) updateTurnBanner(); }, 1000);
 
