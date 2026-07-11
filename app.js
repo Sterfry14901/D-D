@@ -613,7 +613,7 @@ function snapPt(p) {
 let panning = false, panStart = null;
 $('board-wrap').addEventListener('mousedown', (e) => {
   if (e.target.closest('.token')) return;
-  if (e.altKey) { const c = boardCoords(e); socket.emit('ping', c); showPing(c.x, c.y, me.color); return; }
+  if (e.altKey) { const c = boardCoords(e); socket.emit('ping', c); showPing(c.x, c.y, me.color, me.name); return; }
   if (aoeMode) { aoeStart = snapPt(boardCoords(e)); e.preventDefault(); return; }
   if (rulerMode) { rulerStart = snapPt(boardCoords(e)); e.preventDefault(); return; }
   if (fogMode && me.isGm) { paintFog(e); return; }
@@ -700,13 +700,21 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ============ PINGS ============ */
-socket.on('ping', ({ x, y, color }) => showPing(x, y, color));
-function showPing(x, y, color) {
+socket.on('ping', ({ x, y, color, name }) => showPing(x, y, color, name));
+function showPing(x, y, color, name) {
   const el = document.createElement('div');
   el.className = 'ping'; el.style.left = x + 'px'; el.style.top = y + 'px';
   el.style.borderColor = color || '#d9b154';
   $('pings').appendChild(el);
   setTimeout(() => el.remove(), 2200);
+  if (name) {
+    const lbl = document.createElement('div');
+    lbl.className = 'ping-name'; lbl.textContent = name;
+    lbl.style.color = color || '#d9b154';
+    lbl.style.left = x + 'px'; lbl.style.top = y + 'px';
+    $('pings').appendChild(lbl);
+    setTimeout(() => lbl.remove(), 2200);
+  }
 }
 
 /* ============ TOKENS ============ */

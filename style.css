@@ -721,6 +721,10 @@ body:not(.is-gm) .gm-only { display: none !important; }
 
 /* Pings */
 .ping { position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px; border: 4px solid var(--gold); border-radius: 50%; pointer-events: none; animation: pingAnim 2.2s ease-out forwards; }
+.ping-name { position: absolute; transform: translate(-50%, calc(-100% - 32px)); white-space: nowrap; pointer-events: none;
+  font: 700 12px/1.2 "Cinzel", serif; padding: 2px 8px; background: rgba(12,10,7,0.86); border: 1px solid currentColor;
+  border-radius: 8px; text-shadow: 0 1px 2px #000; animation: pingNameFade 2.2s ease-out forwards; }
+@keyframes pingNameFade { 0%{opacity:0;} 15%{opacity:1;} 75%{opacity:1;} 100%{opacity:0;} }
 @keyframes pingAnim {
   0% { transform: scale(0.2); opacity: 0; }
   15% { opacity: 1; }
