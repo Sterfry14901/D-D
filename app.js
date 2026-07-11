@@ -215,7 +215,29 @@ $('send-btn').onclick = sendChat;
 $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 function sendChat() {
   const text = $('chat-input').value.trim(); if (!text) return;
+  const cmd = text.match(/^\/(?:roll|r)\s+(.+)$/i);
+  if (cmd) { chatRoll(cmd[1]); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
+}
+// Roll20-style /roll parser in the chat box: /roll 2d6+3, /r 1d20 adv, /roll d100
+function chatRoll(expr) {
+  const advm = /\b(adv|advantage)\b/i.test(expr);
+  const dism = /\b(dis|disadvantage)\b/i.test(expr);
+  const clean = expr.replace(/\b(adv|advantage|dis|disadvantage)\b/ig, '').trim();
+  const m = clean.match(/^(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i);
+  if (!m) { socket.emit('chat', { text: `⚠️ ${me.name}: couldn't parse "/roll ${expr}". Try 2d6+3, 1d20 adv, or d100.` }); return; }
+  const count = parseInt(m[1] || '1'), sides = parseInt(m[2]), bonus = parseInt((m[3] || '0').replace(/\s/g, ''));
+  if (count < 1 || count > 100 || sides < 2 || sides > 1000) { socket.emit('chat', { text: `⚠️ ${me.name}: dice out of range (1–100 dice, 2–1000 sides).` }); return; }
+  let total = 0, detail = '';
+  if (sides === 20 && count === 1 && (advm || dism)) {
+    const a = rollDie(20), b = rollDie(20), pick = advm ? Math.max(a, b) : Math.min(a, b);
+    total = pick + bonus; detail = `${advm ? 'ADV' : 'DIS'} [${a},${b}]→${pick}${bonus ? fmtMod(bonus) : ''}`;
+  } else {
+    const rolls = []; for (let i = 0; i < count; i++) { const r = rollDie(sides); rolls.push(r); total += r; }
+    total += bonus; detail = `[${rolls.join(',')}]${bonus ? fmtMod(bonus) : ''}`;
+  }
+  const label = `${count}d${sides}${bonus ? fmtMod(bonus) : ''}${advm ? ' adv' : dism ? ' dis' : ''}`;
+  socket.emit('roll', { formula: (me.name ? me.name + ' — ' : '') + label, result: total, detail });
 }
 $('dm-btn').onclick = () => { socket.emit('dm:ask', { text: $('chat-input').value.trim() }); $('chat-input').value = ''; };
 document.querySelectorAll('.dm-quick button').forEach((b) => {
