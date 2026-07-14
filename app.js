@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 window.emitChat = (text) => socket.emit('chat', { text });
 
 let me = { id: null, name: '', color: '#c0392b', room: '', isGm: false };
+let lastWhisperFrom = null;   // most recent person who whispered me (for /reply)
 let gridSize = 70;
 let zoom = 1;
 const BOARD_W = 2100, BOARD_H = 1400;
@@ -197,7 +198,10 @@ function addChat(m) {
   const div = document.createElement('div');
   div.className = 'msg ' + (m.role || 'player');
   if (m.role === 'system') div.textContent = m.text;
-  else if (m.role === 'whisper') div.innerHTML = `<span class="who">🔒 ${escapeHtml(m.author)} <em class="wto">${escapeHtml(m.whisperTo || '')}</em></span>${escapeHtml(m.text)}`;
+  else if (m.role === 'whisper') {
+    if (m.author && m.author !== me.name) lastWhisperFrom = m.author;
+    div.innerHTML = `<span class="who">🔒 ${escapeHtml(m.author)} <em class="wto">${escapeHtml(m.whisperTo || '')}</em></span>${escapeHtml(m.text)}`;
+  }
   else div.innerHTML = `<span class="who">${escapeHtml(m.author)}</span>${escapeHtml(m.text)}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
@@ -219,6 +223,14 @@ function sendChat() {
   const text = $('chat-input').value.trim(); if (!text) return;
   const cmd = text.match(/^\/(?:roll|r)\s+(.+)$/i);
   if (cmd) { chatRoll(cmd[1]); $('chat-input').value = ''; return; }
+  const rm = text.match(/^\/(?:reply|wr)\b\s*(.*)$/i);
+  if (rm) {
+    const body = (rm[1] || '').trim();
+    if (!body) { addChat({ role: 'system', text: 'Usage: /reply <message>' }); }
+    else if (!lastWhisperFrom) { addChat({ role: 'system', text: 'No one has whispered you yet.' }); }
+    else { socket.emit('chat:whisper', { to: lastWhisperFrom, text: body }); }
+    $('chat-input').value = ''; return;
+  }
   const wm = text.match(/^\/(?:w|whisper|gm)\b\s*(.*)$/i);
   if (wm) { chatWhisper(wm[1]); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
