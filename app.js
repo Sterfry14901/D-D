@@ -1261,7 +1261,14 @@ function renderInit(list, turnIndex, round) {
     ol.appendChild(li);
   });
   const key = (round || 1) + ':' + turnIndex;
-  if (key !== combat._key) { combat.turnStart = Date.now(); combat._key = key; }
+  if (key !== combat._key) {
+    const wasInit = combat._key !== '';
+    combat.turnStart = Date.now(); combat._key = key;
+    // GM announces the new turn to chat (once) so followers of the log always know.
+    if (wasInit && me.isGm && list.length && list[turnIndex]) {
+      socket.emit('chat', { text: `▶ ${list[turnIndex].name}'s turn — Round ${round || 1}` });
+    }
+  }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
   highlightActiveToken();
