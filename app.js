@@ -835,6 +835,7 @@ function styleToken(el, t) {
   }
   el.classList.toggle('mine', t.ownerId === me.id);
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
+  el.classList.toggle('ghosted', !!t.ghost);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
@@ -1058,6 +1059,9 @@ function showTokenCtx(t, px, py) {
     const zs = Object.values(tokenEls).map((e) => Number(e._token && e._token.z) || 0);
     const bot = zs.length ? Math.min(...zs) : 0;
     socket.emit('token:update', { id: t.id, z: bot - 1 });
+  });
+  row(t.ghost ? '👤' : '👻', t.ghost ? 'Solid (remove ghost)' : 'Ghost (50% opacity)', () => {
+    closeTokenCtx(); socket.emit('token:update', { id: t.id, ghost: !t.ghost });
   });
   row('🎯', 'Center camera', () => { closeTokenCtx(); centerOnToken(t); });
   row('🗑️', 'Delete', () => { closeTokenCtx(); if (confirm('Delete this token?')) socket.emit('token:remove', t.id); }, 'danger');
