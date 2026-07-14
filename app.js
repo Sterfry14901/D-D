@@ -1031,6 +1031,27 @@ function showTokenCtx(t, px, py) {
   };
   const hdr = document.createElement('div'); hdr.className = 'ctx-hdr';
   hdr.textContent = t.label || 'Token'; m.appendChild(hdr);
+  // Group operations when this token is part of a multi-selection.
+  if (typeof selectedTokens !== 'undefined' && selectedTokens.has(t.id) && selectedTokens.size > 1) {
+    const ids = [...selectedTokens];
+    const n = ids.length;
+    const gh = document.createElement('div'); gh.className = 'ctx-hdr'; gh.textContent = `${n} selected`; m.appendChild(gh);
+    row('💥', `Damage all ${n}…`, () => {
+      const amt = parseInt(prompt(`Damage to all ${n} selected:`, '5')); closeTokenCtx();
+      if (amt > 0) ids.forEach((id) => { const g = tokenEls[id] && tokenEls[id]._token; if (!g) return;
+        const temp = Number(g.temphp) || 0, absorbed = Math.min(temp, amt);
+        socket.emit('token:update', { id, temphp: temp - absorbed, hp: Math.max(0, (Number(g.hp) || 0) - (amt - absorbed)) }); });
+    });
+    row('💚', `Heal all ${n}…`, () => {
+      const amt = parseInt(prompt(`Heal all ${n} selected:`, '5')); closeTokenCtx();
+      if (amt > 0) ids.forEach((id) => { const g = tokenEls[id] && tokenEls[id]._token; if (!g) return;
+        const mx = Number(g.maxhp) || Infinity; socket.emit('token:update', { id, hp: Math.min(mx, (Number(g.hp) || 0) + amt) }); });
+    });
+    row('🗑️', `Delete all ${n}`, () => {
+      closeTokenCtx();
+      if (confirm(`Delete all ${n} selected tokens?`)) { ids.forEach((id) => socket.emit('token:remove', id)); if (typeof clearSelection === 'function') clearSelection(); }
+    }, 'danger');
+  }
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
   if (typeof window.hasStatBlock === 'function' && window.hasStatBlock(t.label)) {
     row('📖', 'Stat block', () => { closeTokenCtx(); window.showStatBlock(t.label); });
