@@ -883,6 +883,7 @@ function styleToken(el, t) {
   }
   el.classList.toggle('mine', t.ownerId === me.id);
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
+  el.classList.toggle('bloodied', Number(t.maxhp) > 0 && Number(t.hp) > 0 && Number(t.hp) <= Number(t.maxhp) / 2);
   el.classList.toggle('ghosted', !!t.ghost);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
