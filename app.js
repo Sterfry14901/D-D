@@ -975,6 +975,12 @@ function showTokenCtx(t, px, py) {
     cs2.appendChild(b);
   });
   m.appendChild(cs2);
+  if ((t.statuses && t.statuses.length) || t.conc) {
+    row('🧹', 'Clear all conditions', () => {
+      closeTokenCtx();
+      socket.emit('token:update', { id: t.id, statuses: [], conc: false });
+    });
+  }
   row('📋', 'Duplicate', () => {
     closeTokenCtx();
     const c = { x: t.x + gridSize, y: t.y, color: t.color, label: t.label, size: t.size || 1,
