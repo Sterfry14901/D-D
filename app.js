@@ -744,9 +744,57 @@ document.addEventListener('keydown', (e) => {
       if (typeof closeTokenCtx === 'function') closeTokenCtx();
       ['token-modal', 'map-modal', 'handout-modal', 'cs-modal', 'sb-modal'].forEach((id) => { const m = $(id); if (m) m.classList.add('hidden'); });
       break;
-    case '?': alert('Keyboard shortcuts:\n  R   Ruler\n  D   Draw\n  E   AoE template\n  F   Fog (GM)\n  G   Grid snap on/off\n  M   Battle maps\n  C   Character sheet\n  N / Space   Next turn (GM)\n  + / −   Zoom\n  Esc   Close menus'); e.preventDefault(); break;
+    case '?': openHelp(); e.preventDefault(); break;
   }
 });
+
+/* ============ HELP / SHORTCUTS OVERLAY ============ */
+function openHelp() {
+  let m = document.getElementById('help-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'help-modal'; m.className = 'overlay hidden';
+    m.innerHTML = `<div class="sb-card help-card">
+      <button class="sb-x" title="Close">✕</button>
+      <div class="sb-name">Help &amp; Quick Reference</div>
+      <div class="help-cols">
+        <div>
+          <div class="sb-h">Keyboard</div>
+          <div class="help-kv"><b>R</b> Ruler</div>
+          <div class="help-kv"><b>D</b> Draw</div>
+          <div class="help-kv"><b>E</b> AoE template</div>
+          <div class="help-kv"><b>F</b> Fog of war (GM)</div>
+          <div class="help-kv"><b>M</b> Battle maps</div>
+          <div class="help-kv"><b>C</b> Character sheet</div>
+          <div class="help-kv"><b>G</b> Grid snap on/off</div>
+          <div class="help-kv"><b>N / Space</b> Next turn (GM)</div>
+          <div class="help-kv"><b>+ / −</b> Zoom &nbsp;·&nbsp; click <b>%</b> resets</div>
+          <div class="help-kv"><b>Esc</b> Close menus</div>
+          <div class="help-kv"><b>?</b> This help</div>
+        </div>
+        <div>
+          <div class="sb-h">Chat commands</div>
+          <div class="help-kv"><b>/roll 2d6+3</b> roll dice (also <b>/r</b>)</div>
+          <div class="help-kv"><b>/roll 1d20 adv</b> advantage / <b>dis</b></div>
+          <div class="help-kv"><b>/w &lt;msg&gt;</b> whisper the GM</div>
+          <div class="help-kv"><b>/w &lt;name&gt; &lt;msg&gt;</b> GM → player</div>
+          <div class="help-kv"><b>/reply &lt;msg&gt;</b> reply to last whisper</div>
+          <div class="sb-h" style="margin-top:10px">Mouse &amp; tokens</div>
+          <div class="help-kv"><b>Alt-click</b> ping the map (with your name)</div>
+          <div class="help-kv"><b>Shift-click</b> multi-select tokens, then drag</div>
+          <div class="help-kv"><b>Scroll over token</b> HP ±1 (Shift ±5)</div>
+          <div class="help-kv"><b>Right-click token</b> size, ghost, conditions, stacking…</div>
+          <div class="help-kv"><b>Shift-drag AoE</b> snap cone/line to 45°</div>
+        </div>
+      </div>
+      <div class="sb-foot">⚔️ AI D&amp;D Tabletop — press ? anytime</div>
+    </div>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', (e) => { if (e.target === m || e.target.classList.contains('sb-x')) m.classList.add('hidden'); });
+  }
+  m.classList.remove('hidden');
+}
+if ($('help-btn')) $('help-btn').onclick = openHelp;
 
 /* ============ PINGS ============ */
 socket.on('ping', ({ x, y, color, name }) => showPing(x, y, color, name));
