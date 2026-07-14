@@ -632,6 +632,16 @@ function setZoom(z, cx, cy) {
 }
 $('zoom-in').onclick = () => setZoom(zoom + 0.15);
 $('zoom-out').onclick = () => setZoom(zoom - 0.15);
+// Click the % readout to reset zoom to 100% and recenter the board.
+if ($('zoom-label')) {
+  $('zoom-label').style.cursor = 'pointer';
+  $('zoom-label').title = 'Reset zoom to 100% and recenter';
+  $('zoom-label').onclick = () => {
+    setZoom(1);
+    const wrap = $('board-wrap');
+    if (wrap) { wrap.scrollLeft = (BOARD_W - wrap.clientWidth) / 2; wrap.scrollTop = (BOARD_H - wrap.clientHeight) / 2; }
+  };
+}
 $('board-wrap').addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return; // hold Ctrl/Cmd/Shift to zoom, otherwise scroll
   e.preventDefault();
