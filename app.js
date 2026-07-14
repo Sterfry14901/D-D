@@ -212,6 +212,9 @@ socket.on('players', (players) => {
 /* ============ CHAT + AI DM ============ */
 function addChat(m) {
   const log = $('chat-log');
+  // Only auto-scroll if the reader is already near the bottom (don't yank them
+  // away while they scroll back through history).
+  const atBottom = (log.scrollHeight - log.scrollTop - log.clientHeight) < 60;
   const div = document.createElement('div');
   div.className = 'msg ' + (m.role || 'player');
   if (m.role === 'system') div.textContent = m.text;
@@ -221,7 +224,7 @@ function addChat(m) {
   }
   else div.innerHTML = `<span class="who">${escapeHtml(m.author)}</span>${escapeHtml(m.text)}`;
   log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
+  if (atBottom || (m.author && m.author === me.name)) log.scrollTop = log.scrollHeight;
   if (m.role === 'roll') addRollHistory(m);
 }
 function addRollHistory(m) {
