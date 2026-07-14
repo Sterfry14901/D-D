@@ -28,6 +28,14 @@ $('join-btn').onclick = join;
 $('join-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 $('join-gm').addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 
+// Prefill the room from an invite link (?room=NAME).
+(function () {
+  try {
+    const r = new URLSearchParams(location.search).get('room');
+    if (r && $('join-room')) $('join-room').value = r;
+  } catch {}
+})();
+
 function join() {
   me.name = $('join-name').value.trim() || 'Adventurer';
   me.room = $('join-room').value.trim() || 'default';
@@ -44,6 +52,15 @@ function join() {
   linkedToken = localStorage.getItem('dnd-link-' + me.room) || null;
   sendPartyStatus();
 }
+
+// Copy an invite link to this table.
+if ($('invite-btn')) $('invite-btn').onclick = async () => {
+  const url = location.origin + location.pathname + '?room=' + encodeURIComponent(me.room || 'default');
+  const btn = $('invite-btn'), orig = btn.textContent;
+  try { await navigator.clipboard.writeText(url); btn.textContent = '✅ Link copied'; }
+  catch { window.prompt('Copy this invite link:', url); btn.textContent = orig; }
+  setTimeout(() => { btn.textContent = orig; }, 1800);
+};
 
 let linkedToken = null;
 function syncLinkedToken() {
