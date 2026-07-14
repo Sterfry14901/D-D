@@ -602,6 +602,16 @@ if ($('grid-slider')) $('grid-slider').oninput = () => {
   gridSize = v; applyGrid(v); renderWalls(); refreshLighting();
   socket.emit('grid:set', v);
 };
+// Local grid overlay toggle (per-device; doesn't affect other players).
+(function () {
+  const cb = $('grid-show'); if (!cb) return;
+  const saved = localStorage.getItem('dnd-grid-show');
+  if (saved === '0') { cb.checked = false; const g = $('grid'); if (g) g.style.display = 'none'; }
+  cb.onchange = () => {
+    const g = $('grid'); if (g) g.style.display = cb.checked ? '' : 'none';
+    localStorage.setItem('dnd-grid-show', cb.checked ? '1' : '0');
+  };
+})();
 
 /* ============ ZOOM & PAN ============ */
 function applyZoom() {
