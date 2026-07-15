@@ -84,6 +84,13 @@
       { t: 'Hiding & Being Unseen', b: 'You can\'t hide from a creature that can see you clearly. An unseen attacker has advantage; being unseen doesn\'t hide the noise of an attack.' },
       { t: 'Object AC & HP (guide)', b: 'Fragile/resilient and size set an object\'s AC (≈11–19) and HP. Objects are immune to poison & psychic; usually fail on massive damage.' },
     ],
+    'Travel & Mounts': [
+      { t: 'Travel Pace', b: 'Fast: 400 ft/min, 4 mph, 30 mi/day (\u22125 passive Perception). Normal: 300 ft/min, 3 mph, 24 mi/day. Slow: 200 ft/min, 2 mph, 18 mi/day (can move stealthily).' },
+      { t: 'Forced March', b: 'Travel beyond 8 hours a day: at the end of each extra hour, CON save DC 10 + 1 per hour past 8, or gain one level of exhaustion.' },
+      { t: 'Food & Water', b: 'Need 1 lb of food per day (half rations count as half a day). You can go without food for 3 + CON modifier days; after that, one exhaustion level per day. Water: 1 gallon/day (2 in hot weather); half rations force a DC 15 CON save or exhaustion; none means automatic exhaustion.' },
+      { t: 'Mounted Combat', b: 'Mounting or dismounting costs half your speed. A controlled mount moves on your initiative and can only Dash, Disengage, or Dodge. If you\'re knocked prone, or the mount is moved against its will, make a DC 10 DEX save or land prone within 5 ft. Independent mounts keep their own initiative and act freely.' },
+      { t: 'Underwater Combat', b: 'Melee attacks have disadvantage unless using a dagger, javelin, shortsword, spear, or trident. Ranged weapon attacks auto-miss beyond normal range and have disadvantage within it (crossbows, nets, and thrown javelin-like weapons excepted). Creatures with a swim speed ignore these penalties. Fully immersed creatures have resistance to fire damage.' },
+    ],
     'Spellcasting': [
       { t: 'Concentration', b: 'Some spells require concentration. Taking damage forces a CON save (DC 10 or half the damage, whichever is higher) or you lose the spell. Only one concentration spell at a time; casting another ends the first.' },
       { t: 'Spell Slots', b: 'Casting a spell expends a slot of its level or higher. Cantrips are free. Regain slots on a long rest (Warlocks on a short rest).' },
