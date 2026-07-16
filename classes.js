@@ -176,4 +176,42 @@
   function init() { if (document.getElementById('chars-body')) render(); }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
+
+  /* ---- Machine-readable SRD data for character creation (window.SRD) ---- */
+  const ABIL_KEY = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
+  function saveKeys(text) {
+    return String(text).toLowerCase().split(/[&,]| and /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
+  }
+  window.SRD = { classes: {}, species: {}, backgrounds: {} };
+  CLASSES.forEach((c) => {
+    window.SRD.classes[c.n] = {
+      hd: parseInt(String(c.hd).replace('d', ''), 10) || 8,
+      saves: saveKeys(c.saves),
+      skills: c.skills, weapons: c.weapons, armor: c.armor, tools: c.tools,
+      equipA: String(c.equip).split(/;\s*or\s*|\s*or \(B\)/i)[0].replace(/^\(A\)\s*/, '').trim(),
+      sig: c.sig,
+    };
+  });
+  SPECIES.forEach((s) => {
+    window.SRD.species[s.n] = { speed: parseInt(s.speed, 10) || 30, size: s.size, traits: s.traits };
+  });
+  BACKGROUNDS.forEach((b) => {
+    window.SRD.backgrounds[b.n] = {
+      skills: String(b.skills).split(/\s*&\s*|\s*,\s*/).map((x) => x.trim()).filter(Boolean),
+      feat: b.feat, abilities: b.abilities, tool: b.tool,
+    };
+  });
+
+  /* ---- Populate the join-screen pickers ---- */
+  function fillJoin() {
+    const opt = (v, label) => `<option value="${esc(v)}">${esc(label || v)}</option>`;
+    const jc = document.getElementById('join-class');
+    if (jc && jc.options.length <= 1) jc.innerHTML = opt('', '— choose later —') + CLASSES.map((c) => opt(c.n)).join('');
+    const js = document.getElementById('join-species');
+    if (js && js.options.length <= 1) js.innerHTML = opt('', '— choose later —') + SPECIES.map((s) => opt(s.n)).join('');
+    const jb = document.getElementById('join-bg');
+    if (jb && jb.options.length <= 1) jb.innerHTML = opt('', '— choose later —') + BACKGROUNDS.map((b) => opt(b.n)).join('');
+  }
+  if (document.readyState !== 'loading') fillJoin();
+  else document.addEventListener('DOMContentLoaded', fillJoin);
 })();

@@ -49,8 +49,60 @@ function join() {
   applyZoom();
   loadSheet();
   loadCS();
+  applyOrigin();
   linkedToken = localStorage.getItem('dnd-link-' + me.room) || null;
   sendPartyStatus();
+}
+
+/* Character creation at join: apply Class / Species / Background picks (SRD 5.2.1)
+   to the character sheet so a new hero is playable immediately. */
+function applyOrigin() {
+  if (!window.SRD) return;
+  const clsName = ($('join-class') || {}).value || '';
+  const spName = ($('join-species') || {}).value || '';
+  const bgName = ($('join-bg') || {}).value || '';
+  if (!clsName && !spName && !bgName) return;   // nothing chosen — keep existing sheet
+  const cls = window.SRD.classes[clsName];
+  const sp = window.SRD.species[spName];
+  const bg = window.SRD.backgrounds[bgName];
+
+  cs.name = me.name;
+  if (clsName) cs.cls = clsName;
+  if (spName) cs.race = spName;
+  if (bgName) cs.background = bgName;
+  if (cls) {
+    cs.level = 1;
+    const conMod = Math.floor((Number(cs.scores.con || 10) - 10) / 2);
+    cs.maxhp = Math.max(1, cls.hd + conMod);
+    cs.hp = cs.maxhp;
+    cs.hitDiceTotal = '1d' + cls.hd;
+    cs.hitDiceUsed = 0;
+    cs.saves = {}; cls.saves.forEach((k) => cs.saves[k] = true);
+    const profBits = ['Weapons: ' + cls.weapons, 'Armor: ' + cls.armor];
+    if (cls.tools && cls.tools !== '—') profBits.push('Tools: ' + cls.tools);
+    if (bg && bg.tool) profBits.push('Background tool: ' + bg.tool);
+    cs.proficiencies = profBits.join('\n');
+    cs.inventory = cls.equipA;
+    let feats = clsName + ' 1 — ' + cls.sig;
+    if (sp) feats += '\n\n' + spName + ' traits — ' + sp.traits;
+    if (bg) feats += '\n\n' + bgName + ' background — Origin feat: ' + bg.feat + '. Increase ' + bg.abilities + ' (one by 2 & one by 1, or all three by 1).';
+    cs.features = feats;
+    cs.notes = (cs.notes ? cs.notes + '\n' : '') + 'Class skills — ' + cls.skills;
+  }
+  if (sp) cs.speed = sp.speed;
+  if (bg) bg.skills.forEach((s) => cs.skills[s] = true);
+  saveCS();
+  // Mirror the basics onto the quick sheet
+  if ($('sh-name')) $('sh-name').value = cs.name;
+  if ($('sh-class') && clsName) $('sh-class').value = clsName;
+  if ($('sh-level') && clsName) $('sh-level').value = 1;
+  if ($('sh-race') && spName) $('sh-race').value = spName;
+  if ($('sh-hp') && cls) $('sh-hp').value = cs.hp;
+  if ($('sh-maxhp') && cls) $('sh-maxhp').value = cs.maxhp;
+  if (typeof saveSheet === 'function') saveSheet();
+  if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); }
+  const bits = [clsName, spName, bgName].filter(Boolean).join(' · ');
+  socket.emit('chat', { text: `🧝 ${me.name} enters as a level 1 ${bits}.` });
 }
 
 // Copy an invite link to this table.
