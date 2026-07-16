@@ -256,6 +256,30 @@
     };
   });
 
+  // Compact per-level feature summaries (SRD 5.2.1). Universal extras handled in the
+  // level-up wizard: ASI at 4/8/12/16 (+Fighter 6/14, Rogue 10), Epic Boon at 19.
+  const LEVEL_FEATURES = {
+    Barbarian: { 2: 'Reckless Attack · Danger Sense', 3: 'Subclass choice · Primal Knowledge', 5: 'Extra Attack · Fast Movement', 7: 'Feral Instinct · Instinctive Pounce', 9: 'Brutal Strike', 11: 'Relentless Rage', 13: 'Improved Brutal Strike', 15: 'Persistent Rage', 17: 'Improved Brutal Strike (2 dice)', 18: 'Indomitable Might', 20: 'Primal Champion (+4 STR & CON)' },
+    Bard: { 2: 'Expertise · Jack of All Trades', 3: 'Subclass choice', 5: 'Font of Inspiration', 7: 'Countercharm', 9: 'Expertise (2 more skills)', 10: 'Magical Secrets', 18: 'Superior Inspiration', 20: 'Words of Creation' },
+    Cleric: { 2: 'Channel Divinity', 3: 'Subclass choice', 5: 'Sear Undead', 7: 'Blessed Strikes', 10: 'Divine Intervention', 14: 'Improved Blessed Strikes', 20: 'Greater Divine Intervention' },
+    Druid: { 2: 'Wild Shape · Wild Companion', 3: 'Subclass choice', 5: 'Wild Resurgence', 7: 'Elemental Fury', 15: 'Improved Elemental Fury', 18: 'Beast Spells', 20: 'Archdruid' },
+    Fighter: { 2: 'Action Surge · Tactical Mind', 3: 'Subclass choice', 5: 'Extra Attack · Tactical Shift', 9: 'Indomitable · Tactical Master', 11: 'Two Extra Attacks', 13: 'Indomitable (2) · Studied Attacks', 17: 'Action Surge (2) · Indomitable (3)', 20: 'Three Extra Attacks' },
+    Monk: { 2: "Monk's Focus · Unarmored Movement", 3: 'Subclass choice · Deflect Attacks', 4: 'Slow Fall', 5: 'Extra Attack · Stunning Strike', 6: 'Empowered Strikes', 7: 'Evasion', 9: 'Acrobatic Movement', 10: 'Heightened Focus · Self-Restoration', 13: 'Deflect Energy', 14: 'Disciplined Survivor', 15: 'Perfect Focus', 18: 'Superior Defense', 20: 'Body and Mind (+4 DEX & WIS)' },
+    Paladin: { 2: "Fighting Style · Paladin's Smite", 3: 'Subclass choice · Channel Divinity', 5: 'Extra Attack · Faithful Steed', 6: 'Aura of Protection', 9: 'Abjure Foes', 10: 'Aura of Courage', 11: 'Radiant Strikes', 14: 'Restoring Touch', 18: 'Aura Expansion' },
+    Ranger: { 2: 'Deft Explorer · Fighting Style', 3: 'Subclass choice', 5: 'Extra Attack', 6: 'Roving', 9: 'Expertise', 10: 'Tireless', 13: 'Relentless Hunter', 14: "Nature's Veil", 17: 'Precise Hunter', 18: 'Feral Senses', 20: 'Foe Slayer' },
+    Rogue: { 2: 'Cunning Action', 3: 'Subclass choice · Steady Aim', 5: 'Cunning Strike · Uncanny Dodge', 7: 'Evasion · Reliable Talent', 11: 'Improved Cunning Strike', 14: 'Devious Strikes', 15: 'Slippery Mind', 18: 'Elusive', 20: 'Stroke of Luck' },
+    Sorcerer: { 2: 'Font of Magic · Metamagic', 3: 'Subclass choice', 5: 'Sorcerous Restoration', 7: 'Sorcery Incarnate', 20: 'Arcane Apotheosis' },
+    Warlock: { 2: 'Magical Cunning', 3: 'Subclass choice · Pact Boon', 9: 'Contact Patron', 11: 'Mystic Arcanum (6th-level spell)', 13: 'Mystic Arcanum (7th)', 15: 'Mystic Arcanum (8th)', 17: 'Mystic Arcanum (9th)', 20: 'Eldritch Master' },
+    Wizard: { 2: 'Scholar', 3: 'Subclass choice', 5: 'Memorize Spell', 18: 'Spell Mastery', 20: 'Signature Spells' },
+  };
+  // Spell slot progressions (SRD): slots per spell level, indexed by character level.
+  const FULL_SLOTS = { 1: [2], 2: [3], 3: [4, 2], 4: [4, 3], 5: [4, 3, 2], 6: [4, 3, 3], 7: [4, 3, 3, 1], 8: [4, 3, 3, 2], 9: [4, 3, 3, 3, 1], 10: [4, 3, 3, 3, 2], 11: [4, 3, 3, 3, 2, 1], 12: [4, 3, 3, 3, 2, 1], 13: [4, 3, 3, 3, 2, 1, 1], 14: [4, 3, 3, 3, 2, 1, 1], 15: [4, 3, 3, 3, 2, 1, 1, 1], 16: [4, 3, 3, 3, 2, 1, 1, 1], 17: [4, 3, 3, 3, 2, 1, 1, 1, 1], 18: [4, 3, 3, 3, 3, 1, 1, 1, 1], 19: [4, 3, 3, 3, 3, 2, 1, 1, 1], 20: [4, 3, 3, 3, 3, 2, 2, 1, 1] };
+  const HALF_SLOTS = { 1: [2], 2: [2], 3: [3], 4: [3], 5: [4, 2], 6: [4, 2], 7: [4, 3], 8: [4, 3], 9: [4, 3, 2], 10: [4, 3, 2], 11: [4, 3, 3], 12: [4, 3, 3], 13: [4, 3, 3, 1], 14: [4, 3, 3, 1], 15: [4, 3, 3, 2], 16: [4, 3, 3, 2], 17: [4, 3, 3, 3, 1], 18: [4, 3, 3, 3, 1], 19: [4, 3, 3, 3, 2], 20: [4, 3, 3, 3, 2] };
+  const PACT_SLOTS = { 1: [1, 1], 2: [2, 1], 3: [2, 2], 4: [2, 2], 5: [2, 3], 6: [2, 3], 7: [2, 4], 8: [2, 4], 9: [2, 5], 10: [2, 5], 11: [3, 5], 12: [3, 5], 13: [3, 5], 14: [3, 5], 15: [3, 5], 16: [3, 5], 17: [4, 5], 18: [4, 5], 19: [4, 5], 20: [4, 5] };
+  window.SRD.features = LEVEL_FEATURES;
+  window.SRD.slots = { full: FULL_SLOTS, half: HALF_SLOTS, pact: PACT_SLOTS };
+  window.SRD.casterType = { Bard: 'full', Cleric: 'full', Druid: 'full', Sorcerer: 'full', Wizard: 'full', Paladin: 'half', Ranger: 'half', Warlock: 'pact' };
+
   /* ---- Populate the join-screen pickers ---- */
   function fillJoin() {
     const opt = (v, label) => `<option value="${esc(v)}">${esc(label || v)}</option>`;

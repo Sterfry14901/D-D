@@ -2029,40 +2029,122 @@ socket.on('xp:award', ({ amount }) => {
   const lvl = Number(cs.level) || 1;
   if (lvl < 20 && cs.xp >= xpNext(lvl)) {
     flashHint(`⭐ ${cs.xp} XP — enough for level ${lvl + 1}!`);
-    if (cs.cls) setTimeout(() => { if (confirm(`You have ${cs.xp} XP — enough to reach level ${lvl + 1}. Level up now?`)) levelUp(); }, 300);
+    if (cs.cls) setTimeout(() => levelUp(), 400);   // opens the level-up picker (closable)
   } else {
     flashHint(`⭐ +${amount} XP (${cs.xp} / ${xpNext(lvl)})`);
   }
 });
 
-/* Level up: +1 level, hit-die HP (roll or average), hit dice, prof bumps automatically. */
+/* Level up: opens a class-aware picker — HP roll/average, new features, ASI, spell slots. */
 function levelUp() {
   const lvl = Number(cs.level) || 1;
   if (lvl >= 20) { alert('Already at level 20 — the pinnacle!'); return; }
-  // Hit die: from the SRD class if known, else from the hit-dice string, else d8.
+  const next = lvl + 1;
   let die = 8;
-  const srdCls = window.SRD && cs.cls && window.SRD.classes[String(cs.cls).trim()];
+  const clsName = String(cs.cls || '').trim();
+  const srdCls = window.SRD && clsName && window.SRD.classes[clsName];
   if (srdCls) die = srdCls.hd;
   else { const m = String(cs.hitDiceTotal || '').match(/d(\d+)/i); if (m) die = parseInt(m[1], 10) || 8; }
   const conMod = csMod(cs.scores.con);
   const avg = Math.floor(die / 2) + 1;
-  const wantRoll = confirm(`Level ${lvl} → ${lvl + 1}\n\nOK = roll 1d${die} for HP\nCancel = take the average (${avg})`);
-  const base = wantRoll ? (1 + Math.floor(Math.random() * die)) : avg;
-  const gained = Math.max(1, base + conMod);
+  const asiLvls = [4, 8, 12, 16].concat(clsName === 'Fighter' ? [6, 14] : []).concat(clsName === 'Rogue' ? [10] : []);
+  const isASI = asiLvls.includes(next);
+  const isBoon = next === 19;
+  const feats = (window.SRD && window.SRD.features && window.SRD.features[clsName]) || {};
+  const featText = feats[next] || (next === 3 ? 'Choose your subclass!' : '');
+  let slotNote = '';
+  const ct = window.SRD && window.SRD.casterType && window.SRD.casterType[clsName];
+  if (ct && window.SRD.slots) {
+    if (ct === 'pact') { const p = window.SRD.slots.pact[next]; slotNote = `Pact Magic: ${p[0]} slot${p[0] > 1 ? 's' : ''} of level ${p[1]} — refresh on a Short Rest`; }
+    else { const row = window.SRD.slots[ct][next] || []; slotNote = 'Spell slots: ' + row.map((n, i) => `${n}×${i + 1}${['st', 'nd', 'rd'][i] || 'th'}`).join(', '); }
+  }
+  let m = $('lvl-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'lvl-modal'; m.className = 'overlay';
+  const state = { hp: null, hpNote: '', asi: [] };
+  const abils = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+  m.innerHTML = `
+    <div class="sb-card lvl-card">
+      <button class="sb-x" title="Close">✕</button>
+      <div class="sb-name">⬆️ Level ${lvl} → ${next}${clsName ? ' — ' + clsName : ''}</div>
+      <div class="sb-h">❤️ Hit Points — 1d${die} ${csFmt(conMod)} CON</div>
+      <div class="lvl-row">
+        <button class="lvl-opt" data-hp="roll">🎲 Roll 1d${die}</button>
+        <button class="lvl-opt" data-hp="avg">📏 Take average (${avg})</button>
+        <span id="lvl-hp-out" class="lvl-out"></span>
+      </div>
+      ${featText ? `<div class="sb-h">✨ New at level ${next}</div><div class="lvl-feat">${featText}</div>` : ''}
+      ${isASI ? `<div class="sb-h">💪 Ability Score Improvement — pick two +1s (same score twice = +2, max 20)</div>
+      <div class="lvl-row" id="lvl-asi">${abils.map((a) => `<button class="lvl-opt" data-asi="${a}">${a.toUpperCase()} ${cs.scores[a]}</button>`).join('')}</div>
+      <div class="lvl-out" id="lvl-asi-out">0 / 2 picked</div>` : ''}
+      ${isBoon ? '<div class="sb-h">🌟 Epic Boon</div><div class="lvl-feat">Level 19: gain an Epic Boon feat — pick one with your DM and note it in Features.</div>' : ''}
+      ${slotNote ? `<div class="sb-h">🔮 Spellcasting</div><div class="lvl-feat">${slotNote} <em>(applied automatically)</em></div>` : ''}
+      <div class="lvl-row" style="margin-top:12px">
+        <button id="lvl-confirm" class="lvl-confirm" disabled>Confirm Level ${next}</button>
+      </div>
+      <div class="sb-foot">SRD 5.2.1 · CC-BY-4.0</div>
+    </div>`;
+  document.body.appendChild(m);
+  const ready = () => { $('lvl-confirm').disabled = !(state.hp !== null && (!isASI || state.asi.length === 2)); };
+  m.addEventListener('click', (e) => {
+    if (e.target === m || e.target.classList.contains('sb-x')) { m.remove(); return; }
+    const hb = e.target.closest('[data-hp]');
+    if (hb) {
+      const roll = hb.dataset.hp === 'roll';
+      const base = roll ? (1 + Math.floor(Math.random() * die)) : avg;
+      state.hp = Math.max(1, base + conMod);
+      state.hpNote = roll ? `rolled ${base} on the d${die}` : `took the average ${avg}`;
+      $('lvl-hp-out').textContent = `+${state.hp} HP (${state.hpNote} ${csFmt(conMod)} CON)`;
+      m.querySelectorAll('[data-hp]').forEach((b) => b.classList.toggle('on', b === hb));
+      ready(); return;
+    }
+    const abBtn = e.target.closest('[data-asi]');
+    if (abBtn && isASI) {
+      const a = abBtn.dataset.asi;
+      const already = state.asi.filter((x) => x === a).length;
+      if (state.asi.length >= 2 || (Number(cs.scores[a]) + already + 1) > 20) return;
+      state.asi.push(a);
+      abBtn.textContent = `${a.toUpperCase()} ${Number(cs.scores[a]) + already + 1}`;
+      abBtn.classList.add('on');
+      $('lvl-asi-out').textContent = `${state.asi.length} / 2 picked — ${state.asi.map((x) => '+1 ' + x.toUpperCase()).join(', ')}`;
+      ready(); return;
+    }
+    if (e.target.id === 'lvl-confirm' && !e.target.disabled) { applyLevelUp(next, die, state, featText); m.remove(); }
+  });
+}
+function applyLevelUp(next, die, state, featText) {
   const oldProf = csProf();
-  cs.level = lvl + 1;
-  cs.maxhp = (Number(cs.maxhp) || 0) + gained;
-  cs.hp = (Number(cs.hp) || 0) + gained;
-  cs.hitDiceTotal = cs.level + 'd' + die;
+  cs.level = next;
+  cs.maxhp = (Number(cs.maxhp) || 0) + state.hp;
+  cs.hp = (Number(cs.hp) || 0) + state.hp;
+  cs.hitDiceTotal = next + 'd' + die;
+  state.asi.forEach((a) => { cs.scores[a] = Math.min(20, (Number(cs.scores[a]) || 10) + 1); });
+  const clsName = String(cs.cls || '').trim();
+  const ct = window.SRD && window.SRD.casterType && window.SRD.casterType[clsName];
+  if (ct && window.SRD.slots) {
+    if (ct === 'pact') {
+      const p = window.SRD.slots.pact[next];
+      for (let l = 1; l <= 9; l++) if (cs.slots[l]) { cs.slots[l].max = 0; cs.slots[l].used = 0; }
+      cs.slots[p[1]] = { max: p[0], used: 0 };
+    } else {
+      const row = window.SRD.slots[ct][next] || [];
+      for (let l = 1; l <= 9; l++) {
+        const mx = row[l - 1] || 0;
+        cs.slots[l] = cs.slots[l] || { max: 0, used: 0 };
+        cs.slots[l].max = mx;
+        if (cs.slots[l].used > mx) cs.slots[l].used = mx;
+      }
+    }
+  }
+  if (featText && featText !== 'Choose your subclass!') cs.features = (cs.features ? cs.features + '\n' : '') + `Lv ${next}: ${featText}`;
   const newProf = csProf();
-  saveCS(); csPopulate(); csRecompute(); csRenderAttacks(); sendPartyStatus(); syncLinkedToken();
+  saveCS(); if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); } sendPartyStatus(); syncLinkedToken();
   if ($('sh-level')) $('sh-level').value = cs.level;
   if ($('sh-hp')) $('sh-hp').value = cs.hp;
   if ($('sh-maxhp')) $('sh-maxhp').value = cs.maxhp;
   if (typeof saveSheet === 'function') saveSheet();
+  const asiNote = state.asi.length ? ` ${state.asi.map((a) => '+1 ' + a.toUpperCase()).join(', ')}.` : '';
   const profNote = newProf > oldProf ? ` Proficiency rises to +${newProf}!` : '';
-  const rollNote = wantRoll ? `rolled ${base} on the d${die}` : `took the average ${avg}`;
-  socket.emit('chat', { text: `⬆️ ${cs.name || me.name} reaches level ${cs.level}! (${rollNote} ${csFmt(conMod)} CON = +${gained} HP → ${cs.hp}/${cs.maxhp}).${profNote}` });
+  socket.emit('chat', { text: `⬆️ ${cs.name || me.name} reaches level ${cs.level}! (${state.hpNote} = +${state.hp} HP → ${cs.hp}/${cs.maxhp}).${asiNote}${profNote}` });
 }
 
 function doRest(type) {
@@ -2501,6 +2583,8 @@ async function toggleVoice() {
   catch (e) { alert('Microphone access denied or unavailable.'); return; }
   voiceOn = true; $('voice-btn').textContent = '🎙️ Voice: On'; $('voice-btn').classList.add('on');
   $('voice-peers').textContent = 'Voice connected. Others who turn on voice will be heard.';
+  micMuted = false;
+  if ($('mute-btn')) { $('mute-btn').classList.remove('hidden', 'muted'); $('mute-btn').textContent = '🔊 Mic'; }
   socket.emit('join', { roomId: me.room, name: me.name, color: me.color });
 }
 function stopVoice() {
@@ -2508,7 +2592,18 @@ function stopVoice() {
   Object.values(peers).forEach((pc) => pc.close()); Object.keys(peers).forEach((k) => delete peers[k]);
   if (localStream) { localStream.getTracks().forEach((t) => t.stop()); localStream = null; }
   $('remote-audio-container').innerHTML = '';
+  if ($('mute-btn')) $('mute-btn').classList.add('hidden');
 }
+/* Mute / unmute the local microphone without leaving voice chat. */
+let micMuted = false;
+if ($('mute-btn')) $('mute-btn').onclick = () => {
+  if (!localStream) return;
+  micMuted = !micMuted;
+  localStream.getAudioTracks().forEach((t) => { t.enabled = !micMuted; });
+  $('mute-btn').textContent = micMuted ? '🔇 Muted' : '🔊 Mic';
+  $('mute-btn').classList.toggle('muted', micMuted);
+  flashHint(micMuted ? '🔇 Microphone muted' : '🔊 Microphone live');
+};
 function createPeer(peerId, initiator) {
   const pc = new RTCPeerConnection(rtcConfig); peers[peerId] = pc;
   if (localStream) localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
