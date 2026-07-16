@@ -530,6 +530,13 @@ io.on('connection', (socket) => {
     const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'roll', text: `rolled ${formula} → ${result}  (${detail})`, ts: Date.now() };
     room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
+  // GM milestone: level up every character at the table.
+  socket.on('milestone', () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    pushSystem(joinedRoom, '🎉 The DM declares a milestone — the party levels up!');
+    io.to(joinedRoom).emit('milestone');
+  });
+
   // Private whisper: player → GM(s), or GM → a named player. Not persisted to room history.
   socket.on('chat:whisper', ({ to, text }) => {
     const room = rooms.get(joinedRoom); if (!room || !text || !text.trim()) return;

@@ -1904,6 +1904,17 @@ function csRenderAttacks() {
   </div>`).join('') || '<div class="cs-empty">No attacks yet.</div>';
 }
 
+/* DM milestone: broadcast levels the whole party (each player picks roll/average). */
+if ($('milestone-btn')) $('milestone-btn').onclick = () => {
+  if (!me.isGm) return;
+  if (confirm('Declare a milestone? Every player with a character will level up.')) socket.emit('milestone');
+};
+socket.on('milestone', () => {
+  if (!cs || !cs.cls || Number(cs.level) >= 20) return;   // only characters with a class level up
+  flashHint('🎉 Milestone! Level up!');
+  setTimeout(() => levelUp(), 400);
+});
+
 /* Level up: +1 level, hit-die HP (roll or average), hit dice, prof bumps automatically. */
 function levelUp() {
   const lvl = Number(cs.level) || 1;
