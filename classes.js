@@ -178,6 +178,40 @@
   else document.addEventListener('DOMContentLoaded', init);
 
   /* ---- Machine-readable SRD data for character creation (window.SRD) ---- */
+  // SRD weapon stats for the starting kits: die, damage type, finesse?, ranged?
+  const WEAPONS = {
+    Greataxe:   { die: '1d12', type: 'slashing' },
+    Handaxe:    { die: '1d6',  type: 'slashing', thrown: '20/60' },
+    Dagger:     { die: '1d4',  type: 'piercing', fin: true, thrown: '20/60' },
+    Mace:       { die: '1d6',  type: 'bludgeoning' },
+    Sickle:     { die: '1d4',  type: 'slashing' },
+    Quarterstaff:{ die: '1d6', type: 'bludgeoning' },
+    Greatsword: { die: '2d6',  type: 'slashing' },
+    Flail:      { die: '1d8',  type: 'bludgeoning' },
+    Javelin:    { die: '1d6',  type: 'piercing', thrown: '30/120' },
+    Spear:      { die: '1d6',  type: 'piercing', thrown: '20/60' },
+    Scimitar:   { die: '1d6',  type: 'slashing', fin: true },
+    Shortsword: { die: '1d6',  type: 'piercing', fin: true },
+    Longsword:  { die: '1d8',  type: 'slashing' },
+    Longbow:    { die: '1d8',  type: 'piercing', rng: '150/600' },
+    Shortbow:   { die: '1d6',  type: 'piercing', rng: '80/320' },
+    'Unarmed Strike': { die: '1d6', type: 'bludgeoning', fin: true },
+  };
+  // Weapons found in each class's starting kit (option A)
+  const CLASS_WEAPONS = {
+    Barbarian: ['Greataxe', 'Handaxe'],
+    Bard: ['Dagger'],
+    Cleric: ['Mace'],
+    Druid: ['Sickle', 'Quarterstaff'],
+    Fighter: ['Greatsword', 'Flail', 'Javelin'],
+    Monk: ['Spear', 'Dagger', 'Unarmed Strike'],
+    Paladin: ['Longsword', 'Javelin'],
+    Ranger: ['Scimitar', 'Shortsword', 'Longbow'],
+    Rogue: ['Dagger', 'Shortsword', 'Shortbow'],
+    Sorcerer: ['Spear', 'Dagger'],
+    Warlock: ['Sickle', 'Dagger'],
+    Wizard: ['Dagger'],
+  };
   const ABIL_KEY = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
   function saveKeys(text) {
     return String(text).toLowerCase().split(/[&,]| and | or /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
@@ -191,8 +225,10 @@
       skills: c.skills, weapons: c.weapons, armor: c.armor, tools: c.tools,
       equipA: String(c.equip).split(/;\s*or\s*|\s*or \(B\)/i)[0].replace(/^\(A\)\s*/, '').trim(),
       sig: c.sig,
+      atk: CLASS_WEAPONS[c.n] || [],
     };
   });
+  window.SRD.weapons = WEAPONS;
   SPECIES.forEach((s) => {
     window.SRD.species[s.n] = { speed: parseInt(s.speed, 10) || 30, size: s.size, traits: s.traits };
   });

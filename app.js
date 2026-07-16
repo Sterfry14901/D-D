@@ -113,6 +113,16 @@ function applyOrigin() {
     if (bg) feats += '\n\n' + bgName + ' background — Origin feat: ' + bg.feat + '. Increase ' + bg.abilities + ' (one by 2 & one by 1, or all three by 1).';
     cs.features = feats;
     cs.notes = (cs.notes ? cs.notes + '\n' : '') + 'Class skills — ' + cls.skills;
+    // Starting attacks from the class kit — to-hit = ability mod + proficiency (+2 at L1)
+    if (window.SRD.weapons && cls.atk && cls.atk.length) {
+      const mod = (k) => Math.floor((Number(cs.scores[k] || 10) - 10) / 2);
+      cs.attacks = cls.atk.map((w) => {
+        const wd = window.SRD.weapons[w]; if (!wd) return null;
+        const am = wd.rng ? mod('dex') : wd.fin ? Math.max(mod('str'), mod('dex')) : mod('str');
+        const extra = wd.rng ? ` ${wd.rng} ft` : wd.thrown ? ` (thrown ${wd.thrown} ft)` : '';
+        return { name: `${w} — ${wd.type}${extra}`, bonus: am + 2, dmg: wd.die + (am ? (am > 0 ? '+' + am : am) : '') };
+      }).filter(Boolean);
+    }
   }
   if (sp) cs.speed = sp.speed;
   if (bg) bg.skills.forEach((s) => cs.skills[s] = true);
@@ -335,34 +345,7 @@ function sendChat() {
   }
   const wm = text.match(/^\/(?:w|whisper|gm)\b\s*(.*)$/i);
   if (wm) { chatWhisper(wm[1]); $('chat-input').value = ''; return; }
-  const nm = text.match(/^\/name(?:s)?\b\s*(\S*)/i);
-  if (nm) { chatNames(nm[1]); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
-}
-
-// /name [kind] — quick NPC & tavern name generator (local only, shows just to you)
-function chatNames(kind) {
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  const NK = {
-    human: [['Al', 'Bran', 'Cor', 'Dain', 'Ed', 'Ger', 'Hal', 'Jos', 'Mar', 'Nor', 'Os', 'Row', 'Ser', 'Tom', 'Wil', 'Yor'], ['den', 'ric', 'win', 'mund', 'ton', 'bert', 'gar', 'ley', 'nan', 'ram', 'son', 'wick']],
-    elf: [['Ae', 'Cael', 'Ela', 'Fae', 'Ga', 'Ill', 'Lia', 'Myr', 'Nae', 'Sylv', 'Thal', 'Vae'], ['ndra', 'rion', 'lith', 'nor', 'riel', 'thas', 'wynn', 'nara', 'dil', 'mys']],
-    dwarf: [['Bal', 'Brom', 'Dar', 'Dur', 'Gim', 'Gral', 'Kaz', 'Mor', 'Thor', 'Tor', 'Ulf', 'Vond'], ['din', 'gar', 'grim', 'li', 'nak', 'rik', 'run', 'stone', 'thane', 'mund']],
-    halfling: [['Ber', 'Cor', 'Dro', 'Fal', 'Fin', 'Lav', 'Mer', 'Odo', 'Per', 'Ros', 'Sam', 'Wen'], ['by', 'dle', 'go', 'kin', 'lo', 'ric', 'ry', 'to', 'wich', 'wise']],
-    orc: [['Bru', 'Dre', 'Gna', 'Gor', 'Gru', 'Kra', 'Mug', 'Ska', 'Thok', 'Ur', 'Yaz', 'Zug'], ['bash', 'gak', 'gor', 'mash', 'nak', 'rok', 'thak', 'tusk', 'zag', 'zug']],
-  };
-  const k = (kind || '').toLowerCase();
-  if (k === 'tavern' || k === 'inn') {
-    const adj = ['Prancing', 'Rusty', 'Gilded', 'Drunken', 'Salty', 'Wandering', 'Sleeping', 'Crooked', 'Laughing', 'Broken', 'Silver', 'Howling'];
-    const noun = ['Pony', 'Flagon', 'Griffin', 'Goblin', 'Anchor', 'Wyvern', 'Giant', 'Kettle', 'Rose', 'Lantern', 'Stag', 'Mermaid'];
-    const names = Array.from({ length: 5 }, () => 'The ' + pick(adj) + ' ' + pick(noun));
-    addChat({ role: 'system', text: '🍺 Tavern names: ' + names.join(' · ') });
-    return;
-  }
-  const kinds = Object.keys(NK);
-  if (k && !NK[k]) { addChat({ role: 'system', text: 'Usage: /name [' + kinds.join('|') + '|tavern]' }); return; }
-  const gen = (kk) => { const [a, b] = NK[kk]; return pick(a) + pick(b); };
-  const names = Array.from({ length: 5 }, () => { const kk = k || pick(kinds); return gen(kk); });
-  addChat({ role: 'system', text: '🎭 ' + (k ? k[0].toUpperCase() + k.slice(1) : 'NPC') + ' names: ' + names.join(' · ') + '  (only you see this)' });
 }
 // Private whisper: player → GM with /w <message>; GM → player with /w <name> <message> or /w <name>: <message>.
 function chatWhisper(rest) {
@@ -891,7 +874,6 @@ function openHelp() {
           <div class="help-kv"><b>/w &lt;msg&gt;</b> whisper the GM</div>
           <div class="help-kv"><b>/w &lt;name&gt; &lt;msg&gt;</b> GM → player</div>
           <div class="help-kv"><b>/reply &lt;msg&gt;</b> reply to last whisper</div>
-          <div class="help-kv"><b>/name elf</b> NPC names (human, dwarf, orc, halfling, tavern)</div>
           <div class="sb-h" style="margin-top:10px">Mouse &amp; tokens</div>
           <div class="help-kv"><b>Alt-click</b> ping the map (with your name)</div>
           <div class="help-kv"><b>Shift-click</b> multi-select tokens, then drag</div>
