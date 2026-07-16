@@ -180,12 +180,13 @@
   /* ---- Machine-readable SRD data for character creation (window.SRD) ---- */
   const ABIL_KEY = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
   function saveKeys(text) {
-    return String(text).toLowerCase().split(/[&,]| and /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
+    return String(text).toLowerCase().split(/[&,]| and | or /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
   }
   window.SRD = { classes: {}, species: {}, backgrounds: {} };
   CLASSES.forEach((c) => {
     window.SRD.classes[c.n] = {
       hd: parseInt(String(c.hd).replace('d', ''), 10) || 8,
+      prim: saveKeys(c.primary),
       saves: saveKeys(c.saves),
       skills: c.skills, weapons: c.weapons, armor: c.armor, tools: c.tools,
       equipA: String(c.equip).split(/;\s*or\s*|\s*or \(B\)/i)[0].replace(/^\(A\)\s*/, '').trim(),

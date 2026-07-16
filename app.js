@@ -61,10 +61,35 @@ function applyOrigin() {
   const clsName = ($('join-class') || {}).value || '';
   const spName = ($('join-species') || {}).value || '';
   const bgName = ($('join-bg') || {}).value || '';
-  if (!clsName && !spName && !bgName) return;   // nothing chosen — keep existing sheet
+  const scoreMode = ($('join-scores') || {}).value || '';
+  if (!clsName && !spName && !bgName && !scoreMode) return;   // nothing chosen — keep existing sheet
   const cls = window.SRD.classes[clsName];
   const sp = window.SRD.species[spName];
   const bg = window.SRD.backgrounds[bgName];
+
+  // Ability scores: standard array or 4d6-drop-lowest, best values into the
+  // class's primary abilities, then CON, then the rest.
+  let scoreLine = '';
+  if (scoreMode) {
+    let set;
+    if (scoreMode === 'array') set = [15, 14, 13, 12, 10, 8];
+    else {
+      set = [];
+      for (let i = 0; i < 6; i++) {
+        const d = [0, 0, 0, 0].map(() => 1 + Math.floor(Math.random() * 6)).sort((a, b) => a - b);
+        set.push(d[1] + d[2] + d[3]);
+      }
+    }
+    set.sort((a, b) => b - a);
+    const all = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+    const order = [];
+    (cls && cls.prim ? cls.prim : []).forEach((k) => { if (!order.includes(k)) order.push(k); });
+    if (!order.includes('con')) order.push('con');
+    if (!order.includes('dex')) order.push('dex');
+    all.forEach((k) => { if (!order.includes(k)) order.push(k); });
+    order.forEach((k, i) => { cs.scores[k] = set[i]; });
+    scoreLine = all.map((k) => k.toUpperCase() + ' ' + cs.scores[k]).join(' · ');
+  }
 
   cs.name = me.name;
   if (clsName) cs.cls = clsName;
@@ -99,10 +124,15 @@ function applyOrigin() {
   if ($('sh-race') && spName) $('sh-race').value = spName;
   if ($('sh-hp') && cls) $('sh-hp').value = cs.hp;
   if ($('sh-maxhp') && cls) $('sh-maxhp').value = cs.maxhp;
+  if (scoreMode) {
+    ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach((k) => { const el = $('ab-' + k); if (el) el.value = cs.scores[k]; });
+    if (typeof updateMods === 'function') updateMods();
+  }
   if (typeof saveSheet === 'function') saveSheet();
   if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); }
   const bits = [clsName, spName, bgName].filter(Boolean).join(' · ');
-  socket.emit('chat', { text: `🧝 ${me.name} enters as a level 1 ${bits}.` });
+  const tail = scoreLine ? ` (${scoreMode === 'roll' ? 'rolled' : 'array'}: ${scoreLine})` : '';
+  socket.emit('chat', { text: `🧝 ${me.name} enters as a level 1 ${bits || 'adventurer'}.${tail}` });
 }
 
 // Copy an invite link to this table.
