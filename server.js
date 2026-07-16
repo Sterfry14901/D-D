@@ -49,6 +49,7 @@ function saveRooms() {
         aoes: room.aoes,
         handout: room.handout,
         weather: room.weather,
+        ambience: room.ambience,
         notes: room.notes,
         drawings: (room.drawings || []).slice(-500),
       };
@@ -85,6 +86,7 @@ function loadRooms() {
         aoes: room.aoes || [],
         handout: room.handout || null,
         weather: room.weather || 'clear',
+        ambience: room.ambience || 'off',
         notes: room.notes || '',
         drawings: room.drawings || [],
         round: room.round || 1,
@@ -120,6 +122,7 @@ function getRoom(id) {
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
       weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
+      ambience: 'off',         // synced soundscape: off|rain|wind|tavern|dungeon|fire|forest
       notes: '',               // shared campaign journal text
       drawings: [],            // freehand map annotations [{points:[[x,y]...], color, w}]
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
@@ -261,6 +264,7 @@ io.on('connection', (socket) => {
       aoes: room.aoes,
       handout: room.handout,
       weather: room.weather,
+      ambience: room.ambience || 'off',
       notes: room.notes || '',
       drawings: room.drawings || [],
       youId: socket.id,
@@ -456,6 +460,15 @@ io.on('connection', (socket) => {
     const allowed = ['clear', 'rain', 'snow', 'fog', 'embers'];
     room.weather = allowed.includes(type) ? type : 'clear';
     io.to(joinedRoom).emit('weather:set', room.weather);
+  });
+
+  // ---- Ambience (synced, locally-synthesized soundscape) ----
+  socket.on('ambience:set', (type) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const allowed = ['off', 'rain', 'wind', 'tavern', 'dungeon', 'fire', 'forest'];
+    room.ambience = allowed.includes(type) ? type : 'off';
+    io.to(joinedRoom).emit('ambience:set', room.ambience);
+    markDirty();
   });
 
   // ---- Shared campaign journal ----

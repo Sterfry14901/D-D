@@ -248,6 +248,7 @@ socket.on('state', (s) => {
   renderDrawings();
   if (s.handout) showHandout(s.handout); else hideHandout();
   setWeather(s.weather || 'clear');
+  if (s.ambience && s.ambience !== 'off') { ambSyncUI(s.ambience); AMB.set(s.ambience); }
   applyNotes(s.notes || '');
   $('board').classList.toggle('gm-fog', me.isGm);
   document.body.classList.toggle('is-gm', me.isGm);
@@ -944,6 +945,7 @@ function openHelp() {
           <div class="help-kv"><b>Scroll over token</b> HP ±1 (Shift ±5)</div>
           <div class="help-kv"><b>Right-click token</b> size, ghost, conditions, stacking…</div>
           <div class="help-kv"><b>Shift-drag AoE</b> snap cone/line to 45°</div>
+          <div class="help-kv"><b>🌦️ Weather</b> also holds 🎵 Ambience — synced soundscapes (DM)</div>
         </div>
       </div>
       <div class="sb-foot">⚔️ AI D&amp;D Tabletop — press ? anytime</div>
@@ -2124,6 +2126,150 @@ document.querySelectorAll('.wx').forEach((b) => {
   };
 });
 socket.on('weather:set', setWeather);
+
+/* ============ AMBIENT SOUNDSCAPES (synthesized in WebAudio — no audio files) ============ */
+const AMB = (() => {
+  let ctx = null, master = null, nodes = [], timers = [], current = 'off', vol = 0.4;
+  function ensure() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = vol; master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+      const once = () => { ctx.resume(); document.removeEventListener('pointerdown', once); };
+      document.addEventListener('pointerdown', once);
+    }
+    return true;
+  }
+  function noiseBuf(brown) {
+    const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w;
+    }
+    return buf;
+  }
+  function noise(brown, filterType, freq, q, gain) {
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf(brown); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = filterType; f.frequency.value = freq; f.Q.value = q || 0.7;
+    const g = ctx.createGain(); g.gain.value = gain;
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+    nodes.push(src, f, g);
+    return { src, f, g };
+  }
+  function lfo(param, freq, depth, base) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq; g.gain.value = depth;
+    if (base !== undefined) param.value = base;
+    o.connect(g); g.connect(param); o.start();
+    nodes.push(o, g);
+  }
+  function blip(freq, dur, gain, type) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g); g.connect(master); o.start(); o.stop(ctx.currentTime + dur);
+  }
+  function every(msMin, msMax, fn) {
+    const h = { t: 0 };
+    const loop = () => { fn(); h.t = setTimeout(loop, msMin + Math.random() * (msMax - msMin)); };
+    h.t = setTimeout(loop, msMin + Math.random() * (msMax - msMin));
+    timers.push(h);
+  }
+  const BUILD = {
+    rain() {
+      noise(false, 'lowpass', 1400, 0.5, 0.14);
+      const hiss = noise(false, 'highpass', 4000, 0.5, 0.03);
+      lfo(hiss.g.gain, 0.11, 0.015, 0.03);
+      every(400, 2500, () => blip(700 + Math.random() * 900, 0.05, 0.02, 'triangle'));
+    },
+    wind() {
+      const w = noise(false, 'bandpass', 400, 1.4, 0.16);
+      lfo(w.f.frequency, 0.07, 220, 420);
+      lfo(w.g.gain, 0.05, 0.07, 0.14);
+    },
+    tavern() {
+      const m = noise(true, 'lowpass', 500, 0.6, 0.22);
+      lfo(m.g.gain, 0.23, 0.05, 0.2);
+      every(3000, 9000, () => blip(1800 + Math.random() * 1200, 0.12, 0.03, 'sine'));
+      every(5000, 14000, () => blip(300 + Math.random() * 150, 0.35, 0.02, 'sine'));
+    },
+    dungeon() {
+      [55, 55.7].forEach((f) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.05;
+        o.connect(g); g.connect(master); o.start(); nodes.push(o, g);
+      });
+      const sw = noise(true, 'lowpass', 240, 0.5, 0.05);
+      lfo(sw.g.gain, 0.03, 0.035, 0.045);
+      every(8000, 20000, () => blip(90 + Math.random() * 60, 1.2, 0.04, 'sine'));
+    },
+    fire() {
+      noise(true, 'lowpass', 900, 0.6, 0.18);
+      every(120, 700, () => blip(1500 + Math.random() * 2500, 0.03, 0.025, 'square'));
+    },
+    forest() {
+      const w = noise(false, 'bandpass', 700, 1.2, 0.06);
+      lfo(w.g.gain, 0.09, 0.03, 0.05);
+      every(2500, 8000, () => {
+        const t0 = ctx.currentTime;
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(2400 + Math.random() * 1200, t0);
+        o.frequency.exponentialRampToValueAtTime(1800 + Math.random() * 800, t0 + 0.18);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+        o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.22);
+      });
+    },
+  };
+  function stop() {
+    timers.forEach((h) => clearTimeout(h.t)); timers = [];
+    nodes.forEach((n) => { try { if (n.stop) n.stop(); } catch {} try { n.disconnect(); } catch {} });
+    nodes = [];
+  }
+  function set(type) {
+    current = type || 'off';
+    if (current === 'off') { stop(); return; }
+    if (!ensure()) return;
+    stop();
+    if (BUILD[current]) BUILD[current]();
+  }
+  function setVol(v) { vol = v; if (master) master.gain.value = v; }
+  return { set, setVol, cur: () => current };
+})();
+document.querySelectorAll('.amb').forEach((b) => {
+  b.onclick = () => {
+    if (!me.isGm) { flashHint('Only the DM sets the table ambience.'); return; }
+    socket.emit('ambience:set', b.dataset.amb);
+  };
+});
+function ambSyncUI(type) { document.querySelectorAll('.amb').forEach((x) => x.classList.toggle('active', x.dataset.amb === type)); }
+socket.on('ambience:set', (type) => {
+  ambSyncUI(type);
+  AMB.set(type);
+  flashHint(type === 'off' ? '🔇 Ambience off' : '🎵 Ambience: ' + type);
+});
+(function () { const v = $('amb-vol'); if (v) v.oninput = () => AMB.setVol(Number(v.value) / 100); })();
+
+/* ============ SESSION LOG EXPORT ============ */
+if ($('log-export')) $('log-export').onclick = () => {
+  const lines = [...document.querySelectorAll('#chat-log .msg')].map((e) => e.textContent.trim()).filter(Boolean);
+  if (!lines.length) { flashHint('Nothing in the log yet.'); return; }
+  const head = `⚔️ AI D&D Tabletop — session log\nRoom: ${me.room || '?'} · Exported: ${new Date().toLocaleString()}\n${'—'.repeat(40)}\n\n`;
+  const blob = new Blob([head + lines.join('\n')], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `session-${me.room || 'log'}-${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+  flashHint('📜 Session log downloaded');
+};
 
 const WX = (() => {
   const canvas = $('weather-fx');

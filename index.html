@@ -135,6 +135,15 @@
       <button class="fog-tool wx" data-wx="snow">❄️ Snow</button>
       <button class="fog-tool wx" data-wx="fog">🌫️ Fog</button>
       <button class="fog-tool wx" data-wx="embers">🔥 Embers</button>
+      <span class="fog-title" style="margin-left:10px">🎵 Ambience</span>
+      <button class="fog-tool amb active" data-amb="off">🔇 Off</button>
+      <button class="fog-tool amb" data-amb="rain">🌧️ Rain</button>
+      <button class="fog-tool amb" data-amb="wind">🌬️ Wind</button>
+      <button class="fog-tool amb" data-amb="tavern">🍺 Tavern</button>
+      <button class="fog-tool amb" data-amb="dungeon">🕯️ Dungeon</button>
+      <button class="fog-tool amb" data-amb="fire">🔥 Fire</button>
+      <button class="fog-tool amb" data-amb="forest">🌲 Forest</button>
+      <input id="amb-vol" type="range" min="0" max="100" value="40" title="Ambience volume (just for you)" style="width:80px" />
       <span class="fog-hint">Sets the mood for everyone at the table.</span>
     </div>
 
@@ -196,6 +205,7 @@
             <input id="chat-input" type="text" placeholder="Speak, act, or /roll 2d6+3…" />
             <button id="send-btn" title="Send to table">Say</button>
             <button id="dm-btn" class="dm" title="Ask the AI Dungeon Master">DM ▸</button>
+            <button id="log-export" class="ghost" title="Download the session log as a text file">📜</button>
           </div>
           <div class="dm-quick">
             <button data-dm="Vividly describe the current scene — what the characters see, hear, and smell.">👁️ Scene</button>
