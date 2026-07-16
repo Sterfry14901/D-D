@@ -179,6 +179,7 @@ function sendPartyStatus() {
     hp: cs ? Number(cs.hp) || 0 : 0,
     maxhp: cs ? Number(cs.maxhp) || 0 : 0,
     ac: cs ? Number(cs.ac) || 0 : 0,
+    level: cs ? Math.max(1, Math.min(20, Number(cs.level) || 1)) : 1,
   });
   syncLinkedToken();
 }
@@ -548,7 +549,7 @@ function spawnMonster(m) {
     x: gridSize * (2 + Math.floor(Math.random() * 6)),
     y: gridSize * (1 + Math.floor(Math.random() * 3)),
     color: '#7a2318', label: m.n, size: m.size || 1,
-    statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
+    statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp, cr: m.cr,
   });
 }
 buildMonsters();
@@ -595,7 +596,7 @@ buildMonsters();
             x: gridSize * (2 + Math.floor(Math.random() * 6)),
             y: gridSize * (1 + Math.floor(Math.random() * 3)),
             color: '#5a2d82', label: m.name, size: SIZE_N[(m.size || '').toLowerCase()] || 1,
-            statuses: [], emoji: e, hp: m.hit_points, maxhp: m.hit_points,
+            statuses: [], emoji: e, hp: m.hit_points, maxhp: m.hit_points, cr: m.challenge_rating,
           });
         };
         b.oncontextmenu = (ev) => { ev.preventDefault(); openBlock(m); };
@@ -610,6 +611,36 @@ buildMonsters();
   go.onclick = search;
   q.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
 })();
+
+/* ============ LIVE ENCOUNTER DIFFICULTY METER (DM) ============ */
+const CR_XP = { '0': 10, '1/8': 25, '1/4': 50, '1/2': 100, '1': 200, '2': 450, '3': 700, '4': 1100, '5': 1800, '6': 2300, '7': 2900, '8': 3900, '9': 5000, '10': 5900, '11': 7200, '12': 8400, '13': 10000, '14': 11500, '15': 13000, '16': 15000, '17': 18000, '18': 20000, '19': 22000, '20': 25000, '21': 33000, '22': 41000, '23': 50000, '24': 62000, '25': 75000, '26': 90000, '27': 105000, '28': 120000, '29': 135000, '30': 155000 };
+const THREAT_T = { 1: [25, 50, 75, 100], 2: [50, 100, 150, 200], 3: [75, 150, 225, 400], 4: [125, 250, 375, 500], 5: [250, 500, 750, 1100], 6: [300, 600, 900, 1400], 7: [350, 750, 1100, 1700], 8: [450, 900, 1400, 2100], 9: [550, 1100, 1600, 2400], 10: [600, 1200, 1900, 2800], 11: [800, 1600, 2400, 3600], 12: [1000, 2000, 3000, 4500], 13: [1100, 2200, 3400, 5100], 14: [1250, 2500, 3800, 5700], 15: [1400, 2800, 4300, 6400], 16: [1600, 3200, 4800, 7200], 17: [2000, 3900, 5900, 8800], 18: [2100, 4200, 6300, 9500], 19: [2400, 4900, 7300, 10900], 20: [2800, 5700, 8500, 12700] };
+let threatParty = [];
+socket.on('party:list', (list) => { threatParty = list || []; recomputeThreat(); });
+function tokenCR(t) {
+  if (t.cr !== undefined && t.cr !== null && CR_XP[String(t.cr)] !== undefined) return String(t.cr);
+  const m = MONSTERS.find((x) => x.n === t.label);
+  return m && m.cr !== undefined ? String(m.cr) : null;
+}
+function recomputeThreat() {
+  const box = $('threat-meter'); if (!box || !me.isGm) return;
+  const toks = Object.values(tokenEls).map((e) => e._token).filter(Boolean);
+  const crs = toks.filter((t) => !t.hidden || me.isGm).map(tokenCR).filter((c) => c !== null);
+  if (!crs.length) { box.textContent = 'Drop monsters on the map to see the party’s odds.'; return; }
+  const xp = crs.reduce((s, c) => s + (CR_XP[c] || 0), 0);
+  const n = crs.length;
+  const mult = n === 1 ? 1 : n === 2 ? 1.5 : n <= 6 ? 2 : n <= 10 ? 2.5 : n <= 14 ? 3 : 4;
+  const adj = Math.round(xp * mult);
+  const pcs = threatParty.filter((p) => (p.maxhp || 0) > 0);
+  if (!pcs.length) { box.textContent = `${n} monster${n > 1 ? 's' : ''} worth ${xp} XP — no party sheets yet to compare against.`; return; }
+  const th = pcs.reduce((a, p) => {
+    const t = THREAT_T[Math.max(1, Math.min(20, p.level || 1))];
+    return a.map((v, i) => v + t[i]);
+  }, [0, 0, 0, 0]);
+  const grade = adj >= th[3] ? ['☠️ DEADLY', '#e74c3c'] : adj >= th[2] ? ['🔥 Hard', '#e67e22'] : adj >= th[1] ? ['⚔️ Medium', '#f1c40f'] : adj >= th[0] ? ['🌿 Easy', '#7fbf6a'] : ['🍃 Trivial', '#9fbf8a'];
+  box.innerHTML = `<b style="color:${grade[1]}">${grade[0]}</b> — ${n} monster${n > 1 ? 's' : ''}, ${xp} XP (adjusted ${adj}) vs ${pcs.length} PC${pcs.length > 1 ? 's' : ''} · thresholds E ${th[0]} / M ${th[1]} / H ${th[2]} / D ${th[3]}`;
+}
+setInterval(recomputeThreat, 3000);
 
 (function () {
   const q = $('mon-q');

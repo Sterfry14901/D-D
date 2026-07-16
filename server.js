@@ -450,6 +450,7 @@ io.on('connection', (socket) => {
     room.partyStatus[socket.id] = {
       name: String(st.name || 'Adventurer').slice(0, 24),
       hp: Number(st.hp) || 0, maxhp: Number(st.maxhp) || 0, ac: Number(st.ac) || 0,
+      level: Math.max(1, Math.min(20, Number(st.level) || 1)),
     };
     broadcastParty(joinedRoom);
   });
