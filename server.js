@@ -536,6 +536,14 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, '🎉 The DM declares a milestone — the party levels up!');
     io.to(joinedRoom).emit('milestone');
   });
+  // GM XP award: every character at the table gains XP.
+  socket.on('xp:award', (data) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const amt = Math.max(1, Math.min(500000, parseInt(data && data.amount, 10) || 0));
+    if (!(amt > 0)) return;
+    pushSystem(joinedRoom, `⭐ The DM awards ${amt} XP to each party member!`);
+    io.to(joinedRoom).emit('xp:award', { amount: amt });
+  });
 
   // Private whisper: player → GM(s), or GM → a named player. Not persisted to room history.
   socket.on('chat:whisper', ({ to, text }) => {

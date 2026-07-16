@@ -1671,10 +1671,10 @@ const CS_ABIL = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 const CS_ABILN = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 const CS_SKILLS = [['Acrobatics','dex'],['Animal Handling','wis'],['Arcana','int'],['Athletics','str'],['Deception','cha'],['History','int'],['Insight','wis'],['Intimidation','cha'],['Investigation','int'],['Medicine','wis'],['Nature','int'],['Perception','wis'],['Performance','cha'],['Persuasion','cha'],['Religion','int'],['Sleight of Hand','dex'],['Stealth','dex'],['Survival','wis']];
 const CS_CONDS = ['Blinded','Charmed','Deafened','Frightened','Grappled','Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone','Restrained','Stunned','Unconscious'];
-const CS_NUMF = ['level','ac','speed','hp','maxhp','temphp','hitDiceUsed','cp','sp','ep','gp','pp'];
+const CS_NUMF = ['level','ac','speed','hp','maxhp','temphp','hitDiceUsed','cp','sp','ep','gp','pp','xp'];
 
 function csDefault() {
-  return { name:'', pronouns:'', race:'', cls:'', level:1, background:'', inspiration:false,
+  return { name:'', pronouns:'', race:'', cls:'', level:1, xp:0, background:'', inspiration:false,
     ac:10, speed:30, hp:10, maxhp:10, temphp:0,
     scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
     saves:{}, skills:{}, attacks:[], conditions:[], notes:'',
@@ -1750,6 +1750,7 @@ function buildCS() {
     </div>
     <div class="cs-headstats">
       <button class="cs-badge cs-roll" data-levelup title="Advance a level: roll or average the hit die + CON">⬆️ Level Up</button>
+      <label class="cs-badge" title="Experience points">XP <b><input data-cs="xp" type="number" min="0" style="width:5.5em" /></b> <em data-xpnext style="font-style:normal;opacity:.7"></em></label>
       <button class="cs-insp" data-insp>✨ Inspiration</button>
       <div class="cs-badge">PROF <b data-prof>+2</b></div>
       <button class="cs-badge cs-roll" data-roll="init">INIT <b data-init>+0</b></button>
@@ -1944,6 +1945,10 @@ function csRecompute() {
   const prof = csProf();
   body.querySelectorAll('[data-prof]').forEach((e) => e.textContent = csFmt(prof));
   body.querySelectorAll('[data-lvlnum]').forEach((e) => e.textContent = cs.level || 1);
+  body.querySelectorAll('[data-xpnext]').forEach((e) => {
+    const lvl = Number(cs.level) || 1;
+    e.textContent = lvl >= 20 ? '(max)' : '/ ' + xpNext(lvl);
+  });
   CS_ABIL.forEach((a) => {
     const m = csMod(cs.scores[a]);
     const me_ = body.querySelector(`[data-mod="${a}"]`); if (me_) me_.textContent = csFmt(m);
@@ -2004,6 +2009,28 @@ socket.on('milestone', () => {
   if (!cs || !cs.cls || Number(cs.level) >= 20) return;   // only characters with a class level up
   flashHint('🎉 Milestone! Level up!');
   setTimeout(() => levelUp(), 400);
+});
+
+/* DM XP awards: 5E cumulative thresholds; crossing one nudges a level-up. */
+const XP_LEVELS = [0, 0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
+function xpNext(lvl) { return XP_LEVELS[Math.min(20, (Number(lvl) || 1) + 1)]; }
+if ($('xp-award-btn')) $('xp-award-btn').onclick = () => {
+  if (!me.isGm) return;
+  const amt = parseInt(prompt('Award how much XP to each party member?', '300'), 10);
+  if (amt > 0) socket.emit('xp:award', { amount: amt });
+};
+socket.on('xp:award', ({ amount }) => {
+  if (!cs || (!cs.name && !cs.cls)) return;               // spectators without a character skip
+  cs.xp = (Number(cs.xp) || 0) + (Number(amount) || 0);
+  saveCS();
+  if (csBuilt) { csPopulate(); csRecompute(); }
+  const lvl = Number(cs.level) || 1;
+  if (lvl < 20 && cs.xp >= xpNext(lvl)) {
+    flashHint(`⭐ ${cs.xp} XP — enough for level ${lvl + 1}!`);
+    if (cs.cls) setTimeout(() => { if (confirm(`You have ${cs.xp} XP — enough to reach level ${lvl + 1}. Level up now?`)) levelUp(); }, 300);
+  } else {
+    flashHint(`⭐ +${amount} XP (${cs.xp} / ${xpNext(lvl)})`);
+  }
 });
 
 /* Level up: +1 level, hit-die HP (roll or average), hit dice, prof bumps automatically. */
