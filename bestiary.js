@@ -260,4 +260,25 @@
     }
     modal.classList.remove('hidden');
   };
+
+  // Render an arbitrary stat block (e.g. live Open5e data) in the same modal,
+  // with the same clickable ability checks and rollable attack buttons.
+  window.showStatBlockData = function (name, s, foot) {
+    window.showStatBlock(name); // ensures the modal + click handlers exist
+    sbCreature = name;
+    if (!s) return;
+    const abil = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    document.getElementById('sb-body').innerHTML = `
+      <div class="sb-name">${esc(name)}</div>
+      <div class="sb-type">${esc(s.m)}</div>
+      <div class="sb-line"><b>AC</b> ${esc(String(s.ac))} &nbsp; <b>HP</b> ${esc(s.hp)} &nbsp; <b>Speed</b> ${esc(s.sp)}</div>
+      <div class="sb-abils">${s.a.map((v, i) => { const m = Math.floor((v - 10) / 2); return `<div class="sb-abil" data-abil="${abil[i]}" data-mod="${m}" title="Roll a d20 ${m >= 0 ? '+' : ''}${m} save/check"><span>${abil[i]}</span>${ab(v)}</div>`; }).join('')}</div>
+      <div class="sb-line"><b>Senses</b> ${esc(s.sen)} &nbsp; <b>CR</b> ${esc(s.cr)}</div>
+      ${(s.tr || []).map((t) => `<div class="sb-p"><b>${esc(t[0])}.</b> ${esc(t[1])}</div>`).join('')}
+      ${(s.act && s.act.length) ? '<div class="sb-h">Actions</div>' : ''}
+      ${(s.act || []).map(actionRow).join('')}
+      ${(s.rc && s.rc.length) ? '<div class="sb-h">Reactions / Legendary</div>' : ''}
+      ${(s.rc || []).map(actionRow).join('')}
+      <div class="sb-foot">${esc(foot || 'Open5e')}</div>`;
+  };
 })();

@@ -551,6 +551,65 @@ function spawnMonster(m) {
   });
 }
 buildMonsters();
+
+/* ============ OPEN5E LIVE MONSTER SEARCH ============ */
+(function () {
+  const q = $('o5e-q'), go = $('o5e-go'), grid = $('o5e-grid');
+  if (!q || !go || !grid) return;
+  const TYPE_E = { dragon: '🐉', undead: '💀', fiend: '😈', beast: '🐾', humanoid: '🧑', giant: '🗻', aberration: '🦑', celestial: '👼', construct: '🗿', elemental: '🌪️', fey: '🧚', monstrosity: '🐲', ooze: '🟩', plant: '🌿' };
+  const SIZE_N = { tiny: 1, small: 1, medium: 1, large: 2, huge: 3, gargantuan: 4 };
+  function o5eBlock(m) {
+    const A = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+    const sp = m.speed ? Object.entries(m.speed).filter((e) => typeof e[1] === 'number').map((e) => (e[0] === 'walk' ? '' : e[0] + ' ') + e[1] + ' ft').join(', ') : '—';
+    return {
+      m: ((m.size || '') + ' ' + (m.type || '') + (m.alignment ? ', ' + m.alignment : '')).trim(),
+      ac: m.armor_class, hp: m.hit_points + (m.hit_dice ? ' (' + m.hit_dice + ')' : ''), sp: sp || '—',
+      a: A.map((k) => m[k] || 10),
+      sen: m.senses || '—', cr: m.challenge_rating,
+      tr: (m.special_abilities || []).map((x) => [x.name, x.desc]),
+      act: (m.actions || []).map((x) => [x.name, x.desc]),
+      rc: (m.reactions || []).concat(m.legendary_actions || []).map((x) => [x.name, x.desc]),
+    };
+  }
+  function openBlock(m) {
+    if (window.showStatBlockData) window.showStatBlockData(m.name, o5eBlock(m), (m.document__title || 'Open5e') + ' · open5e.com');
+  }
+  async function search() {
+    const term = q.value.trim(); if (!term) return;
+    grid.innerHTML = '<div class="mon-empty">Searching Open5e…</div>';
+    try {
+      const r = await fetch('https://api.open5e.com/v1/monsters/?search=' + encodeURIComponent(term) + '&limit=24');
+      const data = await r.json();
+      const list = (data.results || []).filter((m) => m.name && m.hit_points);
+      grid.innerHTML = '';
+      if (!list.length) { grid.innerHTML = '<div class="mon-empty">No Open5e monsters found.</div>'; return; }
+      list.forEach((m) => {
+        const e = TYPE_E[(m.type || '').toLowerCase()] || '👾';
+        const b = document.createElement('button');
+        b.className = 'mon-btn';
+        b.innerHTML = `<span class="me">${e}</span><span class="mn">${m.name}</span><em>${m.hit_points} hp · CR ${m.challenge_rating}</em><span class="mon-info" title="View stat block">📖</span>`;
+        b.onclick = () => {
+          if (!me.isGm) return;
+          socket.emit('token:add', {
+            x: gridSize * (2 + Math.floor(Math.random() * 6)),
+            y: gridSize * (1 + Math.floor(Math.random() * 3)),
+            color: '#5a2d82', label: m.name, size: SIZE_N[(m.size || '').toLowerCase()] || 1,
+            statuses: [], emoji: e, hp: m.hit_points, maxhp: m.hit_points,
+          });
+        };
+        b.oncontextmenu = (ev) => { ev.preventDefault(); openBlock(m); };
+        const info = b.querySelector('.mon-info');
+        if (info) info.onclick = (ev) => { ev.stopPropagation(); openBlock(m); };
+        grid.appendChild(b);
+      });
+    } catch (err) {
+      grid.innerHTML = '<div class="mon-empty">Open5e unreachable — check your connection.</div>';
+    }
+  }
+  go.onclick = search;
+  q.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+})();
+
 (function () {
   const q = $('mon-q');
   if (q) q.addEventListener('input', () => { monsterFilter = q.value; buildMonsters(); });
