@@ -89,6 +89,10 @@
       traits: 'Adrenaline Rush (Dash as a Bonus Action and gain temp HP); Darkvision 120 ft; Relentless Endurance (drop to 1 HP instead of 0, once per Long Rest).' },
     { n: 'Tiefling', type: 'Humanoid', size: 'Small or Medium', speed: '30 ft',
       traits: 'Darkvision 60 ft; Fiendish Legacy (Abyssal / Chthonic / Infernal — resistance + scaling spells); Otherworldly Presence (Thaumaturgy cantrip).' },
+    { n: 'Half-Elf', type: 'Humanoid (SRD 5.1)', size: 'Medium', speed: '30 ft',
+      traits: 'Darkvision 60 ft; Fey Ancestry (advantage vs. Charmed, immune to magical sleep); Skill Versatility (two extra skill proficiencies); one extra language.' },
+    { n: 'Half-Orc', type: 'Humanoid (SRD 5.1)', size: 'Medium', speed: '30 ft',
+      traits: 'Darkvision 60 ft; Menacing (Intimidation proficiency); Relentless Endurance (drop to 1 HP instead of 0, once per Long Rest); Savage Attacks (extra crit die).' },
   ];
 
   const BACKGROUNDS = [
@@ -100,6 +104,30 @@
       skills: 'Arcana & History', tool: 'Calligrapher’s Supplies' },
     { n: 'Soldier', abilities: 'Strength, Dexterity, Constitution', feat: 'Savage Attacker',
       skills: 'Athletics & Intimidation', tool: 'Gaming Set' },
+    { n: 'Artisan', abilities: 'Strength, Dexterity, Intelligence', feat: 'Crafter',
+      skills: 'Investigation & Persuasion', tool: 'Artisan’s Tools (your craft)' },
+    { n: 'Charlatan', abilities: 'Dexterity, Constitution, Charisma', feat: 'Skilled',
+      skills: 'Deception & Sleight of Hand', tool: 'Forgery Kit' },
+    { n: 'Entertainer', abilities: 'Strength, Dexterity, Charisma', feat: 'Musician',
+      skills: 'Acrobatics & Performance', tool: 'Musical Instrument' },
+    { n: 'Farmer', abilities: 'Strength, Constitution, Wisdom', feat: 'Tough',
+      skills: 'Animal Handling & Nature', tool: 'Carpenter’s Tools' },
+    { n: 'Guard', abilities: 'Strength, Intelligence, Wisdom', feat: 'Alert',
+      skills: 'Athletics & Perception', tool: 'Gaming Set' },
+    { n: 'Guide', abilities: 'Dexterity, Constitution, Wisdom', feat: 'Magic Initiate (Druid)',
+      skills: 'Stealth & Survival', tool: 'Cartographer’s Tools' },
+    { n: 'Hermit', abilities: 'Constitution, Wisdom, Charisma', feat: 'Healer',
+      skills: 'Medicine & Religion', tool: 'Herbalism Kit' },
+    { n: 'Merchant', abilities: 'Constitution, Intelligence, Charisma', feat: 'Lucky',
+      skills: 'Animal Handling & Persuasion', tool: 'Navigator’s Tools' },
+    { n: 'Noble', abilities: 'Strength, Intelligence, Charisma', feat: 'Skilled',
+      skills: 'History & Persuasion', tool: 'Gaming Set' },
+    { n: 'Sailor', abilities: 'Strength, Dexterity, Wisdom', feat: 'Tavern Brawler',
+      skills: 'Acrobatics & Perception', tool: 'Navigator’s Tools' },
+    { n: 'Scribe', abilities: 'Dexterity, Intelligence, Wisdom', feat: 'Skilled',
+      skills: 'Investigation & Perception', tool: 'Calligrapher’s Supplies' },
+    { n: 'Wayfarer', abilities: 'Dexterity, Wisdom, Charisma', feat: 'Lucky',
+      skills: 'Insight & Stealth', tool: 'Thieves’ Tools' },
   ];
 
   function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
