@@ -113,6 +113,11 @@ function applyOrigin() {
     if (bg) feats += '\n\n' + bgName + ' background — Origin feat: ' + bg.feat + '. Increase ' + bg.abilities + ' (one by 2 & one by 1, or all three by 1).';
     cs.features = feats;
     cs.notes = (cs.notes ? cs.notes + '\n' : '') + 'Class skills — ' + cls.skills;
+    // Level-1 spell slots + casting ability for casters (2024 rules)
+    if (cls.slots1 > 0) {
+      cs.slots[1] = { max: cls.slots1, used: 0 };
+      cs.spells = 'Spellcasting ability: ' + cls.castAbil + '\n' + (cs.spells || '');
+    }
     // Starting attacks from the class kit — to-hit = ability mod + proficiency (+2 at L1)
     if (window.SRD.weapons && cls.atk && cls.atk.length) {
       const mod = (k) => Math.floor((Number(cs.scores[k] || 10) - 10) / 2);

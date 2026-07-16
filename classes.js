@@ -219,6 +219,12 @@
     Paladin: ['#b59e54', '🛡️'], Ranger: ['#507f62', '🏹'], Rogue: ['#5c5e57', '🗡️'],
     Sorcerer: ['#992e2e', '🔥'], Warlock: ['#7b469b', '👁️'], Wizard: ['#2a50a1', '🧙'],
   };
+  // Level-1 spellcasting (SRD 5.2.1): [first-level slots, casting ability]
+  const CLASS_CASTING = {
+    Bard: [2, 'Charisma'], Cleric: [2, 'Wisdom'], Druid: [2, 'Wisdom'],
+    Paladin: [2, 'Charisma'], Ranger: [2, 'Wisdom'], Sorcerer: [2, 'Charisma'],
+    Warlock: [1, 'Charisma (Pact Magic — slots refresh on a Short Rest)'], Wizard: [2, 'Intelligence'],
+  };
   const ABIL_KEY = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
   function saveKeys(text) {
     return String(text).toLowerCase().split(/[&,]| and | or /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
@@ -235,6 +241,8 @@
       atk: CLASS_WEAPONS[c.n] || [],
       color: (CLASS_THEME[c.n] || [])[0] || null,
       emoji: (CLASS_THEME[c.n] || [])[1] || '',
+      slots1: (CLASS_CASTING[c.n] || [0])[0],
+      castAbil: (CLASS_CASTING[c.n] || [])[1] || null,
     };
   });
   window.SRD.weapons = WEAPONS;
