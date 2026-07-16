@@ -1772,6 +1772,7 @@ function buildCS() {
       <div class="cs-sec-t">Death Saves</div>
       <div class="cs-death"><span>Successes</span><div class="cs-dpips">${deathPips('succ')}</div></div>
       <div class="cs-death"><span>Failures</span><div class="cs-dpips">${deathPips('fail')}</div></div>
+      <button class="cs-line-roll" data-deathroll style="margin-top:8px;width:100%">🎲 Roll Death Save</button>
       <div class="cs-sec-t" style="margin-top:12px">Hit Dice</div>
       <div class="cs-hitdice">
         <label>Total <input data-cs="hitDiceTotal" placeholder="8d8" /></label>
@@ -1863,6 +1864,7 @@ function csOnClick(e) {
   const rest = e.target.closest('[data-rest]');
   if (rest) { doRest(rest.dataset.rest); return; }
   if (e.target.closest('[data-levelup]')) { levelUp(); return; }
+  if (e.target.closest('[data-deathroll]')) { rollSheetDeathSave(); return; }
   const rm = e.target.closest('[data-atk-rm]');
   if (rm) { cs.attacks.splice(Number(rm.dataset.atkRm), 1); csRenderAttacks(); saveCS(); return; }
   if (e.target.id === 'cs-atk-addbtn') {
@@ -1902,6 +1904,31 @@ function csRenderAttacks() {
     <span class="cs-atk-dmg-txt">${escapeHtml(a.dmg || '')}</span>
     <button class="cs-atk-rm" data-atk-rm="${i}" title="Remove">✕</button>
   </div>`).join('') || '<div class="cs-empty">No attacks yet.</div>';
+}
+
+/* Death save from the sheet: d20 with 5E rules, synced to pips + chat + linked token. */
+function rollSheetDeathSave() {
+  const who = cs.name || me.name;
+  const d = 1 + Math.floor(Math.random() * 20);
+  let msg;
+  if (d === 20) {
+    cs.hp = 1; cs.deathSucc = 0; cs.deathFail = 0;
+    msg = `natural 20 — 💚 ${who} regains 1 HP and is back up!`;
+  } else if (d === 1) {
+    cs.deathFail = Math.min(3, (Number(cs.deathFail) || 0) + 2);
+    msg = `natural 1 — two failures`;
+  } else if (d >= 10) {
+    cs.deathSucc = Math.min(3, (Number(cs.deathSucc) || 0) + 1);
+    msg = `success`;
+  } else {
+    cs.deathFail = Math.min(3, (Number(cs.deathFail) || 0) + 1);
+    msg = `failure`;
+  }
+  let tail = '';
+  if (d !== 20 && cs.deathSucc >= 3) { tail = ' — 🕊️ stabilized!'; cs.deathSucc = 0; cs.deathFail = 0; }
+  else if (cs.deathFail >= 3) { tail = ' — 💀 has died.'; }
+  csPopulate(); csRecompute(); saveCS(); sendPartyStatus(); syncLinkedToken();
+  socket.emit('chat', { text: `🎲 ${who} death save: ${d} (${msg})${tail}` });
 }
 
 /* DM milestone: broadcast levels the whole party (each player picks roll/average). */
