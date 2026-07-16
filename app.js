@@ -1685,6 +1685,7 @@ function buildCS() {
       </div>
     </div>
     <div class="cs-headstats">
+      <button class="cs-badge cs-roll" data-levelup title="Advance a level: roll or average the hit die + CON">⬆️ Level Up</button>
       <button class="cs-insp" data-insp>✨ Inspiration</button>
       <div class="cs-badge">PROF <b data-prof>+2</b></div>
       <button class="cs-badge cs-roll" data-roll="init">INIT <b data-init>+0</b></button>
@@ -1861,6 +1862,7 @@ function csOnClick(e) {
   }
   const rest = e.target.closest('[data-rest]');
   if (rest) { doRest(rest.dataset.rest); return; }
+  if (e.target.closest('[data-levelup]')) { levelUp(); return; }
   const rm = e.target.closest('[data-atk-rm]');
   if (rm) { cs.attacks.splice(Number(rm.dataset.atkRm), 1); csRenderAttacks(); saveCS(); return; }
   if (e.target.id === 'cs-atk-addbtn') {
@@ -1900,6 +1902,36 @@ function csRenderAttacks() {
     <span class="cs-atk-dmg-txt">${escapeHtml(a.dmg || '')}</span>
     <button class="cs-atk-rm" data-atk-rm="${i}" title="Remove">✕</button>
   </div>`).join('') || '<div class="cs-empty">No attacks yet.</div>';
+}
+
+/* Level up: +1 level, hit-die HP (roll or average), hit dice, prof bumps automatically. */
+function levelUp() {
+  const lvl = Number(cs.level) || 1;
+  if (lvl >= 20) { alert('Already at level 20 — the pinnacle!'); return; }
+  // Hit die: from the SRD class if known, else from the hit-dice string, else d8.
+  let die = 8;
+  const srdCls = window.SRD && cs.cls && window.SRD.classes[String(cs.cls).trim()];
+  if (srdCls) die = srdCls.hd;
+  else { const m = String(cs.hitDiceTotal || '').match(/d(\d+)/i); if (m) die = parseInt(m[1], 10) || 8; }
+  const conMod = csMod(cs.scores.con);
+  const avg = Math.floor(die / 2) + 1;
+  const wantRoll = confirm(`Level ${lvl} → ${lvl + 1}\n\nOK = roll 1d${die} for HP\nCancel = take the average (${avg})`);
+  const base = wantRoll ? (1 + Math.floor(Math.random() * die)) : avg;
+  const gained = Math.max(1, base + conMod);
+  const oldProf = csProf();
+  cs.level = lvl + 1;
+  cs.maxhp = (Number(cs.maxhp) || 0) + gained;
+  cs.hp = (Number(cs.hp) || 0) + gained;
+  cs.hitDiceTotal = cs.level + 'd' + die;
+  const newProf = csProf();
+  saveCS(); csPopulate(); csRecompute(); csRenderAttacks(); sendPartyStatus(); syncLinkedToken();
+  if ($('sh-level')) $('sh-level').value = cs.level;
+  if ($('sh-hp')) $('sh-hp').value = cs.hp;
+  if ($('sh-maxhp')) $('sh-maxhp').value = cs.maxhp;
+  if (typeof saveSheet === 'function') saveSheet();
+  const profNote = newProf > oldProf ? ` Proficiency rises to +${newProf}!` : '';
+  const rollNote = wantRoll ? `rolled ${base} on the d${die}` : `took the average ${avg}`;
+  socket.emit('chat', { text: `⬆️ ${cs.name || me.name} reaches level ${cs.level}! (${rollNote} ${csFmt(conMod)} CON = +${gained} HP → ${cs.hp}/${cs.maxhp}).${profNote}` });
 }
 
 function doRest(type) {
