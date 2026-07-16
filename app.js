@@ -911,7 +911,14 @@ function showPing(x, y, color, name) {
 
 /* ============ TOKENS ============ */
 $('addtoken-btn').onclick = () => {
-  socket.emit('token:add', { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), size: 1, statuses: [] });
+  // Theme the token from the character: class emoji + sheet HP if a class is set.
+  const theme = (window.SRD && cs && cs.cls && window.SRD.classes[cs.cls]) || null;
+  const tok = { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), size: 1, statuses: [] };
+  if (theme) {
+    if (theme.emoji) tok.emoji = theme.emoji;
+    if (Number(cs.maxhp) > 0) { tok.hp = Number(cs.hp) || 0; tok.maxhp = Number(cs.maxhp); }
+  }
+  socket.emit('token:add', tok);
 };
 socket.on('token:add', (t) => { renderToken(t); refreshLighting(); });
 socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); refreshLighting(); } else { renderToken(t); refreshLighting(); } });

@@ -212,6 +212,13 @@
     Warlock: ['Sickle', 'Dagger'],
     Wizard: ['Dagger'],
   };
+  // Class token themes: signature color + emoji for the battle map
+  const CLASS_THEME = {
+    Barbarian: ['#c15b36', '🪓'], Bard: ['#ab6dac', '🎶'], Cleric: ['#c9a441', '🙏'],
+    Druid: ['#7a853b', '🌿'], Fighter: ['#8a5a42', '⚔️'], Monk: ['#51a5c5', '👊'],
+    Paladin: ['#b59e54', '🛡️'], Ranger: ['#507f62', '🏹'], Rogue: ['#5c5e57', '🗡️'],
+    Sorcerer: ['#992e2e', '🔥'], Warlock: ['#7b469b', '👁️'], Wizard: ['#2a50a1', '🧙'],
+  };
   const ABIL_KEY = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
   function saveKeys(text) {
     return String(text).toLowerCase().split(/[&,]| and | or /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
@@ -226,6 +233,8 @@
       equipA: String(c.equip).split(/;\s*or\s*|\s*or \(B\)/i)[0].replace(/^\(A\)\s*/, '').trim(),
       sig: c.sig,
       atk: CLASS_WEAPONS[c.n] || [],
+      color: (CLASS_THEME[c.n] || [])[0] || null,
+      emoji: (CLASS_THEME[c.n] || [])[1] || '',
     };
   });
   window.SRD.weapons = WEAPONS;
@@ -243,7 +252,15 @@
   function fillJoin() {
     const opt = (v, label) => `<option value="${esc(v)}">${esc(label || v)}</option>`;
     const jc = document.getElementById('join-class');
-    if (jc && jc.options.length <= 1) jc.innerHTML = opt('', '— choose later —') + CLASSES.map((c) => opt(c.n)).join('');
+    if (jc && jc.options.length <= 1) {
+      jc.innerHTML = opt('', '— choose later —') + CLASSES.map((c) => opt(c.n)).join('');
+      // Picking a class tints your token to the class color (still overridable)
+      jc.addEventListener('change', () => {
+        const t = CLASS_THEME[jc.value];
+        const col = document.getElementById('join-color');
+        if (t && col) col.value = t[0];
+      });
+    }
     const js = document.getElementById('join-species');
     if (js && js.options.length <= 1) js.innerHTML = opt('', '— choose later —') + SPECIES.map((s) => opt(s.n)).join('');
     const jb = document.getElementById('join-bg');
