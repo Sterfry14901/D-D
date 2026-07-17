@@ -729,6 +729,23 @@ io.on('connection', (socket) => {
     io.to(target.id).emit('item:give', { item: clean });
     pushSystem(joinedRoom, giver ? `💝 ${giver} gives ${target.name}: ${clean}` : `🎁 The DM gives ${target.name}: ${clean}`);
   });
+  // DM taps "AI loot" → the AI invents a themed item and it lands on a player's sheet.
+  socket.on('loot:ai', async ({ to, theme } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const target = Object.values(room.players).find((p) => p.name.toLowerCase() === String(to || '').trim().toLowerCase());
+    if (!target) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `No player named "${to}" at the table.`, ts: Date.now() }); return; }
+    const th = theme && String(theme).trim() ? `themed around: ${String(theme).trim().slice(0, 60)}` : 'suitable for a fantasy adventurer';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `Invent ONE balanced, fun D&D treasure or magic item ${th}. Respond in exactly this format:\nITEM: <short item name, at most 6 words>\n<one vivid sentence describing it and what it does>` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const m = reply.match(/ITEM:\s*(.+)/i);
+    const name = String(m ? m[1] : reply.split('\n')[0]).replace(/[*_`#]/g, '').trim().slice(0, 60) || 'Mysterious Trinket';
+    const desc = reply.replace(/ITEM:\s*.+\n?/i, '').replace(/[*_`#]/g, '').trim().slice(0, 240);
+    io.to(target.id).emit('item:give', { item: name });
+    pushSystem(joinedRoom, `✨ The DM bestows upon ${target.name}: ${name}${desc ? ' — ' + desc : ''}`);
+  });
   // GM XP award: every character at the table gains XP.
   socket.on('xp:award', (data) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

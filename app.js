@@ -3350,6 +3350,14 @@ if ($('xp-award-btn')) $('xp-award-btn').onclick = () => {
   if (amt > 0) socket.emit('xp:award', { amount: amt });
 };
 /* DM gives an item straight onto a player's sheet — optionally "from" an NPC (gifts!). */
+if ($('loot-ai-btn')) $('loot-ai-btn').onclick = () => {
+  if (!me.isGm) return;
+  const players = (roomPlayers || []).filter((p) => !p.isGm).map((p) => p.name);
+  const to = prompt('AI loot for which player? (name)' + (players.length ? '\nAt the table: ' + players.join(', ') : '')); if (!to || !to.trim()) return;
+  const theme = prompt('Theme? (optional — e.g. "fire", "the rogue", "underwater", or leave blank)') || '';
+  socket.emit('loot:ai', { to: to.trim(), theme: theme.trim() });
+  flashHint('✨ The DM conjures treasure…');
+};
 if ($('item-give-btn')) $('item-give-btn').onclick = () => {
   if (!me.isGm) return;
   const to = prompt('Give an item to which player? (name)'); if (!to || !to.trim()) return;
