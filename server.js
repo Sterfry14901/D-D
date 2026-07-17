@@ -22,6 +22,10 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const PORT = process.env.PORT || 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+// Point this at any OpenAI-compatible endpoint — e.g. a local Ollama / LM Studio
+// server for a free, never-runs-out AI DM:  OPENAI_BASE_URL=http://localhost:11434/v1
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+const LOCAL_AI = !/api\.openai\.com/.test(OPENAI_BASE_URL);
 
 // ---- In-memory game state. One "room" = one campaign table. ----
 const rooms = new Map();
@@ -171,8 +175,9 @@ be provided listing tokens and their current HP; use it to narrate wounds, blood
 accurately, and never contradict a creature's stated HP.`;
 
 async function callOpenAIDM(messages) {
-  if (!OPENAI_API_KEY) {
-    return "⚠️ No OPENAI_API_KEY set on the server, so I'm running as a stub DM. Add your key to the .env file and restart to bring me to life. (For now: the tavern door creaks open, and adventure awaits...)";
+  // A local OpenAI-compatible server (Ollama/LM Studio) needs no key.
+  if (!OPENAI_API_KEY && !LOCAL_AI) {
+    return "⚠️ No OPENAI_API_KEY set on the server, so I'm running as a stub DM. Add your key (or point OPENAI_BASE_URL at a local model) and restart. (For now: the tavern door creaks open, and adventure awaits...)";
   }
   const payload = {
     model: OPENAI_MODEL,
@@ -180,21 +185,41 @@ async function callOpenAIDM(messages) {
     temperature: 0.9,
     max_tokens: 500,
   };
-  try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) {
-      console.error('OpenAI error:', await r.text());
-      return `⚠️ The DM stumbled (OpenAI API error ${r.status}). Check your API key/billing.`;
+  // Retry up to 3 times on transient 429/5xx with exponential backoff.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(OPENAI_BASE_URL + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        return data.choices?.[0]?.message?.content?.trim() || '...(the DM ponders silently)';
+      }
+      const body = await r.text();
+      console.error('OpenAI error', r.status, body);
+      // 429 or 5xx → wait and retry (honor Retry-After if present)
+      if ((r.status === 429 || r.status >= 500) && attempt < 2) {
+        const ra = parseFloat(r.headers.get('retry-after')) || 0;
+        const wait = ra ? ra * 1000 : 1200 * Math.pow(2, attempt);
+        await new Promise((res) => setTimeout(res, Math.min(wait, 8000)));
+        continue;
+      }
+      // Out of retries or a non-retryable error → explain clearly.
+      if (r.status === 429) {
+        const outOfQuota = /insufficient_quota|exceeded your current quota|billing/i.test(body);
+        return outOfQuota
+          ? "⚠️ The AI DM is out of OpenAI credits. This is a billing issue on the API key — add credits at platform.openai.com → Billing, then try again. (Everything else in the app keeps working without the AI DM.)"
+          : "⚠️ The AI DM is being rate-limited by OpenAI (too many requests too fast). Wait a few seconds and ask again — the rest of the table works normally in the meantime.";
+      }
+      if (r.status === 401) return "⚠️ The AI DM's OpenAI key was rejected (401). Double-check OPENAI_API_KEY in your Render settings.";
+      return `⚠️ The DM stumbled (OpenAI error ${r.status}). The rest of the app is unaffected — try again shortly.`;
+    } catch (e) {
+      console.error('OpenAI fetch failed:', e);
+      if (attempt < 2) { await new Promise((res) => setTimeout(res, 1000 * (attempt + 1))); continue; }
+      return '⚠️ Could not reach the AI DM service — check the server’s network. The table still works without it.';
     }
-    const data = await r.json();
-    return data.choices?.[0]?.message?.content?.trim() || '...(the DM ponders silently)';
-  } catch (e) {
-    console.error('OpenAI fetch failed:', e);
-    return '⚠️ Could not reach the AI DM service.';
   }
 }
 
@@ -626,5 +651,5 @@ io.on('connection', (socket) => {
 loadRooms();
 httpServer.listen(PORT, () => {
   console.log(`\n  ⚔️  D&D VTT running:  http://localhost:${PORT}`);
-  console.log(`  AI DM: ${OPENAI_API_KEY ? 'enabled (' + OPENAI_MODEL + ')' : 'STUB MODE — add OPENAI_API_KEY to .env'}\n`);
+  console.log(`  AI DM: ${(OPENAI_API_KEY || LOCAL_AI) ? 'enabled (' + OPENAI_MODEL + (LOCAL_AI ? ' @ ' + OPENAI_BASE_URL + ' — local, free' : '') + ')' : 'STUB MODE — add OPENAI_API_KEY or OPENAI_BASE_URL'}\n`);
 });

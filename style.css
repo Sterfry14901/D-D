@@ -940,3 +940,13 @@ button:active:not(:disabled) { transform: translateY(1px); }
 /* ===== Spell lock (class/level gating) ===== */
 .spell-locked { opacity: .62; }
 .spell-lock { font-size: 11px; color: #c9757a; background: rgba(200,80,80,0.12); border: 1px solid rgba(200,80,80,0.35); border-radius: 6px; padding: 1px 7px; vertical-align: middle; white-space: nowrap; }
+
+/* ===== Icon token gallery (Game-Icons.net) ===== */
+.tk-icon-tools { display: flex; gap: 6px; margin: 4px 0; }
+.tk-icon-tools input[type="text"] { flex: 1; }
+.icon-gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; max-height: 210px; overflow-y: auto; padding: 4px; background: rgba(0,0,0,0.22); border-radius: 8px; }
+.icon-opt { aspect-ratio: 1; background: #2b2620; border: 1px solid rgba(217,177,84,0.25); border-radius: 8px; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: border-color .1s, transform .06s; }
+.icon-opt:hover { border-color: var(--gold, #d9b154); transform: translateY(-1px); }
+.icon-opt.on { border-color: var(--gold-bright, #ffd98a); box-shadow: 0 0 0 2px var(--gold, #d9b154) inset; }
+.icon-opt.loading { opacity: .5; }
+.icon-opt img { width: 100%; height: 100%; object-fit: contain; filter: invert(1) brightness(1.6); }

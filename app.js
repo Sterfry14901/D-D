@@ -1434,6 +1434,91 @@ document.querySelectorAll('.img-opt').forEach((b) => {
     document.querySelectorAll('.art-opt[data-e]').forEach((x) => x.classList.remove('on'));
   };
 });
+/* ============ ICON TOKEN GALLERY (Game-Icons.net · CC BY 3.0) ============ */
+const ICON_BASE = 'https://raw.githubusercontent.com/game-icons/icons/master/';
+const ICON_TOKENS = [
+  { q: 'fighter warrior sword knight', p: 'lorc/broadsword' },
+  { q: 'knight paladin banner holy', p: 'delapouite/knight-banner' },
+  { q: 'sword brandish attack', p: 'delapouite/sword-brandish' },
+  { q: 'barbarian axe stump', p: 'lorc/axe-in-stump' },
+  { q: 'rogue thief dagger hood assassin', p: 'lorc/hood' },
+  { q: 'ranger archer bow', p: 'lorc/bowman' },
+  { q: 'ranger shot arrow', p: 'lorc/high-shot' },
+  { q: 'wizard mage hat', p: 'lorc/pointy-hat' },
+  { q: 'wizard staff arcane', p: 'lorc/wizard-staff' },
+  { q: 'wizard sorcerer face', p: 'delapouite/wizard-face' },
+  { q: 'cleric priest holy symbol', p: 'lorc/holy-symbol' },
+  { q: 'bard music lyre', p: 'lorc/lyre' },
+  { q: 'monk fist punch', p: 'lorc/fist' },
+  { q: 'monk face', p: 'delapouite/monk-face' },
+  { q: 'sorcerer fire ray blast', p: 'lorc/fire-ray' },
+  { q: 'ice frost bolt cold', p: 'lorc/ice-bolt' },
+  { q: 'lightning storm druid', p: 'lorc/lightning-tree' },
+  { q: 'druid tree nature', p: 'lorc/oak' },
+  { q: 'druid vine plant', p: 'lorc/vine-whip' },
+  { q: 'robe warlock mage', p: 'lorc/robe' },
+  { q: 'fairy fey pixie', p: 'lorc/fairy' },
+  { q: 'shield defender guard', p: 'lorc/battle-gear' },
+  { q: 'dwarf', p: 'delapouite/dwarf-face' },
+  { q: 'wolf beast dog', p: 'lorc/wolf-head' },
+  { q: 'wolf howl', p: 'lorc/wolf-howl' },
+  { q: 'bear claws beast', p: 'delapouite/wolverine-claws' },
+  { q: 'dragon wyrm', p: 'lorc/dragon-head' },
+  { q: 'wyvern dragon drake', p: 'lorc/wyvern' },
+  { q: 'orc brute', p: 'delapouite/orc-head' },
+  { q: 'goblin kobold', p: 'delapouite/goblin-head' },
+  { q: 'ogre giant troll', p: 'delapouite/ogre' },
+  { q: 'minotaur bull beast', p: 'lorc/minotaur' },
+  { q: 'skeleton undead bones', p: 'lorc/skull-crossed-bones' },
+  { q: 'skull undead death', p: 'lorc/horned-skull' },
+  { q: 'zombie ghoul dread', p: 'lorc/dread-skull' },
+  { q: 'cultist enemy hooded', p: 'lorc/cultist' },
+  { q: 'minion imp devil', p: 'lorc/evil-minion' },
+  { q: 'imp laugh fiend', p: 'lorc/imp-laugh' },
+  { q: 'spider web bug', p: 'lorc/masked-spider' },
+  { q: 'fangs bite beast', p: 'lorc/bestial-fangs' },
+  { q: 'poison venom vial', p: 'lorc/vile-fluid' },
+];
+const _iconCache = {};
+async function makeIconToken(path, tint) {
+  const key = path + '|' + tint;
+  if (_iconCache[key]) return _iconCache[key];
+  let svg = await (await fetch(ICON_BASE + path + '.svg')).text();
+  // Swap the black background rect for a colored disc; keep the white icon on top.
+  svg = svg.replace('<path d="M0 0h512v512H0z"/>', `<circle cx="256" cy="256" r="256" fill="${tint}"/>`);
+  const uri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  _iconCache[key] = uri; return uri;
+}
+function renderIconGallery() {
+  const g = $('tk-icongal'); if (!g) return;
+  const q = ($('tk-icon-q').value || '').trim().toLowerCase();
+  const list = q ? ICON_TOKENS.filter((i) => i.q.includes(q) || i.p.includes(q)) : ICON_TOKENS;
+  g.innerHTML = '';
+  list.forEach((i) => {
+    const b = document.createElement('button');
+    b.className = 'icon-opt'; b.title = i.q.split(' ').slice(0, 2).join(' ');
+    b.innerHTML = `<img src="${ICON_BASE + i.p}.svg" alt="" loading="lazy" />`;
+    b.onclick = async () => {
+      const tint = $('tk-icon-color').value || '#8a5a42';
+      b.classList.add('loading');
+      try {
+        editImg = await makeIconToken(i.p, tint); editEmoji = '';
+        document.querySelectorAll('.img-opt, .art-opt[data-e], .icon-opt').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        flashHint('🎨 Token art set — Save the token to apply');
+      } catch { flashHint('Could not load that icon (offline?)'); }
+      b.classList.remove('loading');
+    };
+    g.appendChild(b);
+  });
+  if (!list.length) g.innerHTML = '<div style="font-size:12px;opacity:.6;padding:6px">No icons match.</div>';
+}
+(function () {
+  const q = $('tk-icon-q'); if (!q) return;
+  q.addEventListener('input', renderIconGallery);
+  renderIconGallery();
+})();
+
 // Art palette: pick an emoji preset (clears custom image)
 document.querySelectorAll('.art-opt[data-e]').forEach((b) => {
   b.onclick = () => {
