@@ -989,3 +989,22 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #tts-btn.on { background: rgba(120,90,200,.35); border-color: rgba(150,120,230,.6); color: #fff; }
 #talk-btn.on { background: #b3372e; color: #fff; animation: talkpulse 1s ease-in-out infinite; }
 @keyframes talkpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(200,60,50,.6); } 50% { box-shadow: 0 0 0 6px rgba(200,60,50,0); } }
+
+/* ===== Quest Log ===== */
+#tab-quests { padding: 10px 12px; overflow-y: auto; }
+.quest-empty { opacity: .6; font-size: 13px; padding: 10px 2px; }
+.quest-cap { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; opacity: .7; margin-bottom: 4px; }
+.quest-main-card { background: rgba(217,177,84,.12); border: 1px solid rgba(217,177,84,.4); border-radius: 10px; padding: 10px 12px; }
+.quest-main-txt { font-size: 14px; line-height: 1.4; }
+.quest-side-card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 7px 10px; margin-top: 6px; font-size: 13px; }
+.quest-side-card.done { opacity: .55; text-decoration: line-through; }
+.quest-edit { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 12px; }
+.quest-lbl { display: block; font-size: 12px; opacity: .8; margin: 8px 0 4px; }
+.quest-main { width: 100%; min-height: 56px; resize: vertical; }
+.quest-side-edit { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.quest-side-edit .quest-side-t { flex: 1; font-size: 13px; }
+.quest-done-tog, .quest-rm { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; cursor: pointer; color: inherit; padding: 2px 7px; }
+.quest-add-row { display: flex; gap: 6px; margin-top: 8px; }
+.quest-add-row input { flex: 1; }
+.quest-save { margin-top: 10px; width: 100%; background: rgba(217,177,84,.25); border: 1px solid rgba(217,177,84,.5); color: #fff; border-radius: 8px; padding: 8px; cursor: pointer; font-weight: 600; }
+.quest-save:hover { background: rgba(217,177,84,.4); }

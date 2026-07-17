@@ -257,6 +257,67 @@ socket.on('notes:set', (text) => applyNotes(text));
 document.addEventListener('DOMContentLoaded', initJournal);
 if (document.readyState !== 'loading') initJournal();
 
+/* ============ QUEST LOG — DM sets a main quest + side quests, party sees it ============ */
+let quests = { main: '', sides: [] };
+function applyQuests(q) {
+  quests = { main: (q && q.main) || '', sides: Array.isArray(q && q.sides) ? q.sides.slice() : [] };
+  renderQuestView();
+  // fill the GM editor only when the DM isn't actively editing
+  const mainTa = $('quest-main');
+  if (mainTa && document.activeElement !== mainTa) mainTa.value = quests.main;
+  renderQuestSidesEditor();
+}
+function renderQuestView() {
+  const box = $('quest-view'); if (!box) return;
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  if (!quests.main && !(quests.sides || []).length) {
+    box.innerHTML = '<div class="quest-empty">No quests yet. ' + (me.isGm ? 'Set the party’s goal below, or tap “AI: suggest quests.”' : 'The DM hasn’t posted the party’s goals yet.') + '</div>';
+    return;
+  }
+  let h = '';
+  if (quests.main) h += `<div class="quest-main-card"><div class="quest-cap">⭐ Main Quest</div><div class="quest-main-txt">${esc(quests.main)}</div></div>`;
+  const sides = (quests.sides || []).filter((s) => s && s.text);
+  if (sides.length) {
+    h += '<div class="quest-cap" style="margin-top:10px">🗺️ Side Quests</div>';
+    h += sides.map((s) => `<div class="quest-side-card ${s.done ? 'done' : ''}">${s.done ? '✅' : '▫️'} ${esc(s.text)}</div>`).join('');
+  }
+  box.innerHTML = h;
+}
+function renderQuestSidesEditor() {
+  const box = $('quest-sides'); if (!box) return;
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  box.innerHTML = (quests.sides || []).map((s, i) => `<div class="quest-side-edit">
+    <button class="quest-done-tog" data-qdone="${i}" title="Toggle complete">${s.done ? '✅' : '▫️'}</button>
+    <span class="quest-side-t">${esc(s.text)}</span>
+    <button class="quest-rm" data-qrm="${i}" title="Remove">✕</button></div>`).join('');
+}
+function publishQuests() {
+  const mainTa = $('quest-main');
+  const main = mainTa ? mainTa.value : quests.main;
+  socket.emit('quest:set', { main, sides: quests.sides });
+  flashHint('🧭 Quests published to the party');
+}
+function initQuests() {
+  if ($('quest-side-add')) $('quest-side-add').onclick = () => {
+    const inp = $('quest-side-in'); const t = (inp.value || '').trim(); if (!t) return;
+    quests.sides = quests.sides || []; if (quests.sides.length < 8) quests.sides.push({ text: t, done: false });
+    inp.value = ''; renderQuestSidesEditor();
+  };
+  if ($('quest-side-in')) $('quest-side-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('quest-side-add').click(); } });
+  if ($('quest-sides')) $('quest-sides').addEventListener('click', (e) => {
+    const d = e.target.closest('[data-qdone]'); if (d) { const i = +d.dataset.qdone; quests.sides[i].done = !quests.sides[i].done; renderQuestSidesEditor(); return; }
+    const r = e.target.closest('[data-qrm]'); if (r) { quests.sides.splice(+r.dataset.qrm, 1); renderQuestSidesEditor(); return; }
+  });
+  if ($('quest-save')) $('quest-save').onclick = publishQuests;
+  if ($('quest-ai')) $('quest-ai').onclick = () => {
+    socket.emit('dm:ask', { text: 'As the DM, tell the party where they are right now, then give them ONE clear main quest and TWO optional side quests they could pursue. Format as: Main Quest: ... / Side Quest 1: ... / Side Quest 2: ... Keep each to one or two sentences.' });
+    flashHint('🧭 Asked the AI DM for quest ideas — see Chat, then copy them in.');
+  };
+}
+socket.on('quest:update', (q) => applyQuests(q));
+document.addEventListener('DOMContentLoaded', initQuests);
+if (document.readyState !== 'loading') initQuests();
+
 /* Voice dictation into the journal (Web Speech API — Chrome/Edge). */
 (function () {
   const btn = $('journal-rec'); if (!btn) return;
@@ -312,6 +373,7 @@ socket.on('state', (s) => {
   setWeather(s.weather || 'clear');
   if (s.ambience && s.ambience !== 'off') { ambSyncUI(s.ambience); AMB.set(s.ambience); }
   applyNotes(s.notes || '');
+  applyQuests(s.quests || { main: '', sides: [] });
   $('board').classList.toggle('gm-fog', me.isGm);
   document.body.classList.toggle('is-gm', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);

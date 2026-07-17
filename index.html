@@ -191,6 +191,7 @@
           <button class="tab" data-tab="dice">Dice</button>
           <button class="tab" data-tab="sheet">Sheet</button>
           <button class="tab" data-tab="players">Party</button>
+          <button class="tab" data-tab="quests">Quests</button>
           <button class="tab" data-tab="journal">Journal</button>
           <button class="tab" data-tab="rules">Rules</button>
           <button class="tab" data-tab="spells">Spells</button>
@@ -400,6 +401,23 @@
         </div>
 
         <!-- Shared campaign journal -->
+        <div class="tabpane" id="tab-quests">
+          <div class="journal-head">
+            <span class="party-title">🧭 Quest Log</span>
+            <button id="quest-ai" class="ghost gm-only" title="Ask the AI DM to invent a main quest + 2 side quests">🧭 AI: suggest quests</button>
+          </div>
+          <div class="journal-hint">The DM sets the party's goals — everyone sees them live.</div>
+          <div id="quest-view"></div>
+          <div id="quest-edit" class="gm-only quest-edit">
+            <label class="quest-lbl">⭐ Main Quest</label>
+            <textarea id="quest-main" class="quest-main" placeholder="e.g. Reach the ruined keep of Vael and recover the Sunstone before the cult does."></textarea>
+            <label class="quest-lbl">🗺️ Side Quests</label>
+            <div id="quest-sides"></div>
+            <div class="quest-add-row"><input id="quest-side-in" placeholder="Add a side quest…" /><button id="quest-side-add">Add</button></div>
+            <button id="quest-save" class="quest-save">💾 Publish to the party</button>
+          </div>
+        </div>
+
         <div class="tabpane" id="tab-journal">
           <div class="journal-head">
             <span class="party-title">Campaign Journal</span>

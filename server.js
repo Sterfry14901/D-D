@@ -55,6 +55,7 @@ function saveRooms() {
         weather: room.weather,
         ambience: room.ambience,
         notes: room.notes,
+        quests: room.quests || { main: '', sides: [] },
         drawings: (room.drawings || []).slice(-500),
       };
     }
@@ -92,6 +93,7 @@ function loadRooms() {
         weather: room.weather || 'clear',
         ambience: room.ambience || 'off',
         notes: room.notes || '',
+        quests: room.quests || { main: '', sides: [] },
         drawings: room.drawings || [],
         round: room.round || 1,
         partyStatus: {},
@@ -128,6 +130,7 @@ function getRoom(id) {
       weather: 'clear',        // atmosphere overlay: clear|rain|snow|fog|embers
       ambience: 'off',         // synced soundscape: off|rain|wind|tavern|dungeon|fire|forest
       notes: '',               // shared campaign journal text
+      quests: { main: '', sides: [] },  // quest log — DM/AI set, everyone sees
       drawings: [],            // freehand map annotations [{points:[[x,y]...], color, w}]
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
     });
@@ -291,6 +294,7 @@ io.on('connection', (socket) => {
       weather: room.weather,
       ambience: room.ambience || 'off',
       notes: room.notes || '',
+      quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
       youId: socket.id,
       isGm: gm,
@@ -505,6 +509,21 @@ io.on('connection', (socket) => {
     socket.to(joinedRoom).emit('notes:set', room.notes);
   });
 
+  // ---- Quest log (DM only sets; everyone sees) ----
+  socket.on('quest:set', (q) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const main = String((q && q.main) || '').slice(0, 500);
+    const sides = Array.isArray(q && q.sides)
+      ? q.sides.slice(0, 8).map((s) => ({
+          text: String((s && s.text) || '').slice(0, 300),
+          done: !!(s && s.done),
+        })).filter((s) => s.text)
+      : [];
+    room.quests = { main, sides };
+    io.to(joinedRoom).emit('quest:update', room.quests);
+    markDirty();
+  });
+
   // ---- Freehand map drawing ----
   socket.on('draw:add', (stroke) => {
     const room = rooms.get(joinedRoom); if (!room || !stroke || !Array.isArray(stroke.points)) return;
@@ -550,6 +569,7 @@ io.on('connection', (socket) => {
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
         fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,
+        notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
         youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
       });
     }
