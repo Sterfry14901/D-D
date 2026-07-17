@@ -561,6 +561,18 @@ function addChat(m) {
   if (m.role === 'roll') addRollHistory(m);
   // Speak the DM / NPC narration aloud when DM Voice is on.
   if (typeof ttsOn !== 'undefined' && ttsOn && (m.role === 'dm' || m.author === 'Dungeon Master')) speakDM(m.text);
+  // If a DM reply came back as an error, alert the DM to check their AI connection.
+  if ((m.role === 'dm' || m.author === 'Dungeon Master') && /^⚠️/.test(String(m.text || '')) && me.isGm) showDmAlert(m.text);
+}
+/* DM-only banner shown when the AI DM call fails (tunnel down, out of credits, etc.). */
+function showDmAlert(text) {
+  let b = $('dm-alert'); if (!b) { b = document.createElement('div'); b.id = 'dm-alert'; b.className = 'dm-alert'; document.body.appendChild(b); }
+  const local = /reach|network|tunnel|could not|ECONN|fetch/i.test(text);
+  b.innerHTML = `<span class="rb-t">🔌 <b>AI DM problem.</b> ${local ? 'Check that Ollama + the cloudflared tunnel are running on your Mac.' : escapeHtml(String(text).replace(/^⚠️\s*/, '')).slice(0, 160)}</span>
+    <button id="dm-alert-fix" class="rb-btn">🧠 AI settings</button><button id="dm-alert-x" class="rb-btn rb-ghost">Dismiss</button>`;
+  b.classList.add('show');
+  $('dm-alert-fix').onclick = () => { b.classList.remove('show'); openAiConfig(); };
+  $('dm-alert-x').onclick = () => b.classList.remove('show');
 }
 function addRollHistory(m) {
   const box = $('dice-history'); if (!box) return;
@@ -602,6 +614,7 @@ function openAiConfig() {
     <div id="ai-cfg-msg" class="ai-cfg-msg"></div>
     <div class="ai-cfg-row">
       <button id="ai-cfg-save" class="quest-save" style="margin:0">💾 Use this AI</button>
+      <button id="ai-cfg-test" class="rb-btn">🔌 Test connection</button>
       <button id="ai-cfg-clear" class="rb-btn rb-ghost">↩︎ Back to default (OpenAI/env)</button>
     </div>
     <div class="sb-foot">Tip: when your tunnel URL changes, just paste the new one here.</div>
@@ -622,6 +635,14 @@ function openAiConfig() {
           msg('✅ Saved! It will auto-restore even if the server restarts. Ask the DM anything to test.', true);
           refreshAiBadge(); setTimeout(() => m.remove(), 1400);
         } else { msg('⚠️ ' + ((res && res.error) || 'Could not save — are you the DM?'), false); }
+      });
+      return;
+    }
+    if (e.target.id === 'ai-cfg-test') {
+      msg('🔌 Testing… (a cold model can take a few seconds)', true);
+      socket.emit('ai:test', {}, (res) => {
+        if (res && res.ok) msg('✅ Connected to ' + (res.backend || 'AI') + ' — the DM replied. You’re good to go!', true);
+        else msg('⚠️ ' + ((res && (res.error || res.sample)) || 'No response — is Ollama + the cloudflared tunnel running?'), false);
       });
       return;
     }

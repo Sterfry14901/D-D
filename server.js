@@ -426,6 +426,20 @@ io.on('connection', (socket) => {
     runtimeAI = null; saveAIConfig();
     if (typeof ack === 'function') ack({ ok: true, status: effectiveAI() });
   });
+  // DM taps "Test connection" — do a tiny real call to the AI backend and report back.
+  socket.on('ai:test', async (_x, ack) => {
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) { if (typeof ack === 'function') ack({ ok: false, error: 'DM only' }); return; }
+    const cfg = effectiveAI();
+    if (!cfg.ready) { if (typeof ack === 'function') ack({ ok: false, error: 'No AI configured yet.' }); return; }
+    try {
+      const reply = await callOpenAIDM([{ role: 'user', content: 'Reply with exactly one short word.' }]);
+      const failed = /^⚠️/.test(reply);
+      if (typeof ack === 'function') ack({ ok: !failed, sample: String(reply).slice(0, 140), backend: cfg.local ? 'local (Ollama)' : 'OpenAI', model: cfg.model });
+    } catch (e) {
+      if (typeof ack === 'function') ack({ ok: false, error: String(e && e.message || e).slice(0, 140) });
+    }
+  });
 
   // DM reassigns who controls a token (by player name; empty = DM controls it).
   socket.on('token:assign', ({ id, owner }) => {

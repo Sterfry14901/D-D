@@ -1057,3 +1057,10 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .ai-cfg-msg { font-size: 12.5px; margin-top: 8px; min-height: 16px; }
 .ai-cfg-msg.ok { color: #9be7a0; }
 .ai-cfg-msg.err { color: #ffb0a0; }
+
+/* ===== DM AI-connection alert banner ===== */
+.dm-alert { position: fixed; left: 50%; top: 62px; transform: translateX(-50%); z-index: 320;
+  display: none; align-items: center; gap: 10px; padding: 11px 16px; border-radius: 12px;
+  background: linear-gradient(180deg,#3a1a12,#241009); border: 1px solid #c9553f;
+  box-shadow: 0 12px 34px rgba(0,0,0,.55); color: #ffe6df; max-width: 92vw; }
+.dm-alert.show { display: flex; }
