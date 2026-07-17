@@ -922,3 +922,21 @@ button:active:not(:disabled) { transform: translateY(1px); }
 /* ===== Encumbrance meter ===== */
 .cs-carry { font-size: 12px; margin-top: 4px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(217,177,84,0.2); }
 .cs-carry.over { color: #ff9d8a; border-color: #e74c3c; background: rgba(231,76,60,0.12); font-weight: 700; }
+
+/* ===== "What You Can Do" class guide + encumbered speed badge ===== */
+.cs-cando-sec { margin-top: 10px; }
+.cando-h { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--gold-bright, #ffd98a); margin: 8px 0 4px; }
+.cando-p { font-size: 13px; line-height: 1.5; padding: 5px 8px; border-radius: 6px; margin: 3px 0; background: rgba(0,0,0,0.2); border-left: 3px solid rgba(127,191,106,0.55); }
+.cando-p.off { opacity: .5; border-left-color: rgba(255,255,255,0.15); }
+.cs-badge.enc { outline: 2px solid #e74c3c; outline-offset: 1px; }
+.cs-badge.enc::after { content: " ½"; color: #ff9d8a; font-weight: 700; }
+
+/* ===== Class resource tracker ===== */
+.cs-resrow { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+.cs-res-n { flex: 1; }
+.cs-res-r { opacity: .8; }
+.cs-res-btn { background: var(--panel-2, #2a2622); border: 1px solid rgba(217,177,84,0.3); color: inherit; border-radius: 5px; width: 22px; height: 22px; cursor: pointer; line-height: 1; }
+.cs-res-btn:hover { border-color: var(--gold, #d9b154); }
+/* ===== Spell lock (class/level gating) ===== */
+.spell-locked { opacity: .62; }
+.spell-lock { font-size: 11px; color: #c9757a; background: rgba(200,80,80,0.12); border: 1px solid rgba(200,80,80,0.35); border-radius: 6px; padding: 1px 7px; vertical-align: middle; white-space: nowrap; }

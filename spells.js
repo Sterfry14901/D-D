@@ -164,6 +164,36 @@
     });
   }
 
+
+  /* ---- Class spell lists (SRD): who can cast what — B Bard, C Cleric, D Druid,
+     P Paladin, R Ranger, S Sorcerer, K Warlock, W Wizard. Unlisted = any caster. ---- */
+  const CLS_LETTER = { Bard: 'B', Cleric: 'C', Druid: 'D', Paladin: 'P', Ranger: 'R', Sorcerer: 'S', Warlock: 'K', Wizard: 'W' };
+  const SPELL_CLASSES = {
+    'Acid Splash':'SW','Chill Touch':'SKW','Dancing Lights':'BSW','Fire Bolt':'SW','Guidance':'CD','Light':'BCSW','Mage Hand':'BSKW','Mending':'BCDSW','Message':'BSW','Minor Illusion':'BSKW','Poison Spray':'DSKW','Prestidigitation':'BSKW','Produce Flame':'D','Ray of Frost':'SW','Sacred Flame':'C','Shocking Grasp':'SW','Spare the Dying':'C','Thaumaturgy':'C','Vicious Mockery':'B',
+    'Bless':'CP','Burning Hands':'SW','Charm Person':'BDSKW','Chromatic Orb':'SW','Command':'CP','Cure Wounds':'BCDPR','Detect Magic':'BCDPRSW','Disguise Self':'BSW','Faerie Fire':'BD','Feather Fall':'BSW','Fog Cloud':'DRSW','Goodberry':'DR','Grease':'SW','Guiding Bolt':'C','Healing Word':'BCD','Hex':'K',"Hunter's Mark":'R','Inflict Wounds':'C','Mage Armor':'SW','Magic Missile':'SW','Protection from Evil and Good':'CPKW','Shield':'SW','Silent Image':'BSW','Sleep':'BSW','Thunderwave':'BDSW',
+    'Aid':'CP','Blur':'SW','Darkness':'SKW','Enhance Ability':'BCDS','Flaming Sphere':'DSW','Heat Metal':'BD','Hold Person':'BCDSKW','Invisibility':'BSKW','Lesser Restoration':'BCDPR','Mirror Image':'SKW','Misty Step':'SKW','Moonbeam':'D','Scorching Ray':'SW','See Invisibility':'BSW','Shatter':'BSKW','Silence':'BCR','Spider Climb':'SKW','Spiritual Weapon':'C','Suggestion':'BSKW','Web':'SW',
+    'Animate Dead':'CW','Beacon of Hope':'C','Bestow Curse':'BCW','Call Lightning':'D','Counterspell':'SKW','Dispel Magic':'BCDPSKW','Fireball':'SW','Fly':'SKW','Haste':'SW','Hypnotic Pattern':'BSKW','Lightning Bolt':'SW','Major Image':'BSKW','Mass Healing Word':'BC','Revivify':'CDPR','Sleet Storm':'DSW','Slow':'BSW','Spirit Guardians':'C','Vampiric Touch':'KW','Water Breathing':'DRSW',
+    'Banishment':'CPSKW','Blight':'DSKW','Dimension Door':'BSKW','Freedom of Movement':'BCDR','Greater Invisibility':'BSW','Ice Storm':'DSW','Polymorph':'BDSW','Stoneskin':'DRSW','Wall of Fire':'DSW','Death Ward':'CP','Confusion':'BDSW',
+    'Cone of Cold':'SW','Dominate Person':'BSW','Flame Strike':'C','Greater Restoration':'BCD','Hold Monster':'BSKW','Mass Cure Wounds':'BCD','Raise Dead':'BCP','Telekinesis':'SW','Wall of Force':'W','Cloudkill':'SW',
+    'Chain Lightning':'SW','Disintegrate':'SW','Heal':'CD','Harm':'C','True Seeing':'BCSKW','Sunbeam':'DSW','Circle of Death':'SKW',
+    'Finger of Death':'SKW','Teleport':'BSW','Fire Storm':'CDS','Reverse Gravity':'DSW','Prismatic Spray':'SW',
+    'Power Word Stun':'BSKW','Dominate Monster':'BSKW','Sunburst':'DSW','Feeblemind':'BDSKW','Incendiary Cloud':'SW',
+    'Wish':'SW','Meteor Swarm':'SW','Power Word Kill':'BSKW','Time Stop':'SW','True Resurrection':'CD','Mass Heal':'C','Foresight':'BDW',
+  };
+  // True D&D leveling: you can only cast what your class knows at your level.
+  function gate(s) {
+    const info = (typeof window.csInfo === 'function') ? window.csInfo() : null;
+    if (!info) return { ok: true };
+    if (info.isGm) return { ok: true };
+    const L = CLS_LETTER[String(info.cls || '').trim()];
+    if (!L) return { ok: false, why: 'Choose a spellcasting class first' };
+    const list = SPELL_CLASSES[s.n];
+    if (list && !list.includes(L)) return { ok: false, why: 'Not on the ' + info.cls + ' spell list' };
+    if (s.l === 0) return info.cantrips ? { ok: true } : { ok: false, why: info.cls + 's don\'t learn cantrips' };
+    if (s.l > (info.maxSlot || 0)) return { ok: false, why: 'Needs a level-' + s.l + ' slot — level up! (best: ' + (info.maxSlot || 'none') + ')' };
+    return { ok: true };
+  }
+
   function apply() {
     const box = document.getElementById('spell-content'); if (!box) return;
     const q = (document.getElementById('spell-q').value || '').trim().toLowerCase();
@@ -175,9 +205,12 @@
     box.innerHTML = list.map((s) => {
       const dm = s.x.match(/(\d+)d(\d+)/);
       const rb = dm ? `<button class="sb-roll spell-roll" data-name="${esc(s.n)}" data-n="${dm[1]}" data-die="${dm[2]}" title="Roll ${dm[0]}">🎲 ${dm[0]}</button>` : '';
-      const cb = `<button class="spell-cast" data-cast="${esc(s.n)}" data-lv="${s.l}" title="${s.l === 0 ? 'Cast cantrip (no slot needed)' : 'Cast — uses a spell slot from your sheet'}">✨ Cast</button>`;
+      const g = gate(s);
+      const cb = g.ok
+        ? `<button class="spell-cast" data-cast="${esc(s.n)}" data-lv="${s.l}" title="${s.l === 0 ? 'Cast cantrip (no slot needed)' : 'Cast — uses a spell slot from your sheet'}">✨ Cast</button>`
+        : `<span class="spell-lock" title="${esc(g.why)}">🔒 ${esc(g.why)}</span>`;
       return `
-      <div class="spell">
+      <div class="spell${g.ok ? '' : ' spell-locked'}">
         <div class="spell-h"><span class="spell-n">${esc(s.n)}</span><span class="spell-lv">${esc(lvlName(s.l))} · ${esc(SCHOOL_ABBR[s.s] || s.s)}</span></div>
         <div class="spell-meta">${esc(s.t)} · ${esc(s.r)} · ${esc(s.c)} · ${esc(s.d)}</div>
         <div class="spell-x">${esc(s.x)} ${rb} ${cb}</div>
@@ -203,6 +236,7 @@
       if (typeof window.emitChat === 'function') window.emitChat(`🔮 ${rb.dataset.name} — ${n}d${die}: ${sum} (${rolls.join('+')})`);
     });
   }
+  window.refreshSpellGates = () => { if (built) apply(); };
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();

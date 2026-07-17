@@ -75,6 +75,8 @@
   ];
 
   const RARITY = ['Common', 'Uncommon', 'Rare', 'Very Rare', 'Legendary'];
+  // Crafting time & cost by rarity (SRD 5.2.1 "Crafting Magic Items")
+  const CRAFT = { Common: '5 days · 50 gp', Uncommon: '10 days · 200 gp', Rare: '25 days · 2,000 gp', 'Very Rare': '50 days · 20,000 gp', Legendary: '125 days · 100,000 gp' };
   const RCOLOR = { Common: '#b7b7b7', Uncommon: '#5fae54', Rare: '#4a90d9', 'Very Rare': '#a566d6', Legendary: '#d9a434' };
   let built = false, rarFilter = 'all';
 
@@ -106,7 +108,7 @@
       return `
       <div class="spell" style="border-left:3px solid ${RCOLOR[i.r]}">
         <div class="spell-h"><span class="spell-n">${esc(i.n)}</span><span class="spell-lv" style="color:${RCOLOR[i.r]}">${esc(i.r)}</span></div>
-        <div class="spell-meta">${esc(i.y)}${i.a ? ' · requires attunement' : ''}</div>
+        <div class="spell-meta">${esc(i.y)}${i.a ? ' · requires attunement' : ''} · 🛠 craft: ${esc(CRAFT[i.r] || '?')}</div>
         <div class="spell-x">${esc(i.x)} ${rb}</div>
       </div>`;
     }).join('');

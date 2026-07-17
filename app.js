@@ -1948,6 +1948,8 @@ function buildCS() {
       <textarea data-cs="inventory" placeholder="Other equipment, coins, consumables…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
   </div>`);
+  h.push(`<div class="cs-sec"><div class="cs-sec-t">🎯 Class Resources — limited-use powers</div><div id="cs-res"></div></div>`);
+  h.push(`<div class="cs-sec cs-cando-sec"><div class="cs-sec-t">🧭 What You Can Do — <span data-cando-cls>your class</span></div><div id="cs-cando"></div></div>`);
   const deathPips = (t) => [0,1,2].map((i) => `<button class="cs-dpip ${t}" data-death="${t}:${i}"></button>`).join('');
   h.push(`<div class="cs-grid cs-grid3">
     <div class="cs-sec"><div class="cs-sec-t">Spell Slots</div><div id="cs-slots" class="cs-slots"></div></div>
@@ -1989,7 +1991,7 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
-  csRenderSlots(); csPopulateDeath(); csRenderGear();
+  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes();
 }
 /* Weights / hands / armor slots for common gear (SRD equipment tables). */
 const ITEM_DB = {
@@ -2036,9 +2038,111 @@ function csRenderGear() {
   }).join('');
   const cap = csCarry();
   const over = total > cap;
-  const meter = `<div class="cs-carry ${over ? 'over' : ''}">⚖️ Carrying ${Math.round(total * 10) / 10} / ${cap} lb${over ? ' — OVER-ENCUMBERED! Drop something or raise STR.' : ''}</div>`;
+  const spd = Number(cs.speed) || 30;
+  const meter = `<div class="cs-carry ${over ? 'over' : ''}">⚖️ Carrying ${Math.round(total * 10) / 10} / ${cap} lb${over ? ` — OVER-ENCUMBERED! Speed halved to ${Math.floor(spd / 2)} ft. Drop something or raise STR.` : ''}</div>`;
   box.innerHTML = (rows || '<div style="font-size:12px;opacity:.65;padding:2px 0">No tracked gear — add items below, toggle On when equipped.</div>') + meter;
+  // Speed badge shows the encumbrance penalty
+  const spdIn = document.querySelector('#cs-body [data-cs="speed"]');
+  if (spdIn) {
+    const badge = spdIn.closest('.cs-badge');
+    if (badge) {
+      badge.classList.toggle('enc', over);
+      badge.title = over ? `Over-encumbered: effective speed ${Math.floor(spd / 2)} ft (half of ${spd})` : '';
+    }
+  }
+  if (over && !csRenderGear._warned) { csRenderGear._warned = true; flashHint(`⚖️ Over-encumbered — speed halved to ${Math.floor(spd / 2)} ft!`); }
+  if (!over) csRenderGear._warned = false;
 }
+/* Sheet info bridge for the spell library's class/level gating. */
+const CANTRIP_CASTERS = ['Bard', 'Cleric', 'Druid', 'Sorcerer', 'Warlock', 'Wizard'];
+window.csInfo = function () {
+  const clsName = String((cs && cs.cls) || '').trim();
+  let maxSlot = 0;
+  if (cs && cs.slots) for (let l = 9; l >= 1; l--) if (cs.slots[l] && cs.slots[l].max > 0) { maxSlot = l; break; }
+  return { cls: clsName, isGm: me.isGm, maxSlot, cantrips: CANTRIP_CASTERS.includes(clsName) };
+};
+
+/* Limited-use class powers by class & level (Rage, Wild Shape, Ki, etc.). */
+function classResources(clsName, lvl, chaMod) {
+  const r = [];
+  const add = (id, name, max, reset) => { if (max > 0) r.push({ id, name, max, reset }); };
+  switch (clsName) {
+    case 'Barbarian': add('rage', '🔥 Rage', lvl >= 20 ? 8 : lvl >= 17 ? 6 : lvl >= 12 ? 5 : lvl >= 6 ? 4 : lvl >= 3 ? 3 : 2, 'long'); break;
+    case 'Bard': add('binsp', '🎶 Bardic Inspiration', Math.max(1, chaMod), lvl >= 5 ? 'short' : 'long'); break;
+    case 'Cleric': if (lvl >= 2) add('cd', '🙏 Channel Divinity', lvl >= 18 ? 4 : lvl >= 6 ? 3 : 2, 'short'); break;
+    case 'Druid': if (lvl >= 2) add('wild', '🐺 Wild Shape', lvl >= 17 ? 4 : lvl >= 6 ? 3 : 2, 'short'); break;
+    case 'Fighter':
+      add('sw', '💨 Second Wind', lvl >= 10 ? 4 : lvl >= 4 ? 3 : 2, 'short');
+      if (lvl >= 2) add('surge', '⚡ Action Surge', lvl >= 17 ? 2 : 1, 'short');
+      if (lvl >= 9) add('indom', '🛡 Indomitable', lvl >= 17 ? 3 : lvl >= 13 ? 2 : 1, 'long');
+      break;
+    case 'Monk': if (lvl >= 2) add('focus', '☯️ Focus Points', lvl, 'short'); break;
+    case 'Paladin':
+      add('loh', '✋ Lay on Hands (HP pool)', lvl * 5, 'long');
+      if (lvl >= 3) add('cd', '🙏 Channel Divinity', lvl >= 11 ? 3 : 2, 'short');
+      break;
+    case 'Sorcerer': if (lvl >= 2) add('sp', '🔮 Sorcery Points', lvl, 'long'); break;
+    case 'Wizard': add('ar', '📖 Arcane Recovery', 1, 'long'); break;
+  }
+  return r;
+}
+function csRenderRes() {
+  const box = $('cs-res'); if (!box) return;
+  const clsName = String(cs.cls || '').trim();
+  const lvl = Number(cs.level) || 1;
+  const list = classResources(clsName, lvl, csMod(cs.scores.cha));
+  cs.resUsed = cs.resUsed || {};
+  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.65">No limited-use class powers' + (clsName ? ' at this level' : ' — set your class') + '.</div>'; return; }
+  box.innerHTML = list.map((r) => {
+    const used = Math.min(cs.resUsed[r.id] || 0, r.max);
+    let ctl;
+    if (r.max > 8) {
+      ctl = `<button class="cs-res-btn" data-res-spend="${r.id}" data-max="${r.max}" title="Spend 1">−</button> <b>${r.max - used}</b> / ${r.max} <button class="cs-res-btn" data-res-restore="${r.id}" title="Restore 1">+</button>`;
+    } else {
+      ctl = Array.from({ length: r.max }, (_, i) => `<button class="cs-pip ${i < used ? 'on' : ''}" data-res-pip="${r.id}:${i}" title="Click to spend / restore"></button>`).join('');
+    }
+    return `<div class="cs-resrow"><span class="cs-res-n">${r.name}</span><div class="cs-pips">${ctl}</div><em class="cs-res-r" title="${r.reset === 'short' ? 'Recovers on a Short Rest' : 'Recovers on a Long Rest'}">${r.reset === 'short' ? '☕' : '🌙'}</em></div>`;
+  }).join('') + '<div style="font-size:11px;opacity:.6;margin-top:4px">Click pips to spend · ☕ back on Short Rest · 🌙 back on Long Rest</div>';
+}
+
+/* "What You Can Do" — class powers unlocked at your level, upcoming ones locked. */
+function csRenderCanDo() {
+  const box = $('cs-cando'); if (!box) return;
+  const clsName = String(cs.cls || '').trim();
+  const lvl = Number(cs.level) || 1;
+  const escC = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const tag = document.querySelector('#cs-body [data-cando-cls]');
+  if (tag) tag.textContent = clsName ? `${clsName} ${lvl}` : 'your class';
+  let h = '<div class="cando-h">Everyone, every turn</div>' +
+    '<div class="cando-p on">Move up to your Speed · one <b>Action</b> (Attack, Dash, Disengage, Dodge, Help, Hide, Ready, Search, Use an Object, or Cast a Spell) · a <b>Bonus Action</b> if a feature grants one · one <b>Reaction</b> per round · one free object interaction (draw a weapon, open a door).</div>';
+  const srd = window.SRD && window.SRD.classes[clsName];
+  if (srd) {
+    h += `<div class="cando-h">${escC(clsName)} powers</div>`;
+    h += `<div class="cando-p on"><b>Lv 1</b> — ${escC(srd.sig)}</div>`;
+    const feats = (window.SRD.features && window.SRD.features[clsName]) || {};
+    let nextShown = 0;
+    for (let l = 2; l <= 20; l++) {
+      const f = feats[l]; if (!f) continue;
+      const has = l <= lvl;
+      if (!has && nextShown >= 2) continue;            // show only the next two locked ones
+      if (!has) nextShown++;
+      h += `<div class="cando-p ${has ? 'on' : 'off'}"><b>Lv ${l}</b> — ${escC(f)}${has ? '' : ' 🔒'}</div>`;
+    }
+    const asiLvls = [4, 8, 12, 16].concat(clsName === 'Fighter' ? [6, 14] : []).concat(clsName === 'Rogue' ? [10] : []);
+    const gotASI = asiLvls.filter((l) => l <= lvl).length;
+    if (gotASI) h += `<div class="cando-p on"><b>Ability Score Improvements</b> — ${gotASI} earned so far (next at level ${asiLvls.find((l) => l > lvl) || '—'}).</div>`;
+    const ct = window.SRD.casterType && window.SRD.casterType[clsName];
+    if (ct) {
+      const KN = { Bard: [2, 3, 4], Cleric: [3, 4, 5], Druid: [2, 3, 4], Sorcerer: [4, 5, 6], Warlock: [2, 3, 4], Wizard: [3, 4, 5] };
+      const kn = KN[clsName] ? KN[clsName][lvl >= 10 ? 2 : lvl >= 4 ? 1 : 0] : 0;
+      h += `<div class="cando-p on">🔮 <b>Spellcaster</b> (${escC(srd.castAbil || '')})${ct === 'pact' ? ' — Pact slots refresh on a Short Rest' : ''}.${kn ? ` Cantrips known: <b>${kn}</b>.` : ' No cantrips — your magic comes through slots only.'} The Spells tab only lets you cast what a ${escC(clsName)} of your level really can.</div>`;
+    }
+  } else {
+    h += '<div class="cando-p off">Set your Class up top (or pick one when joining) and this panel fills with everything your class can do at your level.</div>';
+  }
+  box.innerHTML = h;
+}
+
 /* Can this item be equipped? Enforces two hands total + one suit of armor. */
 function gearCanEquip(idx) {
   const g = cs.gear[idx]; if (!g) return { ok: false };
@@ -2078,7 +2182,7 @@ function csPopulateDeath() {
 
 function csOnChange(e) {
   const el = e.target;
-  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); }
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
   else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
@@ -2134,6 +2238,19 @@ function csOnClick(e) {
   }
   const gr = e.target.closest('[data-gear-rm]');
   if (gr) { cs.gear.splice(Number(gr.dataset.gearRm), 1); csRenderGear(); saveCS(); return; }
+  const rpip = e.target.closest('[data-res-pip]');
+  if (rpip) {
+    const parts = rpip.dataset.resPip.split(':');
+    const id = parts[0], idx = Number(parts[1]);
+    cs.resUsed = cs.resUsed || {};
+    const used = cs.resUsed[id] || 0;
+    cs.resUsed[id] = idx < used ? idx : idx + 1;   // click a lit pip to restore back to it, unlit to spend
+    csRenderRes(); saveCS(); return;
+  }
+  const rsp = e.target.closest('[data-res-spend]');
+  if (rsp) { const id = rsp.dataset.resSpend; cs.resUsed = cs.resUsed || {}; cs.resUsed[id] = Math.min(Number(rsp.dataset.max) || 99, (cs.resUsed[id] || 0) + 1); csRenderRes(); saveCS(); return; }
+  const rrs = e.target.closest('[data-res-restore]');
+  if (rrs) { const id = rrs.dataset.resRestore; cs.resUsed = cs.resUsed || {}; cs.resUsed[id] = Math.max(0, (cs.resUsed[id] || 0) - 1); csRenderRes(); saveCS(); return; }
   if (e.target.id === 'cs-gear-addbtn') {
     const nm = $('cs-gear-name').value.trim(); if (!nm) return;
     cs.gear = cs.gear || [];
@@ -2415,6 +2532,7 @@ function doRest(type) {
   if (type === 'long') {
     cs.hp = Number(cs.maxhp) || cs.hp; cs.temphp = 0;
     for (let l = 1; l <= 9; l++) if (cs.slots[l]) cs.slots[l].used = 0;
+    cs.resUsed = {};                                          // all class resources recover
     cs.deathSucc = 0; cs.deathFail = 0;
     const total = parseInt(cs.hitDiceTotal) || 0;
     if (total > 0) cs.hitDiceUsed = Math.max(0, (Number(cs.hitDiceUsed) || 0) - Math.max(1, Math.floor(total / 2)));
