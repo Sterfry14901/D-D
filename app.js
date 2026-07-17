@@ -270,11 +270,21 @@ function renderPartySheets() {
         <span>❤️ ${s.hp}/${s.maxhp}</span><span>🛡️ ${s.ac || '—'}</span>
         <span>⭐ ${s.xp || 0} XP</span><span>⚖️ ${Math.round(gw * 10) / 10} lb</span>
       </div>
-      <div class="ps-coins">💰 ${coinLine(s.coins)}</div>
+      <div class="ps-coins">💰 ${coinLine(s.coins)} <button class="ps-give" data-give="${s.id}" title="Give or take gold">＋ gold</button></div>
       <div class="ps-gear-title">Inventory (${(s.gear || []).length})</div>
       ${gear}
     </div>`;
   }).join('');
+  box.querySelectorAll('[data-give]').forEach((b) => {
+    b.onclick = () => {
+      const raw = prompt('Give gold to this player (use a negative number to take it away):', '10');
+      if (raw === null) return;
+      const amt = Math.floor(Number(raw) || 0);
+      if (!amt) return;
+      socket.emit('dm:grantCoin', { targetId: b.dataset.give, coin: 'gp', amt });
+      flashHint(amt > 0 ? '💰 Gave ' + amt + ' gp' : '💰 Took ' + Math.abs(amt) + ' gp');
+    };
+  });
 }
 function openPartySheets() {
   const m = $('party-sheets-modal'); if (!m) return;
@@ -385,9 +395,14 @@ socket.on('trade:coinTake', ({ coin, amt, toName } = {}) => {
 });
 socket.on('trade:coinGive', ({ coin, amt, fromName } = {}) => {
   if (!coin) return;
-  cs[coin] = (Number(cs[coin]) || 0) + (Number(amt) || 0);
+  const n = Number(amt) || 0;
+  cs[coin] = Math.max(0, (Number(cs[coin]) || 0) + n);
   csPopulate(); saveCS();
-  try { if (window.flashHint) flashHint('💰 ' + (fromName || 'A player') + ' gave you ' + amt + ' ' + coin); } catch {}
+  try {
+    if (window.flashHint) flashHint(n >= 0
+      ? '💰 ' + (fromName || 'A player') + ' gave you ' + n + ' ' + coin
+      : '💰 ' + (fromName || 'The DM') + ' took ' + Math.abs(n) + ' ' + coin);
+  } catch {}
 });
 
 /* ============ DM SHOP — modal ============ */

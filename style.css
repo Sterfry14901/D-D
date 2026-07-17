@@ -1172,3 +1172,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .shop-gm-actions button{flex:1;padding:9px;border-radius:8px;cursor:pointer;font-weight:700;border:1px solid #3a4254;background:#2a3140;color:#e9e3ff}
 .shop-gm-actions .tr-accept{background:linear-gradient(180deg,#2f6f43,#245536);border-color:#3a7a4c;color:#eafff0}
 .shop-hint{margin-top:11px;font-size:12px;color:#8a93a6}
+
+/* ===== #172 DM give-gold ===== */
+.ps-give{margin-left:8px;padding:2px 8px;border:1px solid #b8863a;background:#3f2c14;color:#f3e2c0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700}
+.ps-give:hover{filter:brightness(1.15)}

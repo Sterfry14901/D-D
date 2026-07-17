@@ -781,6 +781,16 @@ io.on('connection', (socket) => {
     io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🏪 Stocked the shop with ${items.length} items. Open it when you're ready to sell.`, ts: Date.now() });
   });
 
+  // ---- DM grants coins straight to a player (reward or refund) ----
+  socket.on('dm:grantCoin', ({ targetId, coin, amt } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const to = room.players[targetId]; if (!to) return;
+    const COINS = ['cp', 'sp', 'ep', 'gp', 'pp']; if (!COINS.includes(coin)) return;
+    const n = Math.floor(Number(amt) || 0); if (n === 0 || n < -1e7 || n > 1e7) return;
+    io.to(targetId).emit('trade:coinGive', { coin, amt: n, fromName: 'The DM' });
+    pushSystem(joinedRoom, n > 0 ? `💰 The DM gave ${n} ${coin} to ${to.name}.` : `💰 The DM took ${Math.abs(n)} ${coin} from ${to.name}.`);
+  });
+
   // ---- Weather / atmosphere ----
   socket.on('weather:set', (type) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;  // DM controls the weather
