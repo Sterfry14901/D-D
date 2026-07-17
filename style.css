@@ -1146,3 +1146,29 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .tr-fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#9aa6bd}
 .tr-fld select,.tr-fld input{padding:8px;border-radius:7px;border:1px solid #2c3444;background:#1c2130;color:#e9e3ff;font-size:14px}
 #tr-coin-send{margin-top:4px}
+
+/* ===== #170 DM shop ===== */
+.shop-open-btn{display:block;width:100%;margin:0 0 10px;padding:9px 10px;border:1px solid #b8863a;background:linear-gradient(180deg,#5a3f1e,#3f2c14);color:#f3e2c0;border-radius:8px;font-weight:700;cursor:pointer}
+.shop-open-btn:hover{filter:brightness(1.12)}
+#shop-modal{align-items:center;justify-content:center;z-index:1460}
+.shop-gold{font-size:14px;color:#e9d17a;margin-bottom:12px}
+.shop-list{display:flex;flex-direction:column;gap:8px}
+.shop-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#1c2130;border:1px solid #2c3444;border-radius:8px;padding:9px 11px}
+.shop-info{display:flex;flex-direction:column}
+.shop-name{color:#f0ead9;font-weight:600;font-size:14px}
+.shop-meta{color:#9aa6bd;font-size:12px}
+.shop-sold{color:#c0392b}
+.shop-buy{padding:7px 14px;border-radius:7px;border:1px solid #3a7a4c;background:linear-gradient(180deg,#2f6f43,#245536);color:#eafff0;font-weight:700;cursor:pointer}
+.shop-buy:hover:not(:disabled){filter:brightness(1.12)}
+.shop-buy:disabled{opacity:.45;cursor:not-allowed;background:#2a2f3a;border-color:#3a4150;color:#8a93a6}
+.shop-gm-top{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px}
+.shop-gm-top .tr-fld{flex:1}
+.shop-close-btn{padding:9px 13px;border-radius:8px;border:1px solid #7a3a3a;background:#4a2626;color:#f0d6d6;font-weight:700;cursor:pointer;white-space:nowrap}
+.shop-gm-list{display:flex;flex-direction:column;gap:7px;max-height:44vh;overflow-y:auto}
+.shop-gm-row{display:grid;grid-template-columns:1fr 64px 64px 64px 30px;gap:6px;align-items:center}
+.shop-gm-row input{padding:7px;border-radius:6px;border:1px solid #2c3444;background:#1c2130;color:#e9e3ff;font-size:13px;width:100%}
+.sg-rm{background:#3a2130;border:1px solid #5a3446;color:#e6cfd6;border-radius:6px;cursor:pointer;padding:6px}
+.shop-gm-actions{display:flex;gap:10px;margin-top:12px}
+.shop-gm-actions button{flex:1;padding:9px;border-radius:8px;cursor:pointer;font-weight:700;border:1px solid #3a4254;background:#2a3140;color:#e9e3ff}
+.shop-gm-actions .tr-accept{background:linear-gradient(180deg,#2f6f43,#245536);border-color:#3a7a4c;color:#eafff0}
+.shop-hint{margin-top:11px;font-size:12px;color:#8a93a6}

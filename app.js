@@ -390,6 +390,76 @@ socket.on('trade:coinGive', ({ coin, amt, fromName } = {}) => {
   try { if (window.flashHint) flashHint('💰 ' + (fromName || 'A player') + ' gave you ' + amt + ' ' + coin); } catch {}
 });
 
+/* ============ DM SHOP — modal ============ */
+function openShop() { const m = $('shop-modal'); if (!m) return; renderShop(); m.style.display = 'flex'; }
+function closeShop() { const m = $('shop-modal'); if (m) m.style.display = 'none'; }
+function renderShop() {
+  const body = $('shop-body'), title = $('shop-title'); if (!body) return;
+  title.textContent = '🏪 ' + (shopState.name || 'Market');
+  if (me.isGm) { renderShopGm(body); return; }
+  // Player view — buy list
+  if (!shopState.open) { body.innerHTML = '<div class="tr-empty">The shop is closed right now.</div>'; return; }
+  const gold = Number(cs.gp) || 0;
+  const items = (shopState.items || []);
+  body.innerHTML = `<div class="shop-gold">Your gold: <b>${gold} gp</b></div>` + (items.length ? `<div class="shop-list">${items.map((it) => {
+    const sold = it.stock === 0;
+    const canAfford = gold >= it.price;
+    const stockTag = it.stock < 0 ? '' : sold ? ' · <span class="shop-sold">sold out</span>' : ` · ${it.stock} left`;
+    return `<div class="shop-row">
+      <div class="shop-info"><span class="shop-name">${escapeHtml(it.name)}</span><span class="shop-meta">${it.price} gp · ${Math.round((Number(it.wt) || 0) * 10) / 10} lb${stockTag}</span></div>
+      <button class="shop-buy" data-buy="${it.id}" ${sold || !canAfford ? 'disabled' : ''}>${sold ? 'Sold' : canAfford ? 'Buy' : 'Need gold'}</button>
+    </div>`;
+  }).join('')}</div>` : '<div class="tr-empty">Nothing for sale yet.</div>');
+  body.querySelectorAll('[data-buy]').forEach((b) => { b.onclick = () => buyShopItem(b.dataset.buy); });
+}
+function buyShopItem(id) {
+  const it = (shopState.items || []).find((x) => x.id === id); if (!it) return;
+  if (!shopState.open) { flashHint('The shop is closed.'); return; }
+  if (it.stock === 0) { flashHint('❌ Sold out.'); return; }
+  const gold = Number(cs.gp) || 0;
+  if (gold < it.price) { flashHint('❌ Not enough gold — need ' + it.price + ' gp.'); return; }
+  cs.gp = gold - it.price;
+  cs.gear = cs.gear || [];
+  cs.gear.push({ n: String(it.name), on: false, w: Number(it.wt) || 0 });
+  csPopulate(); csRenderGear(); saveCS();
+  socket.emit('shop:buy', { id });
+  flashHint('🛒 Bought ' + it.name + ' for ' + it.price + ' gp');
+}
+function renderShopGm(body) {
+  const items = (shopState.items || []);
+  body.innerHTML = `
+    <div class="shop-gm-top">
+      <label class="tr-fld">Shop name <input id="shop-name" type="text" maxlength="40" value="${escapeHtml(shopState.name || 'Market')}" /></label>
+      <button id="shop-toggle" class="${shopState.open ? 'shop-close-btn' : 'tr-accept'}">${shopState.open ? '🔒 Close shop' : '🔓 Open shop'}</button>
+    </div>
+    <div class="shop-gm-list">
+      ${items.map((it, i) => `<div class="shop-gm-row" data-i="${i}">
+        <input class="sg-name" placeholder="Item" value="${escapeHtml(it.name)}" />
+        <input class="sg-price" type="number" min="0" title="Price (gp)" value="${it.price}" />
+        <input class="sg-wt" type="number" min="0" step="0.1" title="Weight (lb)" value="${Number(it.wt) || 0}" />
+        <input class="sg-stock" type="number" title="Stock (-1 = ∞)" value="${it.stock == null ? -1 : it.stock}" />
+        <button class="sg-rm" data-rm="${i}" title="Remove">✕</button>
+      </div>`).join('')}
+    </div>
+    <div class="shop-gm-actions">
+      <button id="shop-add">➕ Add item</button>
+      <button id="shop-save" class="tr-accept">💾 Save shop</button>
+    </div>
+    <div class="shop-hint">Players spend their gold to buy; the item lands on their sheet and you see it in “View party sheets.” Stock −1 = unlimited.</div>`;
+  const collect = () => {
+    const rows = [...body.querySelectorAll('.shop-gm-row')];
+    return rows.map((r, idx) => ({
+      id: items[idx] && items[idx].id, name: r.querySelector('.sg-name').value.trim(),
+      price: Number(r.querySelector('.sg-price').value) || 0, wt: Number(r.querySelector('.sg-wt').value) || 0,
+      stock: r.querySelector('.sg-stock').value === '' ? -1 : Math.floor(Number(r.querySelector('.sg-stock').value)),
+    })).filter((x) => x.name);
+  };
+  $('shop-add').onclick = () => { shopState.items = collect(); shopState.items.push({ id: 'si_' + Math.random().toString(36).slice(2, 8), name: '', price: 0, wt: 0, stock: -1 }); renderShop(); };
+  $('shop-save').onclick = () => { socket.emit('shop:set', { name: $('shop-name').value.trim() || 'Market', items: collect() }); flashHint('💾 Shop saved'); };
+  $('shop-toggle').onclick = () => { socket.emit('shop:set', { name: $('shop-name').value.trim() || 'Market', items: collect() }); socket.emit('shop:open', !shopState.open); };
+  body.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { const arr = collect(); arr.splice(Number(b.dataset.rm), 1); shopState.items = arr; renderShop(); }; });
+}
+
 /* ============ SHARED CAMPAIGN JOURNAL ============ */
 let notesTimer = null, notesSaved = true;
 function applyNotes(text) {
@@ -448,6 +518,16 @@ function applyQuests(q) {
   renderQuestView();
   renderQuestListEditor();
 }
+
+/* ============ DM SHOP ============ */
+let shopState = { open: false, name: 'Market', items: [] };
+function applyShop(sh) {
+  shopState = { open: !!(sh && sh.open), name: (sh && sh.name) || 'Market', items: Array.isArray(sh && sh.items) ? sh.items.slice() : [] };
+  const btn = $('shop-btn');
+  if (btn) { btn.style.display = (me.isGm || shopState.open) ? '' : 'none'; btn.textContent = '🏪 ' + shopState.name + (shopState.open ? '' : (me.isGm ? ' (closed)' : '')); }
+  if ($('shop-modal') && $('shop-modal').style.display === 'flex') renderShop();
+}
+socket.on('shop:state', (sh) => applyShop(sh));
 function renderQuestView() {
   const box = $('quest-view'); if (!box) return;
   const mains = (quests.list || []).filter((x) => x.kind === 'main');
@@ -638,6 +718,7 @@ socket.on('state', (s) => {
   if (s.ambience && s.ambience !== 'off') { ambSyncUI(s.ambience); AMB.set(s.ambience); }
   applyNotes(s.notes || '');
   applyQuests(s.quests || { main: '', sides: [] });
+  applyShop(s.shop || { open: false, name: 'Market', items: [] });
   $('board').classList.toggle('gm-fog', me.isGm);
   document.body.classList.toggle('is-gm', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
@@ -2319,6 +2400,9 @@ if ($('party-sheets-close')) $('party-sheets-close').onclick = () => closePartyS
 if ($('party-sheets-modal')) $('party-sheets-modal').addEventListener('click', (e) => { if (e.target === $('party-sheets-modal')) closePartySheets(); });
 if ($('trade-close')) $('trade-close').onclick = () => closeTrade();
 if ($('trade-modal')) $('trade-modal').addEventListener('click', (e) => { if (e.target === $('trade-modal')) closeTrade(); });
+if ($('shop-btn')) $('shop-btn').onclick = () => openShop();
+if ($('shop-close')) $('shop-close').onclick = () => closeShop();
+if ($('shop-modal')) $('shop-modal').addEventListener('click', (e) => { if (e.target === $('shop-modal')) closeShop(); });
 
 /* ===== Saved encounters — capture the current monsters and re-drop them later ===== */
 function monsterTokens() {

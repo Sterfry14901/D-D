@@ -133,6 +133,7 @@ function loadRooms() {
         round: room.round || 1,
         partyStatus: {},
         sheets: {},
+        shop: { open: false, name: 'Market', items: [] },
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -170,6 +171,7 @@ function getRoom(id) {
       drawings: [],            // freehand map annotations [{points:[[x,y]...], color, w}]
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
       sheets: {},              // socketId -> full sheet summary (DM read-only oversight)
+      shop: { open: false, name: 'Market', items: [] },  // DM shop: players buy items with coins
     });
   }
   return rooms.get(id);
@@ -184,6 +186,11 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+function broadcastShop(roomId) {
+  const room = rooms.get(roomId); if (!room) return;
+  if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
+  io.to(roomId).emit('shop:state', room.shop);
+}
 // Send the whole party's sheet summaries to every GM in the room (DM-only oversight).
 function sendSheetsToGms(roomId) {
   const room = rooms.get(roomId); if (!room) return;
@@ -360,6 +367,7 @@ io.on('connection', (socket) => {
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
+      shop: room.shop || { open: false, name: 'Market', items: [] },
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -709,6 +717,44 @@ io.on('connection', (socket) => {
     pendingTrades.set(offerId, { roomId: joinedRoom, fromId: socket.id, fromName: from.name, toId, kind: 'coin', coin, amt: n, ts: Date.now() });
     io.to(toId).emit('trade:coinIncoming', { offerId, fromName: from.name, coin, amt: n });
     io.to(socket.id).emit('chat', { system: true, text: `🤝 You offered ${n} ${coin} to ${to.name}. Waiting for them to accept…`, ts: Date.now() });
+  });
+
+  // ---- DM Shop: players buy items with coins ----
+  socket.on('shop:set', ({ name, items } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
+    if (typeof name === 'string') room.shop.name = name.slice(0, 40) || 'Market';
+    if (Array.isArray(items)) {
+      room.shop.items = items.slice(0, 60).map((it, i) => ({
+        id: (it && it.id) || 'si_' + Math.random().toString(36).slice(2, 8),
+        name: String((it && it.name) || '').slice(0, 60),
+        price: Math.max(0, Math.floor(Number(it && it.price) || 0)),
+        wt: Math.max(0, Number(it && it.wt) || 0),
+        stock: (it && it.stock != null) ? Math.floor(Number(it.stock)) : -1,  // -1 = unlimited
+      })).filter((it) => it.name);
+    }
+    markDirty();
+    broadcastShop(joinedRoom);
+  });
+  socket.on('shop:open', (open) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
+    room.shop.open = !!open;
+    markDirty();
+    broadcastShop(joinedRoom);
+    pushSystem(joinedRoom, room.shop.open ? `🏪 ${room.shop.name} is now open for business.` : `🏪 ${room.shop.name} has closed.`);
+  });
+  // A player bought something. Coin deduction + item add happen client-side (coins are
+  // client-held); the server decrements stock and announces the sale so the DM sees it.
+  socket.on('shop:buy', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.shop || !room.shop.open) return;
+    const buyer = room.players[socket.id]; if (!buyer) return;
+    const it = room.shop.items.find((x) => x.id === id); if (!it) return;
+    if (it.stock === 0) { io.to(socket.id).emit('chat', { system: true, text: `⚠️ ${it.name} is sold out.`, ts: Date.now() }); return; }
+    if (it.stock > 0) it.stock -= 1;
+    markDirty();
+    broadcastShop(joinedRoom);
+    pushSystem(joinedRoom, `🛒 ${buyer.name} bought ${it.name} for ${it.price} gp.`);
   });
 
   // ---- Weather / atmosphere ----
