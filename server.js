@@ -619,11 +619,22 @@ io.on('connection', (socket) => {
   // ---- Party status (live sheet HP/AC) ----
   socket.on('party:status', (st) => {
     const room = rooms.get(joinedRoom); if (!room || !st) return;
+    const prev = room.partyStatus[socket.id];
+    const nm = String(st.name || 'Adventurer').slice(0, 24);
+    const hp = Number(st.hp) || 0, maxhp = Number(st.maxhp) || 0;
     room.partyStatus[socket.id] = {
-      name: String(st.name || 'Adventurer').slice(0, 24),
-      hp: Number(st.hp) || 0, maxhp: Number(st.maxhp) || 0, ac: Number(st.ac) || 0,
+      name: nm, hp, maxhp, ac: Number(st.ac) || 0,
       level: Math.max(1, Math.min(20, Number(st.level) || 1)),
     };
+    // Alert the DM when a player drops to 0 HP or gets back up (only on the transition).
+    if (prev && maxhp > 0) {
+      const wasUp = prev.hp > 0, isUp = hp > 0;
+      if (wasUp && !isUp) {
+        for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ ${nm} is DOWN at 0 HP — death saves needed!`, ts: Date.now() });
+      } else if (!wasUp && isUp) {
+        for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `💚 ${nm} is back up (${hp}/${maxhp} HP).`, ts: Date.now() });
+      }
+    }
     broadcastParty(joinedRoom);
   });
 
