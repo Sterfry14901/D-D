@@ -964,6 +964,81 @@ io.on('connection', (socket) => {
     markDirty(); broadcastWorld(joinedRoom);
   });
 
+  // ---- DM world-builder: create cities, routes, and vendors one at a time ----
+  socket.on('world:cityAdd', ({ name, desc, kind } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const nm = String(name || '').trim().slice(0, 40); if (!nm) return;
+    const base = nm.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'city';
+    let id = base; let n = 2; while (room.world.cities[id]) id = base + n++;
+    room.world.cities[id] = { id, name: nm, kind: String(kind || 'town').slice(0, 16), desc: String(desc || '').slice(0, 400), vendors: [], links: [] };
+    markDirty(); broadcastWorld(joinedRoom);
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🗺️ Added ${nm} to the world. Link it to another city so the party can travel there.`, ts: Date.now() });
+  });
+  socket.on('world:cityRemove', ({ cityId } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const w = room.world; if (!w.cities[cityId] || Object.keys(w.cities).length <= 1) return;
+    delete w.cities[cityId];
+    for (const c of Object.values(w.cities)) c.links = (c.links || []).filter((l) => l.to !== cityId);
+    if (w.party.at === cityId) w.party.at = Object.keys(w.cities)[0];
+    if (w.vote && w.vote.to === cityId) w.vote = null;
+    markDirty(); broadcastWorld(joinedRoom);
+  });
+  socket.on('world:cityLink', ({ from, to, mode, hours, twoWay } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const w = room.world; if (!w.cities[from] || !w.cities[to] || from === to) return;
+    const MODES = ['walk', 'horse', 'wagon', 'boat']; if (!MODES.includes(mode)) return;
+    const h = Math.max(1, Math.min(2000, Math.floor(Number(hours) || 1)));
+    const addLink = (a, b) => {
+      const city = w.cities[a]; city.links = city.links || [];
+      let link = city.links.find((l) => l.to === b);
+      if (!link) { link = { to: b, modes: {} }; city.links.push(link); }
+      link.modes[mode] = h;
+    };
+    addLink(from, to); if (twoWay !== false) addLink(to, from);
+    markDirty(); broadcastWorld(joinedRoom);
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🧭 Route linked: ${w.cities[from].name} ↔ ${w.cities[to].name} (${mode}, ${h}h).`, ts: Date.now() });
+  });
+  socket.on('world:cityUnlink', ({ from, to } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const w = room.world;
+    if (w.cities[from]) w.cities[from].links = (w.cities[from].links || []).filter((l) => l.to !== to);
+    if (w.cities[to]) w.cities[to].links = (w.cities[to].links || []).filter((l) => l.to !== from);
+    markDirty(); broadcastWorld(joinedRoom);
+  });
+  socket.on('world:vendorAdd', ({ cityId, name, type } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const c = room.world.cities[cityId]; if (!c) return;
+    const nm = String(name || '').trim().slice(0, 40); if (!nm) return;
+    const TYPES = ['general', 'blacksmith', 'wagon', 'fence', 'magic', 'alchemist', 'tavern'];
+    c.vendors = c.vendors || [];
+    c.vendors.push(mkVendor(nm, TYPES.includes(type) ? type : 'general'));
+    markDirty(); broadcastWorld(joinedRoom);
+  });
+  socket.on('world:vendorRemove', ({ cityId, vendorId } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const c = room.world.cities[cityId]; if (!c) return;
+    c.vendors = (c.vendors || []).filter((v) => v.id !== vendorId);
+    markDirty(); broadcastWorld(joinedRoom);
+  });
+  // DM invents a whole city with the AI (name, description, and a few themed vendors).
+  socket.on('world:cityAI', async ({ theme } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const th = theme && String(theme).trim() ? String(theme).trim().slice(0, 60) : 'a fantasy settlement';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `Invent a D&D location themed as "${th}". Reply in EXACTLY this format and nothing else:\nNAME: <city name>\nKIND: <one word: town, city, village, port, keep, or hold>\nDESC: <two sentences of vivid description>\nVENDORS: <comma-separated list of 2-4 as name:type, where type is one of general, blacksmith, wagon, fence, magic, alchemist, tavern>` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const grab = (k) => { const m = reply.match(new RegExp(k + ':\\s*(.+)', 'i')); return m ? m[1].trim() : ''; };
+    const nm = grab('NAME').replace(/[*_`#]/g, '').slice(0, 40); if (!nm) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: '⚠️ Could not parse the AI city. Try again.', ts: Date.now() }); return; }
+    const base = nm.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'city'; let id = base, n = 2; while (room.world.cities[id]) id = base + n++;
+    const TYPES = ['general', 'blacksmith', 'wagon', 'fence', 'magic', 'alchemist', 'tavern'];
+    const vendors = grab('VENDORS').split(',').map((s) => { const [vn, vt] = s.split(':').map((x) => x.replace(/[*_`#]/g, '').trim()); return vn ? mkVendor(vn.slice(0, 40), TYPES.includes((vt || '').toLowerCase()) ? vt.toLowerCase() : 'general') : null; }).filter(Boolean).slice(0, 4);
+    room.world.cities[id] = { id, name: nm, kind: (grab('KIND') || 'town').toLowerCase().replace(/[^a-z]/g, '').slice(0, 12) || 'town', desc: grab('DESC').slice(0, 400), vendors, links: [] };
+    markDirty(); broadcastWorld(joinedRoom);
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🗺️ The AI conjured ${nm} with ${vendors.length} vendors. Link it to the map so the party can reach it.`, ts: Date.now() });
+  });
+
   // ---- DM heals or damages one player's sheet HP straight from the oversight viewer ----
   socket.on('dm:hpOne', ({ targetId, amt } = {}) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

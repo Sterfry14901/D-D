@@ -1212,3 +1212,20 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #vendor-modal{align-items:center;justify-content:center;z-index:1460}
 .vendor-gm-note{color:#c6cede;font-size:13px;margin-bottom:10px}
 .vendor-gm-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:50vh;overflow-y:auto}
+
+/* ===== world builder (DM) ===== */
+.world-builder{margin-top:16px;border-top:2px solid #3a2f66;padding-top:10px}
+.wb-row{display:flex;gap:6px;margin-bottom:7px;align-items:center;flex-wrap:wrap}
+.wb-row input,.wb-row select{padding:7px;border-radius:6px;border:1px solid #2c3444;background:#1c2130;color:#e9e3ff;font-size:13px}
+.wb-row input:not(.wb-wide){flex:1;min-width:80px}
+.wb-wide{width:100%;padding:7px;border-radius:6px;border:1px solid #2c3444;background:#1c2130;color:#e9e3ff;font-size:13px;margin-bottom:7px}
+.wb-row button{padding:7px 11px;border-radius:6px;border:1px solid #6d5ac4;background:#3a2f66;color:#e9e3ff;cursor:pointer;font-weight:600;white-space:nowrap}
+.wb-row button:hover{filter:brightness(1.15)}
+.wb-t{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#7f8aa0;margin:9px 0 5px}
+.wb-link select{flex:1;min-width:60px}
+.wb-link input#wb-hours{width:56px;flex:none}
+.wb-manage{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.wb-chip{background:#1c2130;border:1px solid #2c3444;border-radius:6px;padding:3px 4px 3px 8px;font-size:12px;color:#cfd6e4}
+.wb-chip button{background:#3a2130;border:1px solid #5a3446;color:#e6cfd6;border-radius:4px;cursor:pointer;font-size:11px;margin-left:3px;padding:1px 5px}
+.wb-none{font-size:12px;color:#8a93a6}
+.wb-danger{margin-top:8px;width:100%;padding:8px;border-radius:7px;border:1px solid #7a3a3a;background:#3a1f1f;color:#f0d6d6;cursor:pointer;font-weight:600}

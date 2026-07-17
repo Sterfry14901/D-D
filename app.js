@@ -655,6 +655,48 @@ function renderWorld() {
   box.querySelectorAll('[data-vote]').forEach((b) => { b.onclick = () => socket.emit('world:vote', { yes: b.dataset.vote === 'yes' }); });
   const go = box.querySelector('[data-vgo]'); if (go) go.onclick = () => socket.emit('world:travel', { to: go.dataset.vgo, mode: go.dataset.vmode });
   const cancel = box.querySelector('.wvote-cancel'); if (cancel) cancel.onclick = () => socket.emit('world:voteCancel');
+  if (me.isGm) renderWorldBuilder(box, here);
+}
+function renderWorldBuilder(box, here) {
+  const cities = Object.values(worldState.cities);
+  const cityOpts = (sel) => cities.map((c) => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+  const vtypes = ['general', 'blacksmith', 'wagon', 'fence', 'magic', 'alchemist', 'tavern'];
+  const wrap = document.createElement('div');
+  wrap.className = 'world-builder';
+  wrap.innerHTML = `
+    <div class="world-sec-t">🛠️ DM world-builder</div>
+    <div class="wb-row"><input id="wb-city-name" placeholder="New city name" maxlength="40" />
+      <select id="wb-city-kind"><option>town</option><option>city</option><option>village</option><option>port</option><option>keep</option><option>hold</option></select>
+      <button id="wb-city-add">➕ City</button></div>
+    <input id="wb-city-desc" placeholder="Short description (optional)" maxlength="200" class="wb-wide" />
+    <div class="wb-row"><input id="wb-ai-theme" placeholder="AI city theme (e.g. “pirate cove”)" class="wb-wide" /><button id="wb-city-ai">✨ AI city</button></div>
+    <div class="wb-t">Link a route</div>
+    <div class="wb-row wb-link">
+      <select id="wb-from">${cityOpts(here.id)}</select><span>↔</span><select id="wb-to">${cityOpts()}</select>
+      <select id="wb-mode"><option value="walk">🥾 Foot</option><option value="horse">🐴 Horse</option><option value="wagon">🛒 Wagon</option><option value="boat">⛵ Boat</option></select>
+      <input id="wb-hours" type="number" min="1" value="8" title="hours" /><button id="wb-link">Link</button>
+    </div>
+    <div class="wb-t">Add a vendor to ${escapeHtml(here.name)}</div>
+    <div class="wb-row"><input id="wb-vname" placeholder="Vendor name" maxlength="40" />
+      <select id="wb-vtype">${vtypes.map((t) => `<option value="${t}">${VTYPE_LABEL[t]}</option>`).join('')}</select>
+      <button id="wb-vadd">➕ Vendor</button></div>
+    <div class="wb-t">Manage current city</div>
+    <div class="wb-manage">
+      ${(here.vendors || []).map((v) => `<span class="wb-chip">${escapeHtml(v.name)} <button data-vrm="${v.id}" title="Remove vendor">✕</button></span>`).join('') || '<span class="wb-none">no vendors</span>'}
+    </div>
+    <div class="wb-manage">
+      ${(here.links || []).map((l) => `<span class="wb-chip">→ ${escapeHtml((worldState.cities[l.to] || {}).name || l.to)} <button data-lrm="${l.to}" title="Remove route">✕</button></span>`).join('') || '<span class="wb-none">no routes</span>'}
+    </div>
+    ${cities.length > 1 ? `<button id="wb-city-rm" class="wb-danger">🗑️ Delete ${escapeHtml(here.name)}</button>` : ''}`;
+  box.appendChild(wrap);
+  const val = (id) => (document.getElementById(id) ? document.getElementById(id).value : '');
+  wrap.querySelector('#wb-city-add').onclick = () => { const name = val('wb-city-name').trim(); if (!name) return flashHint('Name the city first.'); socket.emit('world:cityAdd', { name, kind: val('wb-city-kind'), desc: val('wb-city-desc') }); };
+  wrap.querySelector('#wb-city-ai').onclick = () => { socket.emit('world:cityAI', { theme: val('wb-ai-theme') }); flashHint('✨ Conjuring a city…'); };
+  wrap.querySelector('#wb-link').onclick = () => { const from = val('wb-from'), to = val('wb-to'); if (from === to) return flashHint('Pick two different cities.'); socket.emit('world:cityLink', { from, to, mode: val('wb-mode'), hours: Number(val('wb-hours')) || 8, twoWay: true }); };
+  wrap.querySelector('#wb-vadd').onclick = () => { const name = val('wb-vname').trim(); if (!name) return flashHint('Name the vendor first.'); socket.emit('world:vendorAdd', { cityId: here.id, name, type: val('wb-vtype') }); };
+  wrap.querySelectorAll('[data-vrm]').forEach((b) => { b.onclick = () => socket.emit('world:vendorRemove', { cityId: here.id, vendorId: b.dataset.vrm }); });
+  wrap.querySelectorAll('[data-lrm]').forEach((b) => { b.onclick = () => socket.emit('world:cityUnlink', { from: here.id, to: b.dataset.lrm }); });
+  const rm = wrap.querySelector('#wb-city-rm'); if (rm) rm.onclick = () => { if (confirm('Delete ' + here.name + ' and all its routes?')) socket.emit('world:cityRemove', { cityId: here.id }); };
 }
 
 /* ---- Vendor shop (location-bound) ---- */
