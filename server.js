@@ -20,17 +20,19 @@ app.use(express.static(__dirname));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 // Verify which AI backend is wired up (handy for confirming an Ollama / local model).
 app.get('/ai-status', (_req, res) => {
+  const c = effectiveAI();
   let host = '';
-  try { host = new URL(OPENAI_BASE_URL).host; } catch { host = OPENAI_BASE_URL; }
+  try { host = new URL(c.baseUrl).host; } catch { host = c.baseUrl; }
   res.json({
-    backend: LOCAL_AI ? 'local / self-hosted (Ollama-compatible)' : 'OpenAI',
+    backend: c.local ? 'local / self-hosted (Ollama-compatible)' : 'OpenAI',
     baseUrlHost: host,
-    model: OPENAI_MODEL,
-    apiKeySet: !!OPENAI_API_KEY,
-    ready: LOCAL_AI || !!OPENAI_API_KEY,
-    note: LOCAL_AI
-      ? 'Pointing at a local/self-hosted model. Make sure that server is reachable from here and has the model pulled.'
-      : (OPENAI_API_KEY ? 'Using OpenAI with a key.' : 'No key set — running as stub DM. Set OPENAI_API_KEY or point OPENAI_BASE_URL at a local model.'),
+    model: c.model,
+    apiKeySet: !!c.key,
+    source: c.source,                 // 'in-app' (set via the game) or 'env' (Render)
+    ready: c.ready,
+    note: c.local
+      ? 'Pointing at a local/self-hosted model' + (c.source === 'in-app' ? ' set in-app by the DM.' : '.') + ' Make sure that server is reachable and has the model pulled.'
+      : (c.key ? 'Using OpenAI with a key.' : 'No AI configured — stub DM. Set it in-app (🧠 badge) or point OPENAI_BASE_URL at a local model.'),
   });
 });
 
@@ -47,6 +49,22 @@ const rooms = new Map();
 
 // ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
 const DATA_FILE = join(__dirname, 'rooms-data.json');
+
+// ---- In-app AI backend config (DM can point the DM at Ollama without touching Render) ----
+const AI_CONFIG_FILE = join(__dirname, 'ai-config.json');
+let runtimeAI = null;   // { baseUrl, model, key } set from inside the game, overrides env
+try { if (fs.existsSync(AI_CONFIG_FILE)) runtimeAI = JSON.parse(fs.readFileSync(AI_CONFIG_FILE, 'utf8')); } catch {}
+function saveAIConfig() {
+  try { runtimeAI ? fs.writeFileSync(AI_CONFIG_FILE, JSON.stringify(runtimeAI)) : (fs.existsSync(AI_CONFIG_FILE) && fs.unlinkSync(AI_CONFIG_FILE)); } catch (e) { console.error('saveAIConfig:', e.message); }
+}
+// The config actually used for a DM call — in-app override wins over Render env.
+function effectiveAI() {
+  const base = (runtimeAI && runtimeAI.baseUrl) ? String(runtimeAI.baseUrl).replace(/\/+$/, '') : OPENAI_BASE_URL;
+  const model = (runtimeAI && runtimeAI.model) ? runtimeAI.model : OPENAI_MODEL;
+  const key = runtimeAI ? (runtimeAI.key || '') : OPENAI_API_KEY;
+  const local = !/api\.openai\.com/.test(base);
+  return { baseUrl: base, model, key, local, ready: local || !!key, source: runtimeAI ? 'in-app' : 'env' };
+}
 let saveTimer = null;
 
 function saveRooms() {
@@ -211,12 +229,13 @@ be provided listing tokens and their current HP; use it to narrate wounds, blood
 accurately, and never contradict a creature's stated HP.`;
 
 async function callOpenAIDM(messages) {
+  const cfg = effectiveAI();
   // A local OpenAI-compatible server (Ollama/LM Studio) needs no key.
-  if (!OPENAI_API_KEY && !LOCAL_AI) {
-    return "⚠️ No OPENAI_API_KEY set on the server, so I'm running as a stub DM. Add your key (or point OPENAI_BASE_URL at a local model) and restart. (For now: the tavern door creaks open, and adventure awaits...)";
+  if (!cfg.ready) {
+    return "⚠️ No AI is configured yet, so I'm a stub DM. As the DM, click the 🧠 badge (top bar) and paste your Ollama tunnel URL — or set OPENAI_API_KEY. (For now: the tavern door creaks open, and adventure awaits...)";
   }
   const payload = {
-    model: OPENAI_MODEL,
+    model: cfg.model,
     messages: [{ role: 'system', content: DM_SYSTEM_PROMPT }, ...messages],
     temperature: 0.9,
     max_tokens: 500,
@@ -224,9 +243,9 @@ async function callOpenAIDM(messages) {
   // Retry up to 3 times on transient 429/5xx with exponential backoff.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const r = await fetch(OPENAI_BASE_URL + '/chat/completions', {
+      const r = await fetch(cfg.baseUrl + '/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(OPENAI_API_KEY ? { Authorization: `Bearer ${OPENAI_API_KEY}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(cfg.key ? { Authorization: `Bearer ${cfg.key}` } : {}) },
         body: JSON.stringify(payload),
       });
       if (r.ok) {
@@ -389,6 +408,23 @@ io.on('connection', (socket) => {
     room.ready = room.ready || {};
     room.ready[p.name] = !!ready;
     io.to(joinedRoom).emit('ready:state', readyState(room));
+  });
+
+  // ---- DM sets the AI backend from inside the game (overrides Render env) ----
+  socket.on('ai:config:set', ({ baseUrl, model, key }, ack) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    let b = String(baseUrl || '').trim();
+    if (!/^https?:\/\//i.test(b)) { if (typeof ack === 'function') ack({ ok: false, error: 'URL must start with http:// or https://' }); return; }
+    if (!/\/v1$/.test(b.replace(/\/+$/, ''))) b = b.replace(/\/+$/, '') + '/v1';   // be forgiving: append /v1
+    runtimeAI = { baseUrl: b.replace(/\/+$/, ''), model: String(model || 'llama3.1').trim().slice(0, 60), key: String(key || '').slice(0, 200) };
+    saveAIConfig();
+    console.log('AI backend set in-app →', runtimeAI.baseUrl, runtimeAI.model);
+    if (typeof ack === 'function') ack({ ok: true, status: effectiveAI() });
+  });
+  socket.on('ai:config:clear', (_x, ack) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    runtimeAI = null; saveAIConfig();
+    if (typeof ack === 'function') ack({ ok: true, status: effectiveAI() });
   });
 
   // DM reassigns who controls a token (by player name; empty = DM controls it).

@@ -584,7 +584,48 @@ async function refreshAiBadge() {
     else { el.textContent = '🧠 DM: OpenAI (' + (s.model || 'model') + ')'; el.className = 'ghost ai-badge ai-openai'; el.title = 'Running on OpenAI. Point OPENAI_BASE_URL at Ollama to go local/free.'; }
   } catch (e) { el.textContent = '🧠 DM AI: ?'; el.className = 'ghost ai-badge'; el.title = 'Could not read AI status.'; }
 }
-if ($('ai-badge')) { $('ai-badge').onclick = refreshAiBadge; refreshAiBadge(); }
+/* DM clicks the badge → open the AI backend config (paste your Ollama tunnel URL). Players just refresh. */
+function openAiConfig() {
+  let m = $('ai-cfg-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'ai-cfg-modal'; m.className = 'overlay';
+  m.innerHTML = `<div class="sb-card ai-cfg-card">
+    <button class="sb-x" title="Close">✕</button>
+    <div class="sb-name">🧠 Dungeon Master AI backend</div>
+    <div class="ai-cfg-hint">Point the AI DM at your own Ollama server — no billing, no Render. Paste the <b>cloudflared</b> URL from your terminal. It must stay running during play.</div>
+    <label class="ai-cfg-l">Ollama URL (the https://….trycloudflare.com link)</label>
+    <input id="ai-cfg-url" class="ai-cfg-in" placeholder="https://your-tunnel.trycloudflare.com" />
+    <label class="ai-cfg-l">Model</label>
+    <input id="ai-cfg-model" class="ai-cfg-in" placeholder="llama3.1" value="llama3.1" />
+    <label class="ai-cfg-l">API key (leave blank for Ollama)</label>
+    <input id="ai-cfg-key" class="ai-cfg-in" placeholder="(blank for local models)" />
+    <div id="ai-cfg-msg" class="ai-cfg-msg"></div>
+    <div class="ai-cfg-row">
+      <button id="ai-cfg-save" class="quest-save" style="margin:0">💾 Use this AI</button>
+      <button id="ai-cfg-clear" class="rb-btn rb-ghost">↩︎ Back to default (OpenAI/env)</button>
+    </div>
+    <div class="sb-foot">Tip: when your tunnel URL changes, just paste the new one here.</div>
+  </div>`;
+  document.body.appendChild(m);
+  const msg = (t, ok) => { const el = $('ai-cfg-msg'); if (el) { el.textContent = t; el.className = 'ai-cfg-msg ' + (ok ? 'ok' : 'err'); } };
+  m.addEventListener('click', (e) => {
+    if (e.target === m || e.target.classList.contains('sb-x')) { m.remove(); return; }
+    if (e.target.id === 'ai-cfg-save') {
+      const baseUrl = ($('ai-cfg-url').value || '').trim();
+      if (!baseUrl) { msg('Paste your Ollama URL first.', false); return; }
+      msg('Saving & testing…', true);
+      socket.emit('ai:config:set', { baseUrl, model: ($('ai-cfg-model').value || 'llama3.1').trim(), key: ($('ai-cfg-key').value || '').trim() }, (res) => {
+        if (res && res.ok) { msg('✅ Saved! Ask the DM anything to test.', true); refreshAiBadge(); setTimeout(() => m.remove(), 1200); }
+        else { msg('⚠️ ' + ((res && res.error) || 'Could not save — are you the DM?'), false); }
+      });
+      return;
+    }
+    if (e.target.id === 'ai-cfg-clear') {
+      socket.emit('ai:config:clear', {}, (res) => { if (res && res.ok) { msg('Reverted to the server default.', true); refreshAiBadge(); setTimeout(() => m.remove(), 900); } });
+      return;
+    }
+  });
+}
+if ($('ai-badge')) { $('ai-badge').onclick = () => { if (me.isGm) openAiConfig(); else refreshAiBadge(); }; refreshAiBadge(); }
 
 /* ============ AI DM VOICE — text-to-speech so the DM & NPCs speak aloud ============ */
 let ttsOn = false;
