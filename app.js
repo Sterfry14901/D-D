@@ -1639,6 +1639,7 @@ function styleToken(el, t) {
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
   el.classList.toggle('bloodied', Number(t.maxhp) > 0 && Number(t.hp) > 0 && Number(t.hp) <= Number(t.maxhp) / 2);
   el.classList.toggle('ghosted', !!t.ghost);
+  el.classList.toggle('has-loot', Array.isArray(t.chest) && t.chest.length > 0);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.name || t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
@@ -1741,9 +1742,15 @@ function makeDraggable(el) {
   });
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
-    if (el._token && Array.isArray(el._token.chest)) { openChest(el._token); return; }
-    if (!canControlTok(el._token)) { flashHint('🔒 That token belongs to another player — only its owner or the DM can edit it.'); return; }
-    openTokenModal(el._token);
+    const t = el._token;
+    if (t && Array.isArray(t.chest)) {
+      // A creature must be downed before players can loot it (chests always loot).
+      const isCreature = Number(t.maxhp) > 0;
+      if (isCreature && Number(t.hp) > 0 && !me.isGm) { flashHint('⚔️ ' + (t.label || 'It') + ' still stands — defeat it first!'); return; }
+      openChest(t); return;
+    }
+    if (!canControlTok(t)) { flashHint('🔒 That token belongs to another player — only its owner or the DM can edit it.'); return; }
+    openTokenModal(t);
   });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); showTokenCtx(el._token, e.clientX, e.clientY); });
 }
@@ -1814,6 +1821,19 @@ function showTokenCtx(t, px, py) {
     }, 'danger');
   }
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
+  if (me.isGm) {
+    const hasLoot = Array.isArray(t.chest) && t.chest.length;
+    row('💰', hasLoot ? `Loot inside (${t.chest.length}) — edit…` : 'Stock loot…', () => {
+      closeTokenCtx();
+      const cur = Array.isArray(t.chest) ? t.chest.join(', ') : '';
+      const raw = prompt('What loot does ' + (t.label || 'this') + ' carry? (comma-separated)', cur || 'Potion of Healing, 15 gp');
+      if (raw === null) return;
+      const items = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 20);
+      socket.emit('token:update', { id: t.id, chest: items });
+      flashHint(items.length ? '💰 Loot set — players loot it once it drops' : '💰 Loot cleared');
+    });
+    row('✨', 'AI loot inside', () => { closeTokenCtx(); socket.emit('loot:aiToken', { id: t.id, theme: t.label || '' }); flashHint('✨ Filling ' + (t.label || 'it') + ' with treasure…'); });
+  }
   if (typeof window.hasStatBlock === 'function' && window.hasStatBlock(t.label)) {
     row('📖', 'Stat block', () => { closeTokenCtx(); window.showStatBlock(t.label); });
   }

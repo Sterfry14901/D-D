@@ -1081,3 +1081,6 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* ===== Editable gear weight ===== */
 .cs-gear-wl { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; opacity: .8; white-space: nowrap; }
 .cs-gear-w { width: 3.4em; padding: 2px 4px; border-radius: 5px; border: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.25); color: inherit; text-align: right; }
+
+/* ===== Token loot indicator (💰 corner badge for tokens carrying loot) ===== */
+.token.has-loot::after { content: '💰'; position: absolute; right: -4px; top: -6px; font-size: 13px; filter: drop-shadow(0 1px 1px #000); pointer-events: none; z-index: 3; }

@@ -753,6 +753,22 @@ io.on('connection', (socket) => {
     io.to(target.id).emit('item:give', { item: name });
     pushSystem(joinedRoom, `✨ The DM bestows upon ${target.name}: ${name}${desc ? ' — ' + desc : ''}`);
   });
+  // DM stocks a monster/token with AI-generated loot (players loot it once it drops).
+  socket.on('loot:aiToken', async ({ id, theme } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const tok = room.tokens[id]; if (!tok) return;
+    const th = theme && String(theme).trim() ? `carried by a ${String(theme).trim().slice(0, 40)}` : 'for a defeated foe';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `List 2 to 4 pieces of D&D loot ${th}. Reply with ONLY a comma-separated list (for example: 14 gp, Rusty Shortsword, Potion of Healing). No sentences, no extra words.` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const items = String(reply).replace(/^[^0-9a-z]*/i, '').split(/[,\n]/).map((s) => s.replace(/[*_`#]/g, '').trim()).filter(Boolean).slice(0, 8);
+    tok.chest = items;
+    emitTokenPerSocket(room, 'token:update', tok);
+    markDirty();
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `💰 ${tok.label || 'It'} now carries: ${items.join(', ')} (players can loot it once it's downed).`, ts: Date.now() });
+  });
   // GM XP award: every character at the table gains XP.
   socket.on('xp:award', (data) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
