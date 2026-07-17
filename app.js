@@ -2069,13 +2069,18 @@ window.addEventListener('storage', (e) => {
   if (location.hash !== '#sheet') return;
   const room = new URLSearchParams(location.search).get('room') || 'my-campaign';
   me.room = room;
-  document.body.classList.add('sheet-only');
-  const js = $('join-screen'); if (js) js.classList.add('hidden');
-  const app = $('app'); if (app) app.classList.remove('hidden');
-  loadCS(); if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks();
-  const m = $('cs-modal'); if (m) { m.classList.remove('hidden'); m.classList.add('sheet-page'); }
-  const close = $('cs-close'); if (close) close.style.display = 'none';
-  document.title = '📋 ' + (cs.name || 'Character') + ' — Sheet';
+  // Defer until all boot code has run, then take over the page with just the sheet.
+  const activate = () => {
+    document.body.classList.add('sheet-only');
+    const js = $('join-screen'); if (js) js.classList.add('hidden');
+    const app = $('app'); if (app) app.classList.remove('hidden');
+    try { loadCS(); if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks(); } catch (e) { console.error('sheet build', e); }
+    const m = $('cs-modal'); if (m) { m.classList.remove('hidden'); m.classList.add('sheet-page'); }
+    const close = $('cs-close'); if (close) close.style.display = 'none';
+    document.title = '📋 ' + ((cs && cs.name) || 'Character') + ' — Sheet';
+  };
+  if (document.readyState === 'complete') setTimeout(activate, 200);
+  else window.addEventListener('load', () => setTimeout(activate, 200));
 })();
 $('cs-modal').addEventListener('click', (e) => { if (e.target.id === 'cs-modal') $('cs-modal').classList.add('hidden'); });
 // Export / import character to a portable JSON file
