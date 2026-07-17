@@ -2051,6 +2051,32 @@ function csFmt(n) { return n >= 0 ? '+' + n : '' + n; }
 
 $('open-cs').onclick = () => { if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks(); $('cs-modal').classList.remove('hidden'); };
 $('cs-close').onclick = () => $('cs-modal').classList.add('hidden');
+
+/* Pop the sheet out to its own window (drag to a second screen). Same-origin →
+   shares localStorage with the main window, so edits sync both ways live. */
+if ($('cs-popout')) $('cs-popout').onclick = () => {
+  const url = location.origin + location.pathname + '?room=' + encodeURIComponent(me.room || 'my-campaign') + '#sheet';
+  window.open(url, 'dnd-sheet-' + (me.room || 'x'), 'width=760,height=900');
+};
+// Live-sync the sheet across windows: when the other window saves, reload here.
+window.addEventListener('storage', (e) => {
+  if (e.key === csKey() && csBuilt) { loadCS(); }
+});
+
+/* Sheet-only mode: opened via ...?room=X#sheet — show just the character sheet,
+   full-screen, no board/socket. Perfect for a second monitor or tablet. */
+(function sheetOnlyMode() {
+  if (location.hash !== '#sheet') return;
+  const room = new URLSearchParams(location.search).get('room') || 'my-campaign';
+  me.room = room;
+  document.body.classList.add('sheet-only');
+  const js = $('join-screen'); if (js) js.classList.add('hidden');
+  const app = $('app'); if (app) app.classList.remove('hidden');
+  loadCS(); if (!csBuilt) buildCS(); csPopulate(); csRecompute(); csRenderAttacks();
+  const m = $('cs-modal'); if (m) { m.classList.remove('hidden'); m.classList.add('sheet-page'); }
+  const close = $('cs-close'); if (close) close.style.display = 'none';
+  document.title = '📋 ' + (cs.name || 'Character') + ' — Sheet';
+})();
 $('cs-modal').addEventListener('click', (e) => { if (e.target.id === 'cs-modal') $('cs-modal').classList.add('hidden'); });
 // Export / import character to a portable JSON file
 $('cs-export').onclick = () => {

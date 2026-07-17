@@ -950,3 +950,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .icon-opt.on { border-color: var(--gold-bright, #ffd98a); box-shadow: 0 0 0 2px var(--gold, #d9b154) inset; }
 .icon-opt.loading { opacity: .5; }
 .icon-opt img { width: 100%; height: 100%; object-fit: contain; filter: invert(1) brightness(1.6); }
+
+/* ===== Sheet pop-out (second-screen) mode ===== */
+body.sheet-only #topbar, body.sheet-only #board-wrap, body.sheet-only #panel, body.sheet-only .fog-bar, body.sheet-only #turn-banner { display: none !important; }
+body.sheet-only #layout { display: block; }
+body.sheet-only #app { display: block; }
+#cs-modal.sheet-page { position: static; background: var(--bg, #14110c); display: block; padding: 0; }
+#cs-modal.sheet-page .cs-card { max-width: 900px; margin: 0 auto; max-height: none; height: auto; box-shadow: none; }
