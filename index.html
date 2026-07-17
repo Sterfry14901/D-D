@@ -76,6 +76,7 @@
         <button id="map-btn" class="ghost" title="Upload a battle map image">🗺️ Map</button>
         <input id="map-file" type="file" accept="image/*" hidden />
         <button id="addtoken-btn" class="ghost" title="Add a token">➕ Token</button>
+        <button id="companion-btn" class="ghost" title="Add a companion, pet, or NPC that you control">🐾 Companion</button>
         <button id="ruler-btn" class="ghost" title="Measure distance (drag on map)">📏 Ruler</button>
         <button id="draw-btn" class="ghost" title="Draw on the map">✏️ Draw</button>
         <button id="aoe-btn" class="ghost" title="Place a spell area template">✨ AoE</button>
@@ -585,6 +586,9 @@
         <label>Aura color <input id="tk-aura-color" type="color" value="#f2cf7a" /></label>
       </div>
       <label class="tk-link"><input type="checkbox" id="tk-link" /> 🔗 Link to my character sheet (sync HP)</label>
+      <label class="gm-only" id="tk-owner-row">👑 DM: give control of this token to
+        <select id="tk-owner"><option value="">— DM controls it —</option></select>
+      </label>
       <label>Token art — character &amp; monster portraits</label>
       <div id="tk-imgart" class="img-picker">
         <button class="img-opt" data-img="tok-fighter.png?v=2" title="Fighter"><img src="tok-fighter.png?v=2" alt="" /></button>

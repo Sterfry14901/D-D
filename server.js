@@ -18,6 +18,21 @@ const io = new Server(httpServer, { maxHttpBufferSize: 30e6 }); // 30MB — allo
 
 app.use(express.static(__dirname));
 app.get('/health', (_req, res) => res.json({ ok: true }));
+// Verify which AI backend is wired up (handy for confirming an Ollama / local model).
+app.get('/ai-status', (_req, res) => {
+  let host = '';
+  try { host = new URL(OPENAI_BASE_URL).host; } catch { host = OPENAI_BASE_URL; }
+  res.json({
+    backend: LOCAL_AI ? 'local / self-hosted (Ollama-compatible)' : 'OpenAI',
+    baseUrlHost: host,
+    model: OPENAI_MODEL,
+    apiKeySet: !!OPENAI_API_KEY,
+    ready: LOCAL_AI || !!OPENAI_API_KEY,
+    note: LOCAL_AI
+      ? 'Pointing at a local/self-hosted model. Make sure that server is reachable from here and has the model pulled.'
+      : (OPENAI_API_KEY ? 'Using OpenAI with a key.' : 'No key set — running as stub DM. Set OPENAI_API_KEY or point OPENAI_BASE_URL at a local model.'),
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
@@ -352,6 +367,15 @@ io.on('connection', (socket) => {
     if (!canControlToken(room, socket.id, room.tokens[id])) return;   // only your own token (DM removes all)
     delete room.tokens[id];
     io.to(joinedRoom).emit('token:remove', id);
+    markDirty();
+  });
+  // DM reassigns who controls a token (by player name; empty = DM controls it).
+  socket.on('token:assign', ({ id, owner }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.tokens[id]) return;
+    const name = String(owner || '').slice(0, 40);
+    room.tokens[id].owner = name || null;
+    room.tokens[id].ownerId = null;   // name-based from now on, survives reconnects
+    emitTokenPerSocket(room, 'token:update', room.tokens[id]);
     markDirty();
   });
 

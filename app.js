@@ -490,7 +490,9 @@ function drawRuler(x1, y1, x2, y2) {
     `<div class="ruler-dot" style="left:${x2}px;top:${y2}px"></div>`;
 }
 
+let roomPlayers = [];
 socket.on('players', (players) => {
+  roomPlayers = players || [];
   const ul = $('player-list'); ul.innerHTML = '';
   players.forEach((p) => {
     const li = document.createElement('li');
@@ -1410,6 +1412,16 @@ $('addtoken-btn').onclick = () => {
   }
   socket.emit('token:add', tok);
 };
+/* Add a companion / pet / NPC that YOU control (owned by you). */
+if ($('companion-btn')) $('companion-btn').onclick = () => {
+  const nm = (prompt('Name your companion / pet / NPC:', 'Companion') || '').trim();
+  if (!nm) return;
+  socket.emit('token:add', {
+    x: 140 * Math.ceil(Math.random() * 4), y: 220,
+    color: me.color, label: initials(nm), name: nm, emoji: '🐾', size: 1, statuses: [],
+  });
+  flashHint('🐾 ' + nm + ' added — you control it.');
+};
 socket.on('token:add', (t) => { renderToken(t); refreshLighting(); });
 socket.on('token:update', (t) => { if (tokenEls[t.id]) { tokenEls[t.id]._token = t; styleToken(tokenEls[t.id], t); refreshLighting(); } else { renderToken(t); refreshLighting(); } });
 socket.on('token:move', ({ id, x, y }) => {
@@ -1765,6 +1777,13 @@ function openTokenModal(t) {
   $('tk-vision').value = t.vision ?? ''; $('tk-light').value = t.light ?? '';
   $('tk-aura').value = t.aura ?? ''; $('tk-aura-color').value = t.auraColor || '#f2cf7a';
   $('tk-link').checked = (linkedToken === t.id);
+  // DM owner assignment dropdown (players in the room)
+  if ($('tk-owner') && me.isGm) {
+    const opts = ['<option value="">— DM controls it —</option>']
+      .concat((roomPlayers || []).filter((p) => !p.isGm).map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`));
+    $('tk-owner').innerHTML = opts.join('');
+    $('tk-owner').value = t.owner || '';
+  }
   document.querySelectorAll('.status-opt').forEach((b) => b.classList.toggle('on', editStatuses.includes(b.dataset.s)));
   document.querySelectorAll('.art-opt[data-e]').forEach((b) => b.classList.toggle('on', !editImg && b.dataset.e === editEmoji));
   document.querySelectorAll('.img-opt').forEach((b) => b.classList.toggle('on', editImg === b.dataset.img));
@@ -1901,6 +1920,14 @@ $('tk-save').onclick = () => {
     auraColor: $('tk-aura-color').value,
     statuses: editStatuses, emoji: editEmoji, img: editImg,
   });
+  // DM: reassign who controls this token
+  if (me.isGm && $('tk-owner')) {
+    const newOwner = $('tk-owner').value || '';
+    if (newOwner !== (editingToken.owner || '')) {
+      socket.emit('token:assign', { id: editingToken.id, owner: newOwner });
+      flashHint(newOwner ? '👑 ' + newOwner + ' now controls this token' : '👑 DM controls this token');
+    }
+  }
   // Link / unlink this token to my character sheet
   if ($('tk-link').checked) {
     linkedToken = editingToken.id;
