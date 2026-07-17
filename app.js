@@ -795,6 +795,7 @@ document.querySelectorAll('.tab').forEach((t) => {
     document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
     document.querySelectorAll('.tabpane').forEach((x) => x.classList.remove('active'));
     t.classList.add('active'); $('tab-' + t.dataset.tab).classList.add('active');
+    if (t.dataset.tab === 'spells' && window.refreshSpellGates) window.refreshSpellGates();
   };
 });
 
@@ -2518,6 +2519,7 @@ function applyLevelUp(next, die, state, featText) {
   if (featText && featText !== 'Choose your subclass!') cs.features = (cs.features ? cs.features + '\n' : '') + `Lv ${next}: ${featText}`;
   const newProf = csProf();
   saveCS(); if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); } sendPartyStatus(); syncLinkedToken();
+  if (window.refreshSpellGates) window.refreshSpellGates();
   if ($('sh-level')) $('sh-level').value = cs.level;
   if ($('sh-hp')) $('sh-hp').value = cs.hp;
   if ($('sh-maxhp')) $('sh-maxhp').value = cs.maxhp;
