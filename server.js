@@ -926,6 +926,21 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, `⚔️ ${enc}`);
     for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: mode || 'walk' });
   });
+  // The party takes a long rest — at an inn if the city has a tavern, else making camp.
+  // Advances the world clock 8 hours and triggers everyone's long-rest recovery.
+  socket.on('world:rest', () => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const w = room.world; const here = w.cities[w.party.at];
+    const hasInn = here && (here.vendors || []).some((v) => v.type === 'tavern');
+    w.clock = w.clock || { day: 1, hour: 8 };
+    w.clock.hour += 8; while (w.clock.hour >= 24) { w.clock.hour -= 24; w.clock.day += 1; }
+    markDirty(); broadcastWorld(joinedRoom);
+    io.to(joinedRoom).emit('world:rest', { inn: hasInn });
+    const hh = String(w.clock.hour).padStart(2, '0');
+    pushSystem(joinedRoom, hasInn
+      ? `🛏️ The party takes rooms at an inn in ${here.name} and rests the night. It is now Day ${w.clock.day}, ${hh}:00.`
+      : `🏕️ The party makes camp and takes a long rest. It is now Day ${w.clock.day}, ${hh}:00.`);
+  });
   // A player proposes travel; opens a vote.
   socket.on('world:propose', ({ to, mode } = {}) => {
     const room = rooms.get(joinedRoom); if (!room) return;

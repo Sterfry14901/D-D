@@ -605,6 +605,10 @@ function applyWorld(w) {
 }
 socket.on('world:state', (w) => applyWorld(w));
 socket.on('travel:encounter', ({ text } = {}) => { try { if (window.flashHint) flashHint('⚔️ Encounter! ' + (text || '').slice(0, 60)); } catch {} });
+socket.on('world:rest', ({ inn } = {}) => {
+  try { if (csBuilt && typeof doRest === 'function') doRest('long'); } catch {}
+  try { if (window.flashHint) flashHint(inn ? '🛏️ Rested at the inn — full recovery.' : '🏕️ Made camp — long rest complete.'); } catch {}
+});
 function findVendorLocal(cityId, vendorId) {
   const c = worldState && worldState.cities && worldState.cities[cityId]; if (!c) return null;
   return (c.vendors || []).find((v) => v.id === vendorId) || null;
@@ -645,7 +649,8 @@ function renderWorld() {
     <div class="world-vendors">${vendors || '<div class="world-empty">No vendors here.</div>'}</div>
     ${voteHtml}
     <div class="world-sec-t">Travel${me.isGm ? '' : ' — propose a destination (DM confirms)'}</div>
-    <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>`;
+    <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>
+    <button id="world-rest" class="world-rest">🌙 Rest here (long rest · +8h)</button>`;
   box.querySelectorAll('[data-vendor]').forEach((b) => { b.onclick = () => { const v = findVendorLocal(here.id, b.dataset.vendor); if (v) openVendor(here.id, v); }; });
   box.querySelectorAll('.world-mode').forEach((b) => {
     b.onclick = () => {
@@ -657,6 +662,7 @@ function renderWorld() {
   box.querySelectorAll('[data-vote]').forEach((b) => { b.onclick = () => socket.emit('world:vote', { yes: b.dataset.vote === 'yes' }); });
   const go = box.querySelector('[data-vgo]'); if (go) go.onclick = () => socket.emit('world:travel', { to: go.dataset.vgo, mode: go.dataset.vmode });
   const cancel = box.querySelector('.wvote-cancel'); if (cancel) cancel.onclick = () => socket.emit('world:voteCancel');
+  const rest = box.querySelector('#world-rest'); if (rest) rest.onclick = () => socket.emit('world:rest');
   if (me.isGm) renderWorldBuilder(box, here);
 }
 function renderWorldBuilder(box, here) {
