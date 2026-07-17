@@ -395,6 +395,13 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('token:remove', id);
     markDirty();
   });
+  // DM calls for initiative — every player rolls their own DEX-based init.
+  socket.on('init:rollcall', () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    io.to(joinedRoom).emit('init:rollcall');
+    pushSystem(joinedRoom, '⚔️ Roll for initiative!');
+  });
+
   // ---- "Everyone ready?" checkpoint ----
   socket.on('ready:ask', () => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

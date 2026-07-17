@@ -2092,6 +2092,20 @@ $('init-add-btn').onclick = () => {
 $('init-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('init-add-btn').click(); });
 $('init-sort').onclick = () => socket.emit('init:sort');
 $('init-next').onclick = () => socket.emit('init:turn', 'next');
+/* DM: call for initiative — every player rolls their own d20 + DEX and joins the order. */
+if ($('init-add-party')) $('init-add-party').onclick = () => { socket.emit('init:rollcall'); flashHint('⚔️ Calling for initiative…'); };
+socket.on('init:rollcall', () => {
+  if (me.isGm) return;                       // the DM calls it; players answer
+  const nm = (cs && cs.name) || me.name; if (!nm) return;
+  const dex = (typeof csMod === 'function' && cs) ? csMod(cs.scores.dex) : 0;
+  const roll = 1 + Math.floor(Math.random() * 20);
+  const total = roll + dex;
+  const mine = (combat.list || []).find((e) => e.name === nm);
+  if (mine) socket.emit('init:remove', mine.id);   // avoid a duplicate on re-rolls
+  socket.emit('init:add', { name: nm, init: total });
+  socket.emit('chat', { text: `🎲 ${nm} rolls initiative: ${total} (d20 ${roll} ${dex >= 0 ? '+' : ''}${dex} DEX)` });
+  flashHint(`🎲 Initiative ${total}`);
+});
 
 /* ===== DM party-wide damage / heal — applies to every player-owned token ===== */
 function partyTokens() {
