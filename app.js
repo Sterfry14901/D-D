@@ -386,6 +386,8 @@ function addChat(m) {
   log.appendChild(div);
   if (atBottom || (m.author && m.author === me.name)) log.scrollTop = log.scrollHeight;
   if (m.role === 'roll') addRollHistory(m);
+  // Speak the DM / NPC narration aloud when DM Voice is on.
+  if (typeof ttsOn !== 'undefined' && ttsOn && (m.role === 'dm' || m.author === 'Dungeon Master')) speakDM(m.text);
 }
 function addRollHistory(m) {
   const box = $('dice-history'); if (!box) return;
@@ -397,6 +399,84 @@ function addRollHistory(m) {
 }
 socket.on('chat', addChat);
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
+
+/* ============ AI DM VOICE — text-to-speech so the DM & NPCs speak aloud ============ */
+let ttsOn = false;
+const SYNTH = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+let dmVoice = null, npcVoices = [];
+function pickVoices() {
+  if (!SYNTH) return;
+  const vs = SYNTH.getVoices();
+  if (!vs.length) return;
+  const en = vs.filter((v) => /en[-_]/i.test(v.lang) || /english/i.test(v.name));
+  const pool = en.length ? en : vs;
+  // Prefer a deep/male-sounding voice for the DM narrator.
+  dmVoice = pool.find((v) => /(daniel|george|arthur|male|david|fred|rishi)/i.test(v.name)) || pool[0];
+  npcVoices = pool.slice(0, 8);
+}
+if (SYNTH) { pickVoices(); SYNTH.onvoiceschanged = pickVoices; }
+/* Strip emoji, markdown and dice noise so the narration reads cleanly. */
+function cleanForSpeech(t) {
+  return String(t || '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2190}-\u{21FF}]/gu, '')
+    .replace(/[*_`#>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+/* Give each quoted NPC line a slightly different voice/pitch so "voices" vary. */
+function speakDM(text) {
+  if (!ttsOn || !SYNTH) return;
+  const clean = cleanForSpeech(text);
+  if (!clean) return;
+  try { SYNTH.cancel(); } catch {}
+  // Split into narration vs. quoted speech ("...") — quotes get an NPC voice.
+  const parts = clean.split(/(“[^”]*”|"[^"]*")/g).filter((s) => s && s.trim());
+  parts.forEach((seg) => {
+    const quoted = /^["“].*["”]$/.test(seg.trim());
+    const u = new SpeechSynthesisUtterance(seg.replace(/^["“]|["”]$/g, '').trim());
+    if (quoted && npcVoices.length) {
+      // deterministic-ish NPC voice from the line's text
+      let h = 0; for (let i = 0; i < seg.length; i++) h = (h * 31 + seg.charCodeAt(i)) & 0xffff;
+      u.voice = npcVoices[h % npcVoices.length];
+      u.pitch = 0.8 + ((h >> 4) % 9) / 10;   // 0.8–1.6
+      u.rate = 0.95 + ((h >> 8) % 3) / 10;
+    } else {
+      u.voice = dmVoice; u.pitch = 0.9; u.rate = 0.98;
+    }
+    try { SYNTH.speak(u); } catch {}
+  });
+}
+if ($('tts-btn')) {
+  if (!SYNTH) { $('tts-btn').disabled = true; $('tts-btn').title = 'Your browser has no speech synthesis'; }
+  $('tts-btn').onclick = () => {
+    if (!SYNTH) return;
+    ttsOn = !ttsOn;
+    $('tts-btn').textContent = ttsOn ? '🔊 DM Voice: On' : '🔈 DM Voice: Off';
+    $('tts-btn').classList.toggle('on', ttsOn);
+    if (ttsOn) { pickVoices(); speakDM('The Dungeon Master finds their voice.'); flashHint('🔊 DM & NPCs will now speak aloud'); }
+    else { try { SYNTH.cancel(); } catch {} flashHint('🔈 DM voice off'); }
+  };
+}
+
+/* ============ TALK TO THE DM — speak your action, sent to the AI DM ============ */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let talking = false, recog = null;
+if ($('talk-btn')) {
+  if (!SR) { $('talk-btn').disabled = true; $('talk-btn').title = 'Speech input needs Chrome/Edge'; }
+  $('talk-btn').onclick = () => {
+    if (!SR) return;
+    if (talking) { try { recog.stop(); } catch {} return; }
+    recog = new SR(); recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 1;
+    recog.onstart = () => { talking = true; $('talk-btn').textContent = '🔴 Listening…'; $('talk-btn').classList.add('on'); flashHint('🎤 Speak your action — the DM is listening'); };
+    recog.onerror = (e) => { flashHint('🎤 Mic error: ' + (e.error || 'unknown')); };
+    recog.onend = () => { talking = false; $('talk-btn').textContent = '🎤 Talk'; $('talk-btn').classList.remove('on'); };
+    recog.onresult = (e) => {
+      const said = (e.results[0][0].transcript || '').trim();
+      if (said) { $('chat-input').value = said; socket.emit('dm:ask', { text: said }); $('chat-input').value = ''; flashHint('🗣️ To the DM: ' + said); }
+    };
+    try { recog.start(); } catch {}
+  };
+}
 $('send-btn').onclick = sendChat;
 $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 function sendChat() {

@@ -984,3 +984,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #lvl-modal.overlay, #sb-modal.overlay, body.sheet-only .overlay { z-index: 400 !important; }
 /* ===== Inventory quick-add datalist row ===== */
 .cs-gear-add input { flex: 1; }
+
+/* ===== DM voice + talk-to-DM buttons ===== */
+#tts-btn.on { background: rgba(120,90,200,.35); border-color: rgba(150,120,230,.6); color: #fff; }
+#talk-btn.on { background: #b3372e; color: #fff; animation: talkpulse 1s ease-in-out infinite; }
+@keyframes talkpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(200,60,50,.6); } 50% { box-shadow: 0 0 0 6px rgba(200,60,50,0); } }
