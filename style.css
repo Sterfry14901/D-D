@@ -362,7 +362,7 @@ body:not(.is-gm) .gm-only { display: none !important; }
 }
 .tab:hover { color: var(--ink); background: rgba(217,177,84,0.05); }
 .tab.active { color: var(--gold-bright); border-bottom-color: var(--gold); background: rgba(217,177,84,0.08); }
-.tabpane { display: none; flex: 1; min-height: 0; flex-direction: column; padding: 14px; }
+.tabpane { display: none; flex: 1; min-height: 0; flex-direction: column; padding: 14px; overflow-y: auto; }
 .tabpane.active { display: flex; }
 /* Guarantee only the active tab shows, even for panes with an ID display rule. */
 .tabpane:not(.active) { display: none !important; }
@@ -1077,3 +1077,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .enc-drop { flex: 1; text-align: left; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 6px 9px; cursor: pointer; color: inherit; font-size: 13px; }
 .enc-drop:hover { background: rgba(120,60,50,.28); }
 .enc-del { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15); border-radius: 7px; cursor: pointer; color: inherit; padding: 2px 8px; }
+
+/* ===== Editable gear weight ===== */
+.cs-gear-wl { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; opacity: .8; white-space: nowrap; }
+.cs-gear-w { width: 3.4em; padding: 2px 4px; border-radius: 5px; border: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.25); color: inherit; text-align: right; }

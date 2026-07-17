@@ -2886,10 +2886,11 @@ function csRenderGear() {
   const rows = cs.gear.map((g, i) => {
     const inf = gearInfo(g);
     total += inf.w;
-    const tags = `${inf.w ? inf.w + ' lb' : ''}${inf.h === 2 ? ' · 🤲 two-handed' : inf.h === 1 ? ' · ✋' : ''}${inf.slot === 'armor' ? ' · 🛡 armor' : ''}`;
+    const tags = `${inf.h === 2 ? '🤲 two-handed' : inf.h === 1 ? '✋' : ''}${inf.slot === 'armor' ? ' · 🛡 armor' : ''}`;
     return `<div class="cs-gear-item ${g.on ? 'on' : ''}">
     <button class="cs-gear-tog" data-gear-tog="${i}" title="Toggle worn / stowed">${g.on ? '🟢 On' : '⚪ Off'}</button>
     <span class="cs-gear-n">${escG(g.n)} <em style="opacity:.6;font-size:11px">${tags}</em></span>
+    <label class="cs-gear-wl" title="Weight in pounds — editable"><input class="cs-gear-w" type="number" step="0.1" min="0" data-gear-w="${i}" value="${inf.w}" /> lb</label>
     <button class="cs-gear-rm" data-gear-rm="${i}" title="Remove">✕</button>
   </div>`;
   }).join('');
@@ -3161,6 +3162,14 @@ function csOnChange(e) {
   const el = e.target;
   if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderSpellcasting(); csRenderCantrips(); csRenderPrepared(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
   else if (el.dataset.score !== undefined) { cs.scores[el.dataset.score] = Number(el.value) || 0; if (['int','wis','cha'].includes(el.dataset.score)) csRenderSpellcasting(); }
+  else if (el.dataset.gearW !== undefined) {
+    const gi = Number(el.dataset.gearW); if (cs.gear[gi]) { cs.gear[gi].w = Math.max(0, Number(el.value) || 0); saveCS();
+      // update the carry meter live without rebuilding inputs (keeps focus)
+      let total = 0; cs.gear.forEach((g) => { total += gearInfo(g).w; });
+      const cap = csCarry(), over = total > cap; const carry = document.querySelector('#cs-gear .cs-carry');
+      if (carry) { carry.classList.toggle('over', over); carry.textContent = `⚖️ Carrying ${Math.round(total * 10) / 10} / ${cap} lb` + (over ? ` — OVER-ENCUMBERED! Speed halved to ${Math.floor((Number(cs.speed) || 30) / 2)} ft.` : ''); }
+    }
+  }
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
   else if (el.dataset.slotmax !== undefined) {
