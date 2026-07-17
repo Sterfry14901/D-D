@@ -490,7 +490,7 @@ socket.on('state', (s) => {
   // DM-only controls: battle-map upload + weather/atmosphere + AI backend badge
   if ($('map-btn')) $('map-btn').classList.toggle('hidden', !me.isGm);
   if ($('weather-btn')) $('weather-btn').classList.toggle('hidden', !me.isGm);
-  if ($('ai-badge')) { $('ai-badge').classList.toggle('hidden', !me.isGm); if (me.isGm) refreshAiBadge(); }
+  if ($('ai-badge')) { $('ai-badge').classList.toggle('hidden', !me.isGm); if (me.isGm) { autoRestoreAi(); refreshAiBadge(); } }
 });
 
 /* ============ SAVE / LOAD CAMPAIGN (GM) ============ */
@@ -614,17 +614,36 @@ function openAiConfig() {
       const baseUrl = ($('ai-cfg-url').value || '').trim();
       if (!baseUrl) { msg('Paste your Ollama URL first.', false); return; }
       msg('Saving & testing…', true);
-      socket.emit('ai:config:set', { baseUrl, model: ($('ai-cfg-model').value || 'llama3.1').trim(), key: ($('ai-cfg-key').value || '').trim() }, (res) => {
-        if (res && res.ok) { msg('✅ Saved! Ask the DM anything to test.', true); refreshAiBadge(); setTimeout(() => m.remove(), 1200); }
-        else { msg('⚠️ ' + ((res && res.error) || 'Could not save — are you the DM?'), false); }
+      const cfg = { baseUrl, model: ($('ai-cfg-model').value || 'llama3.1').trim(), key: ($('ai-cfg-key').value || '').trim() };
+      socket.emit('ai:config:set', cfg, (res) => {
+        if (res && res.ok) {
+          // Remember on THIS (DM) machine so it auto-restores if the server ever forgets.
+          try { localStorage.setItem('dnd-ai-cfg', JSON.stringify(cfg)); } catch {}
+          msg('✅ Saved! It will auto-restore even if the server restarts. Ask the DM anything to test.', true);
+          refreshAiBadge(); setTimeout(() => m.remove(), 1400);
+        } else { msg('⚠️ ' + ((res && res.error) || 'Could not save — are you the DM?'), false); }
       });
       return;
     }
     if (e.target.id === 'ai-cfg-clear') {
+      try { localStorage.removeItem('dnd-ai-cfg'); } catch {}
       socket.emit('ai:config:clear', {}, (res) => { if (res && res.ok) { msg('Reverted to the server default.', true); refreshAiBadge(); setTimeout(() => m.remove(), 900); } });
       return;
     }
   });
+}
+/* If the server forgot the AI backend (e.g. after a restart) but this DM's browser
+   remembers it, silently re-apply it so the DM never has to re-enter it. */
+async function autoRestoreAi() {
+  if (!me.isGm) return;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('dnd-ai-cfg') || 'null'); } catch {}
+  if (!saved || !saved.baseUrl) return;
+  try {
+    const s = await (await fetch('/ai-status?' + Date.now())).json();
+    if (s.source === 'in-app') return;   // already configured, nothing to do
+    socket.emit('ai:config:set', saved, (res) => { if (res && res.ok) { flashHint('🧠 Restored your Ollama DM automatically'); refreshAiBadge(); } });
+  } catch {}
 }
 if ($('ai-badge')) { $('ai-badge').onclick = () => { if (me.isGm) openAiConfig(); else refreshAiBadge(); }; refreshAiBadge(); }
 
