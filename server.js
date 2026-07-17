@@ -49,6 +49,40 @@ const rooms = new Map();
 // Pending player-to-player trade offers: offerId -> {roomId, fromId, fromName, toId, item, ts}
 const pendingTrades = new Map();
 
+// ---- The world: cities with location-bound vendors, linked by travel routes. ----
+// Vendors start empty; the DM AI-stocks them (themed by vendor type). The party has a
+// current location (party.at); you can only trade with vendors in the city you're in.
+let _vid = 0;
+function mkVendor(name, type) { return { id: 'v' + (++_vid), name, type, items: [], open: true }; }
+function buildStarterWorld() {
+  return {
+    party: { at: 'havenbrook' },
+    vote: null,   // {to, mode, byName, yes:[socketIds], no:[socketIds]}
+    cities: {
+      havenbrook: {
+        id: 'havenbrook', name: 'Havenbrook', kind: 'town',
+        desc: 'A walled farming town of timber and thatch, ringed by barley fields. A safe first step for new adventurers.',
+        vendors: [mkVendor("Brannoc's Goods", 'general'), mkVendor('The Iron Hearth', 'blacksmith')],
+        links: [{ to: 'portcael', modes: { walk: 12, horse: 5, wagon: 7 } }, { to: 'ironhold', modes: { walk: 16, horse: 7 } }],
+      },
+      portcael: {
+        id: 'portcael', name: 'Port Cael', kind: 'city',
+        desc: 'A salt-worn harbor city where tall ships crowd the docks and every third face is a smuggler. Boats leave for the mountain river-road.',
+        vendors: [mkVendor('Dockside Sundries', 'general'), mkVendor("Merryweather's Wagon", 'wagon'), mkVendor('The Bilge Rat', 'fence')],
+        links: [{ to: 'havenbrook', modes: { walk: 12, horse: 5, wagon: 7 } }, { to: 'ironhold', modes: { boat: 8, walk: 20 } }],
+      },
+      ironhold: {
+        id: 'ironhold', name: 'Ironhold', kind: 'city',
+        desc: 'A dwarven mountain hold of black stone and forge-fire, famed for arms and the arcane vaults cut deep beneath it.',
+        vendors: [mkVendor('Deepdelve Arms', 'blacksmith'), mkVendor('The Arcane Vault', 'magic')],
+        links: [{ to: 'havenbrook', modes: { walk: 16, horse: 7 } }, { to: 'portcael', modes: { boat: 8, walk: 20 } }],
+      },
+    },
+  };
+}
+const MODE_LABEL = { walk: '🥾 on foot', horse: '🐴 on horseback', wagon: '🛒 by wagon', boat: '⛵ by boat' };
+const VTYPE_LABEL = { general: '🏪 General store', blacksmith: '⚒️ Blacksmith', wagon: '🛒 Wagon merchant', fence: '🗡️ Fence (black market)', magic: '✨ Arcane vault', tavern: '🍺 Tavern', alchemist: '⚗️ Alchemist' };
+
 // ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
 const DATA_FILE = join(__dirname, 'rooms-data.json');
 
@@ -134,6 +168,7 @@ function loadRooms() {
         partyStatus: {},
         sheets: {},
         shop: { open: false, name: 'Market', items: [] },
+        world: buildStarterWorld(),
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -172,6 +207,7 @@ function getRoom(id) {
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
       sheets: {},              // socketId -> full sheet summary (DM read-only oversight)
       shop: { open: false, name: 'Market', items: [] },  // DM shop: players buy items with coins
+      world: buildStarterWorld(),  // travelable world: cities, vendors, routes
     });
   }
   return rooms.get(id);
@@ -190,6 +226,15 @@ function broadcastShop(roomId) {
   const room = rooms.get(roomId); if (!room) return;
   if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
   io.to(roomId).emit('shop:state', room.shop);
+}
+function broadcastWorld(roomId) {
+  const room = rooms.get(roomId); if (!room) return;
+  if (!room.world) room.world = buildStarterWorld();
+  io.to(roomId).emit('world:state', room.world);
+}
+function findVendor(world, cityId, vendorId) {
+  const c = world && world.cities && world.cities[cityId]; if (!c) return null;
+  return (c.vendors || []).find((v) => v.id === vendorId) || null;
 }
 // Send the whole party's sheet summaries to every GM in the room (DM-only oversight).
 function sendSheetsToGms(roomId) {
@@ -368,6 +413,7 @@ io.on('connection', (socket) => {
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
       shop: room.shop || { open: false, name: 'Market', items: [] },
+      world: room.world || buildStarterWorld(),
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -804,6 +850,118 @@ io.on('connection', (socket) => {
     markDirty();
     broadcastShop(joinedRoom);
     io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🏪 Stocked the shop with ${items.length} items. Open it when you're ready to sell.`, ts: Date.now() });
+  });
+
+  // ================= THE WORLD: travel + location-bound vendors =================
+  // DM moves the party between linked cities (DM has final say). Players can propose a
+  // destination and vote; the DM confirms the move.
+  socket.on('world:travel', ({ to, mode } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const w = room.world; if (!w) return;
+    const here = w.cities[w.party.at]; const dest = w.cities[to];
+    if (!here || !dest) return;
+    const link = (here.links || []).find((l) => l.to === to);
+    if (!link || !link.modes[mode]) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ No ${mode} route from ${here.name} to ${dest ? dest.name : to}.`, ts: Date.now() }); return; }
+    const hours = link.modes[mode];
+    w.party.at = to; w.vote = null;
+    markDirty(); broadcastWorld(joinedRoom);
+    pushSystem(joinedRoom, `🧭 The party travels from ${here.name} to ${dest.name} ${MODE_LABEL[mode] || 'by road'} — about ${hours} hours' journey.`);
+  });
+  // A player proposes travel; opens a vote.
+  socket.on('world:propose', ({ to, mode } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const w = room.world; if (!w) return;
+    const p = room.players[socket.id]; if (!p) return;
+    const here = w.cities[w.party.at]; const dest = w.cities[to]; if (!here || !dest) return;
+    const link = (here.links || []).find((l) => l.to === to); if (!link || !link.modes[mode]) return;
+    w.vote = { to, mode, byName: p.name, yes: [socket.id], no: [] };
+    broadcastWorld(joinedRoom);
+    pushSystem(joinedRoom, `🗳️ ${p.name} proposes traveling to ${dest.name} ${MODE_LABEL[mode] || ''} — cast your vote in the World tab. (The DM has the final call.)`);
+  });
+  socket.on('world:vote', ({ yes } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const w = room.world; if (!w || !w.vote) return;
+    w.vote.yes = w.vote.yes.filter((id) => id !== socket.id);
+    w.vote.no = w.vote.no.filter((id) => id !== socket.id);
+    if (yes) w.vote.yes.push(socket.id); else w.vote.no.push(socket.id);
+    broadcastWorld(joinedRoom);
+  });
+  socket.on('world:voteCancel', () => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const p = room.players[socket.id];
+    if (!isGm(room, socket.id) && !(room.world.vote && room.world.vote.byName === (p && p.name))) return;
+    room.world.vote = null; broadcastWorld(joinedRoom);
+  });
+  // Vendor buy — must be standing in the city, vendor must be open. Coins/items are
+  // handled client-side (same trust model as the shop); server decrements stock + announces.
+  socket.on('world:vendorBuy', ({ cityId, vendorId, itemId } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const w = room.world; const buyer = room.players[socket.id]; if (!buyer) return;
+    if (w.party.at !== cityId) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ You must travel to that city first.`, ts: Date.now() }); return; }
+    const v = findVendor(w, cityId, vendorId); if (!v || !v.open) return;
+    const it = (v.items || []).find((x) => x.id === itemId); if (!it) return;
+    if (it.stock === 0) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ ${it.name} is sold out.`, ts: Date.now() }); return; }
+    if (it.stock > 0) it.stock -= 1;
+    markDirty(); broadcastWorld(joinedRoom);
+    pushSystem(joinedRoom, `🛒 ${buyer.name} bought ${it.name} from ${v.name} for ${it.price} gp.`);
+  });
+  socket.on('world:vendorSell', ({ cityId, vendorId, name } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const w = room.world; const seller = room.players[socket.id]; if (!seller) return;
+    if (w.party.at !== cityId) return;
+    const v = findVendor(w, cityId, vendorId); if (!v || !v.open) return;
+    const nm = String(name || '').trim().toLowerCase(); if (!nm) return;
+    const it = (v.items || []).find((x) => String(x.name).toLowerCase() === nm);
+    if (!it) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ ${v.name} won't buy that.`, ts: Date.now() }); return; }
+    if (it.stock >= 0) it.stock += 1;
+    const sell = Math.floor(Number(it.price) / (v.type === 'fence' ? 3 : 2));  // fences pay worse
+    markDirty(); broadcastWorld(joinedRoom);
+    pushSystem(joinedRoom, `🪙 ${seller.name} sold ${it.name} to ${v.name} for ${sell} gp.`);
+  });
+  // DM stocks a vendor with the AI, themed by the vendor's type.
+  socket.on('world:vendorAI', async ({ cityId, vendorId } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const v = findVendor(room.world, cityId, vendorId); if (!v) return;
+    const themeByType = {
+      general: 'a fantasy general store (rations, rope, torches, tools, basic gear)',
+      blacksmith: 'a blacksmith and armorer (weapons and armor, 5e prices)',
+      wagon: 'a traveling wagon merchant (curios, trinkets, potions, odd but useful gear)',
+      fence: 'a black-market fence (stolen goods, lockpicks, poisons, cheap and shady)',
+      magic: 'an arcane vault (scrolls, minor magic items, spell components — pricey)',
+      alchemist: 'an alchemist (potions, oils, reagents)',
+      tavern: 'a tavern larder (food, drink, a room for the night)',
+    };
+    const th = themeByType[v.type] || 'a fantasy shop';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `Stock ${th} named "${v.name}". List 6 to 9 items. Reply with ONLY one item per line as: Name | price_in_gp | weight_in_lb. No intro, no numbering.` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const items = String(reply).split(/\n+/).map((ln) => {
+      const parts = ln.split('|').map((s) => s.replace(/[*_`#]/g, '').trim());
+      const nm = (parts[0] || '').replace(/^[-\d.\)\s]+/, '').slice(0, 60); if (!nm) return null;
+      return { id: 'si_' + Math.random().toString(36).slice(2, 8), name: nm, price: Math.max(0, Math.floor(Number(String(parts[1]).replace(/[^0-9.]/g, '')) || 0)), wt: Math.max(0, Number(String(parts[2]).replace(/[^0-9.]/g, '')) || 0), stock: -1 };
+    }).filter(Boolean).slice(0, 12);
+    if (!items.length) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: '⚠️ Could not parse AI stock. Try again.', ts: Date.now() }); return; }
+    v.items = items; markDirty(); broadcastWorld(joinedRoom);
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🏪 Stocked ${v.name} with ${items.length} items.`, ts: Date.now() });
+  });
+  // DM manual vendor edit (stock list + open/close + rename).
+  socket.on('world:vendorSet', ({ cityId, vendorId, name, items, open } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const v = findVendor(room.world, cityId, vendorId); if (!v) return;
+    if (typeof name === 'string' && name.trim()) v.name = name.trim().slice(0, 40);
+    if (typeof open === 'boolean') v.open = open;
+    if (Array.isArray(items)) {
+      v.items = items.slice(0, 60).map((it) => ({
+        id: (it && it.id) || 'si_' + Math.random().toString(36).slice(2, 8),
+        name: String((it && it.name) || '').slice(0, 60),
+        price: Math.max(0, Math.floor(Number(it && it.price) || 0)),
+        wt: Math.max(0, Number(it && it.wt) || 0),
+        stock: (it && it.stock != null) ? Math.floor(Number(it.stock)) : -1,
+      })).filter((it) => it.name);
+    }
+    markDirty(); broadcastWorld(joinedRoom);
   });
 
   // ---- DM heals or damages one player's sheet HP straight from the oversight viewer ----

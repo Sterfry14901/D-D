@@ -193,6 +193,7 @@
           <button class="tab" data-tab="dice">Dice</button>
           <button class="tab" data-tab="sheet">Sheet</button>
           <button class="tab" data-tab="players">Party</button>
+          <button class="tab" data-tab="world">World</button>
           <button class="tab" data-tab="quests">Quests</button>
           <button class="tab" data-tab="journal">Journal</button>
           <button class="tab" data-tab="rules">Rules</button>
@@ -425,6 +426,11 @@
           <div id="voice-peers"></div>
         </div>
 
+        <!-- The world: cities, vendors, travel -->
+        <div class="tabpane" id="tab-world">
+          <div id="world-body"></div>
+        </div>
+
         <!-- Shared campaign journal -->
         <div class="tabpane" id="tab-quests">
           <div class="journal-head">
@@ -590,6 +596,13 @@
       </div>
       <div class="ps-note">Read-only. This is everything each player is carrying — gear should be bought, earned, or traded, never fabricated.</div>
       <div id="party-sheets-body" class="ps-body"></div>
+    </div>
+  </div>
+
+  <div id="vendor-modal" class="overlay" style="display:none">
+    <div class="ps-modal-card">
+      <div class="ps-modal-head"><h2 id="vendor-title">Vendor</h2><button id="vendor-close" class="ps-close" title="Close">✕</button></div>
+      <div id="vendor-body" class="ps-body" style="display:block"></div>
     </div>
   </div>
 

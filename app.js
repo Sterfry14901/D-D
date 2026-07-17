@@ -589,6 +589,127 @@ function applyShop(sh) {
   if ($('shop-modal') && $('shop-modal').style.display === 'flex') renderShop();
 }
 socket.on('shop:state', (sh) => applyShop(sh));
+
+/* ============ THE WORLD ============ */
+let worldState = null;
+const MODE_LABEL = { walk: '🥾 Foot', horse: '🐴 Horse', wagon: '🛒 Wagon', boat: '⛵ Boat' };
+const VTYPE_LABEL = { general: '🏪 General store', blacksmith: '⚒️ Blacksmith', wagon: '🛒 Wagon merchant', fence: '🗡️ Fence (black market)', magic: '✨ Arcane vault', tavern: '🍺 Tavern', alchemist: '⚗️ Alchemist' };
+function applyWorld(w) {
+  worldState = w || null;
+  if (document.querySelector('#tab-world.active') || (document.getElementById('tab-world') && document.getElementById('tab-world').classList.contains('active'))) renderWorld();
+  else renderWorld();  // keep it fresh even when hidden
+  if ($('vendor-modal') && $('vendor-modal').style.display === 'flex' && _openVendor) {
+    const v = findVendorLocal(_openVendor.cityId, _openVendor.vendorId);
+    if (v) renderVendor(_openVendor.cityId, v); else closeVendor();
+  }
+}
+socket.on('world:state', (w) => applyWorld(w));
+function findVendorLocal(cityId, vendorId) {
+  const c = worldState && worldState.cities && worldState.cities[cityId]; if (!c) return null;
+  return (c.vendors || []).find((v) => v.id === vendorId) || null;
+}
+function renderWorld() {
+  const box = $('world-body'); if (!box) return;
+  if (!worldState || !worldState.cities) { box.innerHTML = '<div class="world-empty">The world is still being drawn…</div>'; return; }
+  const here = worldState.cities[worldState.party.at];
+  if (!here) { box.innerHTML = '<div class="world-empty">The party is between places.</div>'; return; }
+  // vendors
+  const vendors = (here.vendors || []).map((v) => `<button class="world-vendor" data-vendor="${v.id}"><span class="wv-name">${escapeHtml(v.name)}</span><span class="wv-type">${VTYPE_LABEL[v.type] || v.type}${v.open ? '' : ' · closed'}</span></button>`).join('');
+  // travel options
+  const routes = (here.links || []).map((l) => {
+    const dest = worldState.cities[l.to]; if (!dest) return '';
+    const modes = Object.keys(l.modes || {}).map((m) => `<button class="world-mode" data-to="${l.to}" data-mode="${m}">${MODE_LABEL[m] || m} · ${l.modes[m]}h</button>`).join('');
+    return `<div class="world-route"><div class="wr-dest">${escapeHtml(dest.name)} <span class="wr-kind">${dest.kind || ''}</span></div><div class="wr-modes">${modes}</div></div>`;
+  }).join('');
+  // active travel vote
+  let voteHtml = '';
+  if (worldState.vote) {
+    const vt = worldState.vote; const dest = worldState.cities[vt.to];
+    voteHtml = `<div class="world-vote"><div class="wvote-t">🗳️ ${escapeHtml(vt.byName)} proposes: travel to ${escapeHtml(dest ? dest.name : vt.to)} ${MODE_LABEL[vt.mode] || ''}</div>
+      <div class="wvote-tally">👍 ${vt.yes.length} &nbsp; 👎 ${vt.no.length}</div>
+      <div class="wvote-actions">
+        <button class="wvote-yes" data-vote="yes">Vote yes</button>
+        <button class="wvote-no" data-vote="no">Vote no</button>
+        ${me.isGm ? `<button class="wvote-go" data-vgo="${vt.to}" data-vmode="${vt.mode}">✅ DM: travel now</button>` : ''}
+        <button class="wvote-cancel">Cancel</button>
+      </div></div>`;
+  }
+  box.innerHTML = `
+    <div class="world-here">
+      <div class="world-city">📍 ${escapeHtml(here.name)} <span class="world-kind">${here.kind || ''}</span></div>
+      <div class="world-desc">${escapeHtml(here.desc || '')}</div>
+    </div>
+    <div class="world-sec-t">Vendors here</div>
+    <div class="world-vendors">${vendors || '<div class="world-empty">No vendors here.</div>'}</div>
+    ${voteHtml}
+    <div class="world-sec-t">Travel${me.isGm ? '' : ' — propose a destination (DM confirms)'}</div>
+    <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>`;
+  box.querySelectorAll('[data-vendor]').forEach((b) => { b.onclick = () => { const v = findVendorLocal(here.id, b.dataset.vendor); if (v) openVendor(here.id, v); }; });
+  box.querySelectorAll('.world-mode').forEach((b) => {
+    b.onclick = () => {
+      const to = b.dataset.to, mode = b.dataset.mode;
+      if (me.isGm) socket.emit('world:travel', { to, mode });
+      else { socket.emit('world:propose', { to, mode }); flashHint('🗳️ Proposed — the party can vote.'); }
+    };
+  });
+  box.querySelectorAll('[data-vote]').forEach((b) => { b.onclick = () => socket.emit('world:vote', { yes: b.dataset.vote === 'yes' }); });
+  const go = box.querySelector('[data-vgo]'); if (go) go.onclick = () => socket.emit('world:travel', { to: go.dataset.vgo, mode: go.dataset.vmode });
+  const cancel = box.querySelector('.wvote-cancel'); if (cancel) cancel.onclick = () => socket.emit('world:voteCancel');
+}
+
+/* ---- Vendor shop (location-bound) ---- */
+let _openVendor = null;
+function openVendor(cityId, v) { _openVendor = { cityId, vendorId: v.id }; renderVendor(cityId, v); $('vendor-modal').style.display = 'flex'; }
+function closeVendor() { _openVendor = null; const m = $('vendor-modal'); if (m) m.style.display = 'none'; }
+function renderVendor(cityId, v) {
+  const body = $('vendor-body'), title = $('vendor-title'); if (!body) return;
+  title.textContent = (VTYPE_LABEL[v.type] || '🏪') + ' ' + v.name;
+  const atHere = worldState && worldState.party.at === cityId;
+  if (me.isGm) {
+    body.innerHTML = `<div class="vendor-gm-note">${escapeHtml(v.name)} — ${VTYPE_LABEL[v.type] || v.type}</div>
+      <div class="shop-gm-actions"><button id="vendor-ai" class="tr-accept">✨ AI stock this vendor</button></div>
+      <div class="vendor-gm-list">${(v.items || []).length ? (v.items || []).map((it) => `<div class="shop-row"><div class="shop-info"><span class="shop-name">${escapeHtml(it.name)}</span><span class="shop-meta">${it.price} gp · ${Math.round((Number(it.wt) || 0) * 10) / 10} lb${it.stock < 0 ? '' : ' · ' + it.stock + ' left'}</span></div></div>`).join('') : '<div class="world-empty">Empty — click “AI stock”.</div>'}</div>`;
+    $('vendor-ai').onclick = () => { socket.emit('world:vendorAI', { cityId, vendorId: v.id }); flashHint('✨ Stocking ' + v.name + '…'); };
+    return;
+  }
+  if (!atHere) { body.innerHTML = '<div class="world-empty">You must be in this city to trade here.</div>'; return; }
+  const gold = Number(cs.gp) || 0;
+  const items = v.items || [];
+  const buy = items.length ? `<div class="shop-list">${items.map((it) => {
+    const sold = it.stock === 0, afford = gold >= it.price;
+    return `<div class="shop-row"><div class="shop-info"><span class="shop-name">${escapeHtml(it.name)}</span><span class="shop-meta">${it.price} gp · ${Math.round((Number(it.wt) || 0) * 10) / 10} lb${it.stock < 0 ? '' : sold ? ' · sold out' : ' · ' + it.stock + ' left'}</span></div><button class="shop-buy" data-vbuy="${it.id}" ${sold || !afford ? 'disabled' : ''}>${sold ? 'Sold' : afford ? 'Buy' : 'Need gold'}</button></div>`;
+  }).join('')}</div>` : '<div class="world-empty">Nothing for sale.</div>';
+  // sell — items the vendor stocks
+  const priceByName = {}; items.forEach((it) => { priceByName[String(it.name).toLowerCase()] = Number(it.price) || 0; });
+  const rate = v.type === 'fence' ? 3 : 2;
+  const sellable = (cs.gear || []).map((g, i) => ({ i, name: g.n, key: String(g.n).toLowerCase() })).filter((g) => priceByName[g.key] != null);
+  const sell = sellable.length ? `<div class="shop-sell-title">Sell to ${escapeHtml(v.name)}</div><div class="shop-list">${sellable.map((g) => `<div class="shop-row"><div class="shop-info"><span class="shop-name">${escapeHtml(g.name)}</span><span class="shop-meta">${Math.floor((priceByName[g.key] || 0) / rate)} gp</span></div><button class="shop-sell-btn" data-vsell="${g.i}">Sell</button></div>`).join('')}</div>` : '';
+  body.innerHTML = `<div class="shop-gold">Your gold: <b>${gold} gp</b></div>${buy}${sell}`;
+  body.querySelectorAll('[data-vbuy]').forEach((b) => { b.onclick = () => vendorBuy(cityId, v, b.dataset.vbuy); });
+  body.querySelectorAll('[data-vsell]').forEach((b) => { b.onclick = () => vendorSell(cityId, v, Number(b.dataset.vsell)); });
+}
+function vendorBuy(cityId, v, itemId) {
+  const it = (v.items || []).find((x) => x.id === itemId); if (!it) return;
+  const gold = Number(cs.gp) || 0;
+  if (gold < it.price) { flashHint('❌ Not enough gold.'); return; }
+  if (it.stock === 0) { flashHint('❌ Sold out.'); return; }
+  cs.gp = gold - it.price; cs.gear = cs.gear || [];
+  cs.gear.push({ n: String(it.name), on: false, w: Number(it.wt) || 0 });
+  csPopulate(); csRenderGear(); saveCS();
+  socket.emit('world:vendorBuy', { cityId, vendorId: v.id, itemId });
+  flashHint('🛒 Bought ' + it.name + ' for ' + it.price + ' gp');
+}
+function vendorSell(cityId, v, gearIdx) {
+  const g = (cs.gear || [])[gearIdx]; if (!g) return;
+  const match = (v.items || []).find((x) => String(x.name).toLowerCase() === String(g.n).toLowerCase());
+  if (!match) { flashHint('They won’t buy that.'); return; }
+  const rate = v.type === 'fence' ? 3 : 2;
+  const sp = Math.floor((Number(match.price) || 0) / rate);
+  cs.gear.splice(gearIdx, 1); cs.gp = (Number(cs.gp) || 0) + sp;
+  csPopulate(); csRenderGear(); saveCS();
+  socket.emit('world:vendorSell', { cityId, vendorId: v.id, name: g.n });
+  flashHint('🪙 Sold ' + g.n + ' for ' + sp + ' gp');
+}
 function renderQuestView() {
   const box = $('quest-view'); if (!box) return;
   const mains = (quests.list || []).filter((x) => x.kind === 'main');
@@ -780,6 +901,7 @@ socket.on('state', (s) => {
   applyNotes(s.notes || '');
   applyQuests(s.quests || { main: '', sides: [] });
   applyShop(s.shop || { open: false, name: 'Market', items: [] });
+  applyWorld(s.world || null);
   $('board').classList.toggle('gm-fog', me.isGm);
   document.body.classList.toggle('is-gm', me.isGm);
   $('gm-badge').classList.toggle('hidden', !me.isGm);
@@ -2461,6 +2583,8 @@ if ($('party-sheets-close')) $('party-sheets-close').onclick = () => closePartyS
 if ($('party-sheets-modal')) $('party-sheets-modal').addEventListener('click', (e) => { if (e.target === $('party-sheets-modal')) closePartySheets(); });
 if ($('trade-close')) $('trade-close').onclick = () => closeTrade();
 if ($('trade-modal')) $('trade-modal').addEventListener('click', (e) => { if (e.target === $('trade-modal')) closeTrade(); });
+if ($('vendor-close')) $('vendor-close').onclick = () => closeVendor();
+if ($('vendor-modal')) $('vendor-modal').addEventListener('click', (e) => { if (e.target === $('vendor-modal')) closeVendor(); });
 if ($('shop-btn')) $('shop-btn').onclick = () => openShop();
 if ($('shop-close')) $('shop-close').onclick = () => closeShop();
 if ($('shop-modal')) $('shop-modal').addEventListener('click', (e) => { if (e.target === $('shop-modal')) closeShop(); });
