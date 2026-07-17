@@ -257,7 +257,7 @@
   function saveKeys(text) {
     return String(text).toLowerCase().split(/[&,]| and | or /).map((s) => ABIL_KEY[s.trim()]).filter(Boolean);
   }
-  window.SRD = { classes: {}, species: {}, backgrounds: {} };
+  window.SRD = { classes: {}, species: {}, backgrounds: {}, saveKeys };
   CLASSES.forEach((c) => {
     window.SRD.classes[c.n] = {
       hd: parseInt(String(c.hd).replace('d', ''), 10) || 8,
@@ -271,6 +271,10 @@
       emoji: (CLASS_THEME[c.n] || [])[1] || '',
       slots1: (CLASS_CASTING[c.n] || [0])[0],
       castAbil: (CLASS_CASTING[c.n] || [])[1] || null,
+      skillPick: (String(c.skills).match(/Choose (?:any )?(\d+)/) || [0, 1])[1] * 1,
+      skillList: /any \d+ skills/i.test(c.skills)
+        ? ['Acrobatics','Animal Handling','Arcana','Athletics','Deception','History','Insight','Intimidation','Investigation','Medicine','Nature','Perception','Performance','Persuasion','Religion','Sleight of Hand','Stealth','Survival']
+        : (String(c.skills).split(':')[1] || '').split(',').map((x) => x.trim()).filter(Boolean),
     };
   });
   window.SRD.weapons = WEAPONS;

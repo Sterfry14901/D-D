@@ -91,6 +91,20 @@ function applyOrigin() {
     scoreLine = all.map((k) => k.toUpperCase() + ' ' + cs.scores[k]).join(' · ');
   }
 
+  // Background ability score increases (2024 rules: +2/+1 to the background's abilities).
+  // Applied after the base array/roll so the sheet is fully rules-correct.
+  let abilLine = '';
+  if (bg && scoreMode && window.SRD && typeof window.SRD.saveKeys === 'function') {
+    const bgKeys = window.SRD.saveKeys(bg.abilities);
+    if (bgKeys.length) {
+      // +2 to the class-primary background ability if present, else the first listed; +1 to the next.
+      const primFirst = bgKeys.slice().sort((a, b) => ((cls && cls.prim || []).includes(b) ? 1 : 0) - ((cls && cls.prim || []).includes(a) ? 1 : 0));
+      cs.scores[primFirst[0]] = Math.min(20, (Number(cs.scores[primFirst[0]]) || 10) + 2);
+      if (primFirst[1]) cs.scores[primFirst[1]] = Math.min(20, (Number(cs.scores[primFirst[1]]) || 10) + 1);
+      abilLine = `+2 ${primFirst[0].toUpperCase()}${primFirst[1] ? ', +1 ' + primFirst[1].toUpperCase() : ''} (from ${bgName})`;
+    }
+  }
+
   cs.name = me.name;
   if (clsName) cs.cls = clsName;
   if (spName) cs.race = spName;
@@ -113,6 +127,17 @@ function applyOrigin() {
     if (bg) feats += '\n\n' + bgName + ' background — Origin feat: ' + bg.feat + '. Increase ' + bg.abilities + ' (one by 2 & one by 1, or all three by 1).';
     cs.features = feats;
     cs.notes = (cs.notes ? cs.notes + '\n' : '') + 'Class skills — ' + cls.skills;
+    // Auto-pick the class's "Choose N" skills so the sheet is ready to play.
+    // Prefer skills tied to the class's key abilities; skip any already granted by the background.
+    if (cls.skillPick && cls.skillList && cls.skillList.length) {
+      const SKILL_ABIL = { Acrobatics: 'dex', 'Animal Handling': 'wis', Arcana: 'int', Athletics: 'str', Deception: 'cha', History: 'int', Insight: 'wis', Intimidation: 'cha', Investigation: 'int', Medicine: 'wis', Nature: 'int', Perception: 'wis', Performance: 'cha', Persuasion: 'cha', Religion: 'int', 'Sleight of Hand': 'dex', Stealth: 'dex', Survival: 'wis' };
+      const bgSkills = (bg && bg.skills) || [];
+      const key = (cls.prim || []);
+      const ranked = cls.skillList.slice()
+        .filter((s) => !bgSkills.includes(s))
+        .sort((a, b) => (key.includes(SKILL_ABIL[b]) ? 1 : 0) - (key.includes(SKILL_ABIL[a]) ? 1 : 0));
+      ranked.slice(0, cls.skillPick).forEach((s) => cs.skills[s] = true);
+    }
     // Senses & Defenses auto-filled from species + class
     const senseBits = [];
     if (sp && sp.senses) senseBits.push(sp.senses);
@@ -154,7 +179,8 @@ function applyOrigin() {
   if (typeof saveSheet === 'function') saveSheet();
   if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); }
   const bits = [clsName, spName, bgName].filter(Boolean).join(' · ');
-  const tail = scoreLine ? ` (${scoreMode === 'roll' ? 'rolled' : 'array'}: ${scoreLine})` : '';
+  const finalLine = scoreLine ? ['str', 'dex', 'con', 'int', 'wis', 'cha'].map((k) => k.toUpperCase() + ' ' + cs.scores[k]).join(' · ') : '';
+  const tail = finalLine ? ` — ${finalLine}${abilLine ? ' [' + abilLine + ']' : ''}` : '';
   socket.emit('chat', { text: `🧝 ${me.name} enters as a level 1 ${bits || 'adventurer'}.${tail}` });
 }
 
