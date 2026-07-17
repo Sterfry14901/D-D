@@ -756,6 +756,30 @@ io.on('connection', (socket) => {
     broadcastShop(joinedRoom);
     pushSystem(joinedRoom, `🛒 ${buyer.name} bought ${it.name} for ${it.price} gp.`);
   });
+  // DM one-click: let the AI stock the shop with themed items + prices.
+  socket.on('shop:ai', async ({ theme } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
+    const th = theme && String(theme).trim() ? String(theme).trim().slice(0, 50) : 'a fantasy general store';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `Stock a D&D shop themed as "${th}". List 6 to 8 items for sale. Reply with ONLY one item per line in the exact format: Name | price_in_gp | weight_in_lb. Example:\nPotion of Healing | 50 | 0.5\nRope, Hempen (50 ft) | 1 | 10\nNo intro, no numbering, no extra text.` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const items = String(reply).split(/\n+/).map((ln) => {
+      const parts = ln.split('|').map((s) => s.replace(/[*_`#]/g, '').trim());
+      const name = (parts[0] || '').replace(/^[-\d.\)\s]+/, '').slice(0, 60);
+      if (!name) return null;
+      const price = Math.max(0, Math.floor(Number(String(parts[1]).replace(/[^0-9.]/g, '')) || 0));
+      const wt = Math.max(0, Number(String(parts[2]).replace(/[^0-9.]/g, '')) || 0);
+      return { id: 'si_' + Math.random().toString(36).slice(2, 8), name, price, wt, stock: -1 };
+    }).filter(Boolean).slice(0, 12);
+    if (!items.length) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: '⚠️ The AI reply could not be parsed into shop items. Try again.', ts: Date.now() }); return; }
+    room.shop.items = items;
+    markDirty();
+    broadcastShop(joinedRoom);
+    io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🏪 Stocked the shop with ${items.length} items. Open it when you're ready to sell.`, ts: Date.now() });
+  });
 
   // ---- Weather / atmosphere ----
   socket.on('weather:set', (type) => {

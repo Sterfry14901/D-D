@@ -443,6 +443,7 @@ function renderShopGm(body) {
     </div>
     <div class="shop-gm-actions">
       <button id="shop-add">➕ Add item</button>
+      <button id="shop-ai">✨ AI stock</button>
       <button id="shop-save" class="tr-accept">💾 Save shop</button>
     </div>
     <div class="shop-hint">Players spend their gold to buy; the item lands on their sheet and you see it in “View party sheets.” Stock −1 = unlimited.</div>`;
@@ -456,6 +457,7 @@ function renderShopGm(body) {
   };
   $('shop-add').onclick = () => { shopState.items = collect(); shopState.items.push({ id: 'si_' + Math.random().toString(36).slice(2, 8), name: '', price: 0, wt: 0, stock: -1 }); renderShop(); };
   $('shop-save').onclick = () => { socket.emit('shop:set', { name: $('shop-name').value.trim() || 'Market', items: collect() }); flashHint('💾 Shop saved'); };
+  if ($('shop-ai')) $('shop-ai').onclick = () => { const theme = prompt('Theme for the shop (e.g. “blacksmith”, “alchemist”, “black market”)?', $('shop-name').value.trim() || 'general store'); if (theme === null) return; socket.emit('shop:ai', { theme }); flashHint('✨ Asking the AI to stock the shelves…'); };
   $('shop-toggle').onclick = () => { socket.emit('shop:set', { name: $('shop-name').value.trim() || 'Market', items: collect() }); socket.emit('shop:open', !shopState.open); };
   body.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { const arr = collect(); arr.splice(Number(b.dataset.rm), 1); shopState.items = arr; renderShop(); }; });
 }
