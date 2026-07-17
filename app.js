@@ -2065,6 +2065,27 @@ window.addEventListener('storage', (e) => {
 
 /* Sheet-only mode: opened via ...?room=X#sheet — show just the character sheet,
    full-screen, no board/socket. Perfect for a second monitor or tablet. */
+/* ============ POP-OUT ↔ MAIN WINDOW RELAY ============
+   The pop-out sheet has no joined socket. It broadcasts its game actions (rolls,
+   chat, party status) to the main window, which relays them to the real server. */
+const RELAY = ('BroadcastChannel' in window) ? new BroadcastChannel('dnd-relay') : null;
+const SHEET_MODE = location.hash === '#sheet';
+if (SHEET_MODE && RELAY) {
+  // In the pop-out: send game emits to the main window instead of our un-joined socket.
+  const RELAY_EVENTS = ['chat', 'roll', 'party:status', 'milestone', 'xp:award', 'item:give', 'token:update', 'token:add', 'ambience:set', 'weather:set', 'map:set'];
+  const realEmit = socket.emit.bind(socket);
+  socket.emit = function (ev, ...args) {
+    if (RELAY_EVENTS.includes(ev)) { try { RELAY.postMessage({ room: me.room, ev, args }); } catch {} return socket; }
+    return realEmit(ev, ...args);
+  };
+} else if (RELAY) {
+  // In the main window: relay pop-out messages to the live server.
+  RELAY.onmessage = (e) => {
+    const d = e.data; if (!d || d.room !== me.room || !d.ev) return;
+    try { socket.emit(d.ev, ...(d.args || [])); } catch {}
+  };
+}
+
 (function sheetOnlyMode() {
   if (location.hash !== '#sheet') return;
   const room = new URLSearchParams(location.search).get('room') || 'my-campaign';
@@ -2205,6 +2226,7 @@ function buildCS() {
     </div>
   </div>
   <div class="cs-grid cs-grid3">
+    <div class="cs-sec cs-cantrip-sec"><div class="cs-sec-t">✨ Cantrips — at-will, click to cast</div><div id="cs-cantrips"></div></div>
     <div class="cs-sec"><div class="cs-sec-t">Spells</div><textarea data-cs="spells" placeholder="Spell slots, prepared spells, cantrips…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Inventory</div>
       <div id="cs-gear" class="cs-gear"></div>
@@ -2255,7 +2277,25 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
-  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes();
+  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes(); csRenderCantrips();
+}
+/* At-will cantrip buttons for the character's class — scale by character level. */
+function csRenderCantrips() {
+  const box = $('cs-cantrips'); if (!box) return;
+  const clsName = String(cs.cls || '').trim();
+  const lvl = Number(cs.level) || 1;
+  const list = (typeof window.cantripsForClass === 'function') ? window.cantripsForClass(clsName) : [];
+  if (!list.length) {
+    box.innerHTML = '<div style="font-size:12px;opacity:.6">' + (clsName ? clsName + 's don’t cast cantrips.' : 'Pick a spellcasting class to see cantrips.') + '</div>';
+    return;
+  }
+  const tier = lvl >= 17 ? 4 : lvl >= 11 ? 3 : lvl >= 5 ? 2 : 1;   // cantrip damage scaling
+  const escC = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  box.innerHTML = list.map((c) => {
+    const dm = c.x.match(/(\d+)d(\d+)/);
+    const roll = dm ? ` <button class="sb-roll" data-cantrip="${escC(c.n)}" data-n="${dm[1]}" data-die="${dm[2]}" data-tier="${tier}" title="Cast & roll (scaled to level ${lvl})">🎲</button>` : '';
+    return `<div class="cs-cantrip"><button class="cs-cantrip-cast" data-cantripcast="${escC(c.n)}" title="${escC(c.x)}">✨ ${escC(c.n)}</button>${roll}</div>`;
+  }).join('');
 }
 /* Weights / hands / armor slots for common gear (SRD equipment tables). */
 const ITEM_DB = {
@@ -2566,7 +2606,7 @@ function csPopulateDeath() {
 
 function csOnChange(e) {
   const el = e.target;
-  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderCantrips(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
   else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
@@ -2630,6 +2670,18 @@ function csOnClick(e) {
     const used = cs.resUsed[id] || 0;
     cs.resUsed[id] = idx < used ? idx : idx + 1;   // click a lit pip to restore back to it, unlit to spend
     csRenderRes(); saveCS(); return;
+  }
+  const cc = e.target.closest('[data-cantripcast]');
+  if (cc) { socket.emit('chat', { text: `✨ ${(cs && cs.name) || me.name} casts ${cc.dataset.cantripcast} (cantrip).` }); flashHint('✨ ' + cc.dataset.cantripcast); return; }
+  const cr = e.target.closest('[data-cantrip]');
+  if (cr) {
+    const n = (parseInt(cr.dataset.n, 10) || 1) * (parseInt(cr.dataset.tier, 10) || 1);
+    const die = parseInt(cr.dataset.die, 10) || 6;
+    let sum = 0; const rolls = [];
+    for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * die); sum += r; rolls.push(r); }
+    socket.emit('chat', { text: `✨ ${(cs && cs.name) || me.name} — ${cr.dataset.cantrip} (${n}d${die}): ${sum} (${rolls.join('+')})` });
+    flashHint('✨ ' + cr.dataset.cantrip + ': ' + sum);
+    return;
   }
   const sn = e.target.closest('[data-sneak]');
   if (sn) {

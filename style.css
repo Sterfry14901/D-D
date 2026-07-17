@@ -958,3 +958,9 @@ body.sheet-only #app { display: block; }
 #cs-modal.sheet-page { position: fixed; inset: 0; background: var(--bg, #14110c); display: block; padding: 16px 0; overflow-y: auto; z-index: 200; }
 #cs-modal.sheet-page .cs-card { max-width: 900px; margin: 0 auto; max-height: none; height: auto; box-shadow: none; }
 body.sheet-only #me-plate { display: none !important; }
+
+/* ===== Cantrip section on the sheet ===== */
+#cs-cantrips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-cantrip { display: inline-flex; align-items: center; gap: 2px; }
+.cs-cantrip-cast { background: rgba(123,70,155,0.22); border: 1px solid rgba(171,109,172,0.45); color: inherit; border-radius: 6px; font-size: 12px; padding: 4px 9px; cursor: pointer; }
+.cs-cantrip-cast:hover { background: rgba(123,70,155,0.4); border-color: #ab6dac; }

@@ -237,6 +237,13 @@
     });
   }
   window.refreshSpellGates = () => { if (built) apply(); };
+  // Expose the cantrips a given class can cast (for the sheet's Cantrips section).
+  window.cantripsForClass = function (clsName) {
+    const L = CLS_LETTER[String(clsName || '').trim()];
+    if (!L) return [];
+    return SPELLS.filter((s) => s.l === 0 && (SPELL_CLASSES[s.n] || '').includes(L))
+      .map((s) => ({ n: s.n, x: s.x, s: s.s }));
+  };
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();
