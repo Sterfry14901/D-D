@@ -339,6 +339,57 @@ socket.on('trade:declined', ({ toName, item } = {}) => {
   try { if (window.flashHint) flashHint('✖ ' + (toName || 'They') + ' declined ' + (item ? item.name : 'the trade')); } catch {}
 });
 
+// ---- Coin trading ----
+function openCoinTrade() {
+  const others = (roomPlayers || []).filter((p) => p.id && p.id !== me.id);
+  const m = $('trade-modal'), body = $('trade-body'), title = $('trade-title'); if (!m || !body) return;
+  title.textContent = '💰 Trade coins';
+  if (!others.length) { body.innerHTML = '<div class="tr-empty">No one else is at the table to trade with.</div>'; m.style.display = 'flex'; return; }
+  const COINS = [['pp', 'PP'], ['gp', 'GP'], ['ep', 'EP'], ['sp', 'SP'], ['cp', 'CP']];
+  body.innerHTML = `
+    <div class="tr-coinform">
+      <label class="tr-fld">Coin
+        <select id="tr-coin">${COINS.map(([k, L]) => `<option value="${k}">${L} — you have ${Number(cs[k]) || 0}</option>`).join('')}</select>
+      </label>
+      <label class="tr-fld">Amount <input id="tr-amt" type="number" min="1" step="1" value="1" /></label>
+      <label class="tr-fld">To
+        <select id="tr-to">${others.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}${p.isGm ? ' (GM)' : ''}</option>`).join('')}</select>
+      </label>
+      <button id="tr-coin-send" class="tr-accept">🤝 Send offer</button>
+    </div>`;
+  $('tr-coin-send').onclick = () => {
+    const coin = $('tr-coin').value, amt = Math.floor(Number($('tr-amt').value) || 0), toId = $('tr-to').value;
+    if (amt < 1) { flashHint('Enter an amount of 1 or more.'); return; }
+    if (amt > (Number(cs[coin]) || 0)) { flashHint('❌ You only have ' + (Number(cs[coin]) || 0) + ' ' + coin + '.'); return; }
+    socket.emit('trade:coinOffer', { toId, coin, amt });
+    closeTrade();
+  };
+  m.style.display = 'flex';
+}
+socket.on('trade:coinIncoming', ({ offerId, fromName, coin, amt } = {}) => {
+  const m = $('trade-modal'), body = $('trade-body'), title = $('trade-title'); if (!m || !body) return;
+  title.textContent = '💰 Coin offer';
+  body.innerHTML = `<div class="tr-offer"><b>${escapeHtml(fromName || 'A player')}</b> offers you:</div>
+    <div class="tr-offer-item">💰 ${amt} ${String(coin).toUpperCase()}</div>
+    <div class="tr-actions"><button class="tr-accept" id="tr-accept">✅ Accept</button><button class="tr-decline" id="tr-decline">✖ Decline</button></div>`;
+  $('tr-accept').onclick = () => { socket.emit('trade:respond', { offerId, accept: true }); closeTrade(); };
+  $('tr-decline').onclick = () => { socket.emit('trade:respond', { offerId, accept: false }); closeTrade(); };
+  m.style.display = 'flex';
+  try { if (window.flashHint) flashHint('💰 Coin offer from ' + (fromName || 'a player')); } catch {}
+});
+socket.on('trade:coinTake', ({ coin, amt, toName } = {}) => {
+  if (!coin) return;
+  cs[coin] = Math.max(0, (Number(cs[coin]) || 0) - (Number(amt) || 0));
+  csPopulate(); saveCS();
+  try { if (window.flashHint) flashHint('🤝 You gave ' + amt + ' ' + coin + ' to ' + (toName || 'them')); } catch {}
+});
+socket.on('trade:coinGive', ({ coin, amt, fromName } = {}) => {
+  if (!coin) return;
+  cs[coin] = (Number(cs[coin]) || 0) + (Number(amt) || 0);
+  csPopulate(); saveCS();
+  try { if (window.flashHint) flashHint('💰 ' + (fromName || 'A player') + ' gave you ' + amt + ' ' + coin); } catch {}
+});
+
 /* ============ SHARED CAMPAIGN JOURNAL ============ */
 let notesTimer = null, notesSaved = true;
 function applyNotes(text) {
@@ -2893,6 +2944,7 @@ function buildCS() {
         <label>GP <input data-cs="gp" type="number" /></label>
         <label>PP <input data-cs="pp" type="number" /></label>
       </div>
+      <button id="cs-coin-trade" class="cs-coin-trade" title="Give coins to another player">🤝 Trade coins to a player</button>
     </div>
   </div>`);
   $('cs-body').innerHTML = h.join('');
@@ -3375,6 +3427,8 @@ function csOnClick(e) {
   }
   const gtr = e.target.closest('[data-gear-trade]');
   if (gtr) { openTradeGive(Number(gtr.dataset.gearTrade)); return; }
+  const ctr = e.target.closest('#cs-coin-trade');
+  if (ctr) { openCoinTrade(); return; }
   const gr = e.target.closest('[data-gear-rm]');
   if (gr) { cs.gear.splice(Number(gr.dataset.gearRm), 1); csRenderGear(); saveCS(); return; }
   const rpip = e.target.closest('[data-res-pip]');

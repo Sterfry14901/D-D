@@ -678,13 +678,37 @@ io.on('connection', (socket) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     const to = room.players[socket.id];
     const fromStillHere = !!room.players[t.fromId];
+    const toName = to ? to.name : 'someone';
     if (accept) {
-      if (fromStillHere) io.to(t.fromId).emit('trade:take', { item: t.item, toName: to ? to.name : 'someone' });
-      io.to(socket.id).emit('trade:give', { item: t.item, fromName: t.fromName });
-      pushSystem(joinedRoom, `🤝 ${t.fromName} traded ${t.item.name} to ${to ? to.name : 'someone'}.`);
+      if (t.kind === 'coin') {
+        if (fromStillHere) io.to(t.fromId).emit('trade:coinTake', { coin: t.coin, amt: t.amt, toName });
+        io.to(socket.id).emit('trade:coinGive', { coin: t.coin, amt: t.amt, fromName: t.fromName });
+        pushSystem(joinedRoom, `🤝 ${t.fromName} gave ${t.amt} ${t.coin} to ${toName}.`);
+      } else {
+        if (fromStillHere) io.to(t.fromId).emit('trade:take', { item: t.item, toName });
+        io.to(socket.id).emit('trade:give', { item: t.item, fromName: t.fromName });
+        pushSystem(joinedRoom, `🤝 ${t.fromName} traded ${t.item.name} to ${toName}.`);
+      }
     } else if (fromStillHere) {
-      io.to(t.fromId).emit('trade:declined', { toName: to ? to.name : 'They', item: t.item });
+      const label = t.kind === 'coin' ? `${t.amt} ${t.coin}` : (t.item ? t.item.name : 'the trade');
+      io.to(t.fromId).emit('trade:declined', { toName: to ? to.name : 'They', item: { name: label } });
     }
+  });
+
+  // ---- Coin trading (same accept flow, different payload) ----
+  socket.on('trade:coinOffer', ({ toId, coin, amt } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const from = room.players[socket.id]; if (!from) return;
+    const to = room.players[toId]; if (!to || toId === socket.id) return;
+    const COINS = ['cp', 'sp', 'ep', 'gp', 'pp'];
+    if (!COINS.includes(coin)) return;
+    const n = Math.floor(Number(amt) || 0); if (n < 1 || n > 1e7) return;
+    let mine = 0; for (const t of pendingTrades.values()) if (t.fromId === socket.id) mine++;
+    if (mine > 12) { io.to(socket.id).emit('chat', { system: true, text: '⚠️ Too many pending trade offers. Wait for some to resolve.', ts: Date.now() }); return; }
+    const offerId = 'tc_' + Math.random().toString(36).slice(2, 10);
+    pendingTrades.set(offerId, { roomId: joinedRoom, fromId: socket.id, fromName: from.name, toId, kind: 'coin', coin, amt: n, ts: Date.now() });
+    io.to(toId).emit('trade:coinIncoming', { offerId, fromName: from.name, coin, amt: n });
+    io.to(socket.id).emit('chat', { system: true, text: `🤝 You offered ${n} ${coin} to ${to.name}. Waiting for them to accept…`, ts: Date.now() });
   });
 
   // ---- Weather / atmosphere ----
