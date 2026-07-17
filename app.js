@@ -383,6 +383,46 @@ socket.on('quest:update', (q) => applyQuests(q));
 document.addEventListener('DOMContentLoaded', initQuests);
 if (document.readyState !== 'loading') initQuests();
 
+/* ============ "EVERYONE READY?" CHECKPOINT — ping players, then pick a quest ============ */
+let iAmReady = false;
+function ensureReadyBanner() {
+  let b = $('ready-banner');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'ready-banner'; b.className = 'ready-banner hidden';
+    document.body.appendChild(b);
+  }
+  return b;
+}
+function showPlayerReadyPrompt() {
+  iAmReady = false;
+  const b = ensureReadyBanner();
+  b.innerHTML = `<span class="rb-t">🎬 The DM asks: is everyone ready to begin?</span>
+    <button id="rb-yes" class="rb-btn">✅ I'm ready</button>
+    <button id="rb-no" class="rb-btn rb-ghost">⏳ Not yet</button>`;
+  b.classList.remove('hidden');
+  $('rb-yes').onclick = () => { iAmReady = true; socket.emit('ready:set', { ready: true }); b.classList.add('hidden'); flashHint('✅ You’re marked ready'); };
+  $('rb-no').onclick = () => { iAmReady = false; socket.emit('ready:set', { ready: false }); b.classList.add('hidden'); };
+}
+function showDmReadyTally(s) {
+  const b = ensureReadyBanner();
+  const total = (s.players || []).length, done = (s.ready || []).length;
+  if (!total) { b.innerHTML = `<span class="rb-t">🎬 Waiting for players to join…</span>`; b.classList.remove('hidden'); return; }
+  const waiting = (s.players || []).filter((n) => !(s.ready || []).includes(n));
+  b.innerHTML = `<span class="rb-t">🎬 Ready check — <b>${done}/${total}</b> ready${waiting.length ? ' · waiting on: ' + escapeHtml(waiting.join(', ')) : ''}</span>
+    <button id="rb-dismiss" class="rb-btn rb-ghost">Dismiss</button>`;
+  b.classList.remove('hidden');
+  $('rb-dismiss').onclick = () => b.classList.add('hidden');
+  if (s.allReady) {
+    b.innerHTML = `<span class="rb-t">✅ Everyone’s ready! Pick a quest to begin.</span><button id="rb-pick" class="rb-btn">📜 Pick a Quest</button><button id="rb-dismiss" class="rb-btn rb-ghost">Later</button>`;
+    $('rb-pick').onclick = () => { b.classList.add('hidden'); openQuestPicker(); };
+    $('rb-dismiss').onclick = () => b.classList.add('hidden');
+    try { turnChime(); } catch {}
+  }
+}
+if ($('ready-check')) $('ready-check').onclick = () => { socket.emit('ready:ask'); flashHint('🎬 Asked the table if everyone’s ready…'); };
+socket.on('ready:ask', () => { if (!me.isGm) showPlayerReadyPrompt(); });
+socket.on('ready:state', (s) => { if (me.isGm) showDmReadyTally(s); });
+
 /* Voice dictation into the journal (Web Speech API — Chrome/Edge). */
 (function () {
   const btn = $('journal-rec'); if (!btn) return;

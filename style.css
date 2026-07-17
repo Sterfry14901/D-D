@@ -1036,3 +1036,14 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .ai-badge.ai-local { background: rgba(90,180,90,.22); border-color: rgba(120,200,120,.55); color: #d7f5d7; }
 .ai-badge.ai-openai { background: rgba(90,130,220,.2); border-color: rgba(120,150,230,.5); color: #dbe6ff; }
 .ai-badge.ai-off { background: rgba(200,140,50,.2); border-color: rgba(220,160,70,.55); color: #ffe6c2; }
+
+/* ===== "Everyone ready?" banner ===== */
+.ready-banner { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 300;
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 12px;
+  background: linear-gradient(180deg, #241a0e, #17110a); border: 1px solid var(--gold, #d9b154);
+  box-shadow: 0 14px 40px rgba(0,0,0,.6); color: var(--ink, #f2e6cf); max-width: 92vw; }
+.ready-banner.hidden { display: none; }
+.ready-banner .rb-t { font-size: 14px; }
+.rb-btn { background: rgba(217,177,84,.28); border: 1px solid rgba(217,177,84,.55); color: #fff; border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.rb-btn:hover { background: rgba(217,177,84,.45); }
+.rb-btn.rb-ghost { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.18); }

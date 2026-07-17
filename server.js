@@ -162,6 +162,13 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+// Snapshot of the "everyone ready?" tally: who's a player, who has confirmed.
+function readyState(room) {
+  const names = Object.values(room.players || {}).filter((p) => !p.isGm).map((p) => p.name);
+  const ready = room.ready || {};
+  const readyNames = names.filter((n) => ready[n]);
+  return { players: names, ready: readyNames, allReady: names.length > 0 && readyNames.length === names.length };
+}
 // Who may move/edit/remove a token: the DM (all), or the token's owner
 // (matched by stable player name, or by the current socket id, or if unowned).
 function canControlToken(room, socketId, tok) {
@@ -369,6 +376,21 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('token:remove', id);
     markDirty();
   });
+  // ---- "Everyone ready?" checkpoint ----
+  socket.on('ready:ask', () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.ready = {};                       // reset the tally
+    io.to(joinedRoom).emit('ready:ask');
+    io.to(joinedRoom).emit('ready:state', readyState(room));
+  });
+  socket.on('ready:set', ({ ready }) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id]; if (!p || p.isGm) return;
+    room.ready = room.ready || {};
+    room.ready[p.name] = !!ready;
+    io.to(joinedRoom).emit('ready:state', readyState(room));
+  });
+
   // DM reassigns who controls a token (by player name; empty = DM controls it).
   socket.on('token:assign', ({ id, owner }) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.tokens[id]) return;
