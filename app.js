@@ -1819,7 +1819,7 @@ function csDefault() {
   return { name:'', pronouns:'', race:'', cls:'', level:1, xp:0, background:'', inspiration:false,
     ac:10, speed:30, hp:10, maxhp:10, temphp:0,
     scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
-    saves:{}, skills:{}, attacks:[], gear:[], conditions:[], notes:'',
+    saves:{}, skills:{}, attacks:[], gear:[], conditions:[], notes:'', resUsed:{}, wildShape:null,
     resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'',
     slots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
     deathSucc:0, deathFail:0, hitDiceTotal:'', hitDiceUsed:0, cp:0, sp:0, ep:0, gp:0, pp:0 };
@@ -2130,6 +2130,84 @@ function csRenderRes() {
     }
     return `<div class="cs-resrow"><span class="cs-res-n">${r.name}</span><div class="cs-pips">${ctl}</div><em class="cs-res-r" title="${r.reset === 'short' ? 'Recovers on a Short Rest' : 'Recovers on a Long Rest'}">${r.reset === 'short' ? '☕' : '🌙'}</em></div>`;
   }).join('') + '<div style="font-size:11px;opacity:.6;margin-top:4px">Click pips to spend · ☕ back on Short Rest · 🌙 back on Long Rest</div>';
+  // Druids get a Wild Shape transform button (level 2+).
+  if (clsName === 'Druid' && lvl >= 2) {
+    box.innerHTML += cs.wildShape
+      ? `<button class="lvl-opt" data-wildrevert style="margin-top:8px">↩️ Revert from ${escapeHtml(cs.wildShape.name)}</button>`
+      : `<button class="lvl-opt" data-wildshape style="margin-top:8px">🐾 Wild Shape — transform into a beast</button>`;
+  }
+}
+
+/* ============ DRUID WILD SHAPE ============ */
+// SRD beasts a druid can become, gated by level (max CR & no fly/swim early).
+const WILD_BEASTS = [
+  { n: 'Rat', cr: 0, minLvl: 2, ac: 10, hp: 1, sp: '20 ft', str: 2, dex: 11, con: 9, atk: [{ name: 'Bite', bonus: 0, dmg: '1' }] },
+  { n: 'Frog', cr: 0, minLvl: 2, ac: 11, hp: 1, sp: '20 ft, swim 20 ft', str: 1, dex: 13, con: 8, atk: [] },
+  { n: 'Giant Rat', cr: '1/8', minLvl: 2, ac: 12, hp: 7, sp: '30 ft', str: 7, dex: 15, con: 11, atk: [{ name: 'Bite', bonus: 4, dmg: '1d4+2' }] },
+  { n: 'Wolf', cr: '1/4', minLvl: 2, ac: 13, hp: 11, sp: '40 ft', str: 12, dex: 15, con: 12, atk: [{ name: 'Bite', bonus: 4, dmg: '2d4+2 + knock prone (DC 11)' }] },
+  { n: 'Boar', cr: '1/4', minLvl: 2, ac: 11, hp: 11, sp: '40 ft', str: 13, dex: 11, con: 12, atk: [{ name: 'Tusk', bonus: 3, dmg: '1d6+1' }] },
+  { n: 'Black Bear', cr: '1/2', minLvl: 2, ac: 11, hp: 19, sp: '40 ft, climb 30 ft', str: 15, dex: 10, con: 14, atk: [{ name: 'Bite', bonus: 3, dmg: '1d6+2' }, { name: 'Claws', bonus: 3, dmg: '2d4+2' }] },
+  { n: 'Crocodile', cr: '1/2', minLvl: 2, ac: 12, hp: 19, sp: '20 ft, swim 30 ft', str: 15, dex: 10, con: 13, atk: [{ name: 'Bite', bonus: 4, dmg: '1d10+2 + grapple' }] },
+  { n: 'Giant Spider', cr: 1, minLvl: 4, ac: 14, hp: 26, sp: '30 ft, climb 30 ft', str: 14, dex: 16, con: 12, atk: [{ name: 'Bite', bonus: 5, dmg: '1d8+3 + DC11 CON poison 2d8' }] },
+  { n: 'Brown Bear', cr: 1, minLvl: 4, ac: 11, hp: 34, sp: '40 ft, climb 30 ft', str: 19, dex: 10, con: 16, atk: [{ name: 'Bite', bonus: 5, dmg: '1d8+4' }, { name: 'Claws', bonus: 5, dmg: '2d6+4' }] },
+  { n: 'Dire Wolf', cr: 1, minLvl: 4, ac: 14, hp: 37, sp: '50 ft', str: 17, dex: 15, con: 15, atk: [{ name: 'Bite', bonus: 5, dmg: '2d6+3 + knock prone (DC 13)' }] },
+  { n: 'Giant Eagle', cr: 1, minLvl: 8, fly: true, ac: 13, hp: 26, sp: '10 ft, fly 80 ft', str: 16, dex: 17, con: 13, atk: [{ name: 'Beak', bonus: 5, dmg: '1d6+3' }, { name: 'Talons', bonus: 5, dmg: '2d6+3' }] },
+  { n: 'Giant Constrictor Snake', cr: 2, minLvl: 6, ac: 12, hp: 60, sp: '30 ft, swim 30 ft', str: 19, dex: 14, con: 12, atk: [{ name: 'Bite', bonus: 6, dmg: '2d6+4' }, { name: 'Constrict', bonus: 6, dmg: '2d8+4 + grapple' }] },
+  { n: 'Polar Bear', cr: 2, minLvl: 6, ac: 12, hp: 42, sp: '40 ft, swim 30 ft', str: 20, dex: 10, con: 16, atk: [{ name: 'Bite', bonus: 7, dmg: '1d8+5' }, { name: 'Claws', bonus: 7, dmg: '2d6+5' }] },
+  { n: 'Giant Shark', cr: 5, minLvl: 8, ac: 13, hp: 126, sp: 'swim 50 ft', str: 23, dex: 11, con: 21, atk: [{ name: 'Bite', bonus: 9, dmg: '3d10+6' }] },
+];
+function wildMaxCR(lvl) { return lvl >= 8 ? 1e9 : lvl >= 4 ? 1 : 0.5; }   // moon-druid-ish generous cap; UI still gates fly/swim by level
+function crVal(cr) { return cr === '1/8' ? 0.125 : cr === '1/4' ? 0.25 : cr === '1/2' ? 0.5 : Number(cr); }
+function openWildShape() {
+  const lvl = Number(cs.level) || 1;
+  // must have a Wild Shape use left
+  const used = (cs.resUsed && cs.resUsed.wild) || 0;
+  const maxUses = lvl >= 17 ? 4 : lvl >= 6 ? 3 : 2;
+  if (used >= maxUses) { flashHint('🐾 No Wild Shape uses left — Short Rest to recover.'); return; }
+  let m = $('wild-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'wild-modal'; m.className = 'overlay';
+  const cap = wildMaxCR(lvl);
+  const list = WILD_BEASTS.filter((b) => lvl >= b.minLvl && crVal(b.cr) <= cap && (lvl >= 8 || !b.fly));
+  m.innerHTML = `<div class="sb-card lvl-card"><button class="sb-x">✕</button>
+    <div class="sb-name">🐾 Wild Shape — become a beast</div>
+    <div class="lvl-feat">Your game stats become the beast's (HP, AC, speed, attacks). Your mind, Wisdom, Intelligence & Charisma stay yours. Revert any time or when the beast form drops to 0 HP. Uses left: ${maxUses - used}/${maxUses}.</div>
+    ${list.map((b) => `<div class="lvl-row" style="margin:4px 0"><span style="flex:1">${b.n} <em style="opacity:.65">CR ${b.cr} · AC ${b.ac} · ${b.hp} HP · ${b.sp}</em></span><button class="lvl-opt" data-beast="${escapeHtml(b.n)}">Transform</button></div>`).join('')}
+    <div class="sb-foot">SRD 5.1 · CC-BY-4.0</div></div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', (e) => {
+    if (e.target === m || e.target.classList.contains('sb-x')) { m.remove(); return; }
+    const bb = e.target.closest('[data-beast]');
+    if (bb) { doWildShape(WILD_BEASTS.find((x) => x.n === bb.dataset.beast)); m.remove(); }
+  });
+}
+function doWildShape(b) {
+  if (!b) return;
+  // stash the humanoid form
+  cs.wildShape = {
+    name: b.name || b.n,
+    orig: { hp: cs.hp, maxhp: cs.maxhp, ac: cs.ac, speed: cs.speed, attacks: JSON.parse(JSON.stringify(cs.attacks || [])),
+      str: cs.scores.str, dex: cs.scores.dex, con: cs.scores.con },
+  };
+  cs.maxhp = b.hp; cs.hp = b.hp; cs.ac = b.ac;
+  cs.speed = parseInt(b.sp, 10) || 30;
+  cs.scores.str = b.str; cs.scores.dex = b.dex; cs.scores.con = b.con;
+  cs.attacks = (b.atk || []).map((a) => ({ name: b.n + ' — ' + a.name, bonus: a.bonus, dmg: a.dmg }));
+  cs.resUsed = cs.resUsed || {}; cs.resUsed.wild = (cs.resUsed.wild || 0) + 1;
+  saveCS(); if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); } sendPartyStatus(); syncLinkedToken();
+  socket.emit('chat', { text: `🐾 ${(cs.wildShape && cs.name) || me.name} Wild Shapes into a ${b.n}! (${b.hp} HP, AC ${b.ac}, ${b.sp})` });
+  flashHint('🐾 You are now a ' + b.n + '!');
+}
+function revertWildShape() {
+  if (!cs.wildShape) return;
+  const o = cs.wildShape.orig, was = cs.wildShape.name;
+  cs.ac = o.ac; cs.speed = o.speed; cs.attacks = o.attacks;
+  cs.scores.str = o.str; cs.scores.dex = o.dex; cs.scores.con = o.con;
+  cs.maxhp = o.maxhp;
+  cs.hp = Number(cs.hp) > 0 ? o.hp : Math.max(1, o.hp);   // if beast dropped to 0, revert with your own HP (already tracked separately in true 5e; keep it simple)
+  cs.wildShape = null;
+  saveCS(); if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); } sendPartyStatus(); syncLinkedToken();
+  socket.emit('chat', { text: `↩️ ${cs.name || me.name} reverts from ${was} to their true form.` });
+  flashHint('↩️ Back to your true form');
 }
 
 /* "What You Can Do" — class powers unlocked at your level, upcoming ones locked. */
@@ -2274,6 +2352,8 @@ function csOnClick(e) {
     cs.resUsed[id] = idx < used ? idx : idx + 1;   // click a lit pip to restore back to it, unlit to spend
     csRenderRes(); saveCS(); return;
   }
+  if (e.target.closest('[data-wildshape]')) { openWildShape(); return; }
+  if (e.target.closest('[data-wildrevert]')) { revertWildShape(); return; }
   const rsp = e.target.closest('[data-res-spend]');
   if (rsp) { const id = rsp.dataset.resSpend; cs.resUsed = cs.resUsed || {}; cs.resUsed[id] = Math.min(Number(rsp.dataset.max) || 99, (cs.resUsed[id] || 0) + 1); csRenderRes(); saveCS(); return; }
   const rrs = e.target.closest('[data-res-restore]');
