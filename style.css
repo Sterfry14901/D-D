@@ -955,5 +955,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
 body.sheet-only #topbar, body.sheet-only #board-wrap, body.sheet-only #panel, body.sheet-only .fog-bar, body.sheet-only #turn-banner { display: none !important; }
 body.sheet-only #layout { display: block; }
 body.sheet-only #app { display: block; }
-#cs-modal.sheet-page { position: static; background: var(--bg, #14110c); display: block; padding: 0; }
+#cs-modal.sheet-page { position: fixed; inset: 0; background: var(--bg, #14110c); display: block; padding: 16px 0; overflow-y: auto; z-index: 200; }
 #cs-modal.sheet-page .cs-card { max-width: 900px; margin: 0 auto; max-height: none; height: auto; box-shadow: none; }
+body.sheet-only #me-plate { display: none !important; }
