@@ -830,7 +830,128 @@ $('map-btn').onclick = () => $('map-modal').classList.remove('hidden');
 $('map-close').onclick = () => $('map-modal').classList.add('hidden');
 $('map-modal').addEventListener('click', (e) => { if (e.target.id === 'map-modal') e.currentTarget.classList.add('hidden'); });
 $('map-upload').onclick = () => $('map-file').click();
-document.querySelectorAll('.map-opt').forEach((b) => {
+/* ============ PROCEDURAL TERRAIN TEXTURES (SVG, tileable, self-contained) ============ */
+const TERRAIN = [
+  { id: 'stone', name: '🪨 Stone Floor', bg: '#4a4741', build: (s) => `
+    <rect width="100%" height="100%" fill="#4a4741"/>
+    <g stroke="#2c2a26" stroke-width="3">${gridLines(70)}</g>
+    ${speckle(700, '#5a564e', 2)}${speckle(500, '#3c3833', 2)}` },
+  { id: 'flagstone', name: '⬛ Flagstone', bg: '#5b5750', build: () => `
+    <rect width="100%" height="100%" fill="#3f3b36"/>
+    ${flagstones()}` },
+  { id: 'grass', name: '🌿 Grass Field', bg: '#3f5d34', build: () => `
+    <rect width="100%" height="100%" fill="#3f5d34"/>
+    ${speckle(1400, '#4a6b3c', 3)}${speckle(900, '#33502a', 3)}${blades(500)}` },
+  { id: 'forest', name: '🌲 Forest Floor', bg: '#33442a', build: () => `
+    <rect width="100%" height="100%" fill="#33442a"/>
+    ${speckle(1200, '#3d5230', 4)}${speckle(700, '#5a4a2e', 3)}${blobs(24, '#2c3d24', 60, 120)}` },
+  { id: 'water', name: '🌊 Water', bg: '#274b63', build: () => `
+    <rect width="100%" height="100%" fill="#274b63"/>
+    ${waves('#356a86', 60)}${waves('#1e3a4d', 90)}` },
+  { id: 'wood', name: '🪵 Wood Planks', bg: '#6a4a30', build: () => planks() },
+  { id: 'sand', name: '🏜️ Sand', bg: '#a58a5c', build: () => `
+    <rect width="100%" height="100%" fill="#a58a5c"/>
+    ${waves('#b89a68', 120)}${speckle(1000, '#8f764c', 2)}` },
+  { id: 'snow', name: '❄️ Snow', bg: '#cdd6dc', build: () => `
+    <rect width="100%" height="100%" fill="#cdd6dc"/>
+    ${speckle(900, '#e6edf1', 3)}${speckle(500, '#b6c1c9', 3)}` },
+  { id: 'lava', name: '🌋 Lava Cavern', bg: '#241713', build: () => `
+    <rect width="100%" height="100%" fill="#241713"/>
+    ${blobs(30, '#3a231a', 40, 110)}${cracks('#e0621f', 26)}${cracks('#f2a03a', 14)}` },
+  { id: 'marble', name: '🏛️ Marble Hall', bg: '#d8d3c8', build: () => `
+    <rect width="100%" height="100%" fill="#d8d3c8"/>
+    <g stroke="#b7b0a2" stroke-width="2">${gridLines(140)}</g>${veins('#b7b0a2', 30)}` },
+];
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function gridLines(step) {
+  let s = '';
+  for (let x = step; x < 2100; x += step) s += `<line x1="${x}" y1="0" x2="${x}" y2="1400"/>`;
+  for (let y = step; y < 1400; y += step) s += `<line x1="0" y1="${y}" x2="2100" y2="${y}"/>`;
+  return s;
+}
+function speckle(n, color, r) {
+  let s = `<g fill="${color}">`;
+  for (let i = 0; i < n; i++) s += `<circle cx="${(Math.random() * 2100) | 0}" cy="${(Math.random() * 1400) | 0}" r="${(Math.random() * r + 0.5).toFixed(1)}"/>`;
+  return s + '</g>';
+}
+function blades(n) {
+  let s = '<g stroke="#5a7d45" stroke-width="1.5">';
+  for (let i = 0; i < n; i++) { const x = rnd(0, 2100), y = rnd(0, 1400); s += `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + rnd(-4, 4)).toFixed(0)}" y2="${(y - rnd(6, 14)).toFixed(0)}"/>`; }
+  return s + '</g>';
+}
+function blobs(n, color, min, max) {
+  let s = `<g fill="${color}" opacity="0.6">`;
+  for (let i = 0; i < n; i++) s += `<ellipse cx="${rnd(0, 2100).toFixed(0)}" cy="${rnd(0, 1400).toFixed(0)}" rx="${rnd(min, max).toFixed(0)}" ry="${rnd(min, max).toFixed(0)}"/>`;
+  return s + '</g>';
+}
+function waves(color, step) {
+  let s = `<g stroke="${color}" stroke-width="3" fill="none" opacity="0.7">`;
+  for (let y = step / 2; y < 1400; y += step) {
+    let d = `M0 ${y.toFixed(0)}`;
+    for (let x = 0; x <= 2100; x += 60) d += ` Q ${(x + 30)} ${(y + (Math.random() < .5 ? -12 : 12)).toFixed(0)} ${x + 60} ${y.toFixed(0)}`;
+    s += `<path d="${d}"/>`;
+  }
+  return s + '</g>';
+}
+function cracks(color, n) {
+  let s = `<g stroke="${color}" stroke-width="4" fill="none" opacity="0.85" stroke-linecap="round">`;
+  for (let i = 0; i < n; i++) {
+    let x = rnd(0, 2100), y = rnd(0, 1400), d = `M${x.toFixed(0)} ${y.toFixed(0)}`;
+    for (let j = 0; j < 5; j++) { x += rnd(-70, 70); y += rnd(-70, 70); d += ` L${x.toFixed(0)} ${y.toFixed(0)}`; }
+    s += `<path d="${d}"/>`;
+  }
+  return s + '</g>';
+}
+function veins(color, n) {
+  let s = `<g stroke="${color}" stroke-width="1.5" fill="none" opacity="0.5">`;
+  for (let i = 0; i < n; i++) {
+    let x = rnd(0, 2100), y = rnd(0, 1400), d = `M${x.toFixed(0)} ${y.toFixed(0)}`;
+    for (let j = 0; j < 4; j++) { x += rnd(-120, 120); y += rnd(-40, 40); d += ` L${x.toFixed(0)} ${y.toFixed(0)}`; }
+    s += `<path d="${d}"/>`;
+  }
+  return s + '</g>';
+}
+function flagstones() {
+  let s = '';
+  const step = 105;
+  for (let y = 0; y < 1400; y += step) {
+    for (let x = 0; x < 2100; x += step) {
+      const pad = rnd(4, 9), c = ['#5b5750', '#565149', '#615c53', '#514d46'][(Math.random() * 4) | 0];
+      s += `<rect x="${(x + pad).toFixed(0)}" y="${(y + pad).toFixed(0)}" width="${(step - pad * 2).toFixed(0)}" height="${(step - pad * 2).toFixed(0)}" rx="6" fill="${c}"/>`;
+    }
+  }
+  return s;
+}
+function planks() {
+  let s = '<rect width="100%" height="100%" fill="#5a3f2a"/>';
+  const h = 78;
+  for (let y = 0; y < 1400; y += h) {
+    const c = ['#6a4a30', '#5f4229', '#734f34', '#654627'][(Math.random() * 4) | 0];
+    s += `<rect x="0" y="${y}" width="2100" height="${h - 3}" fill="${c}"/>`;
+    for (let x = rnd(150, 400); x < 2100; x += rnd(240, 460)) s += `<line x1="${x.toFixed(0)}" y1="${y}" x2="${x.toFixed(0)}" y2="${y + h - 3}" stroke="#3f2c1c" stroke-width="3"/>`;
+  }
+  return s + speckle(500, '#4a3320', 2);
+}
+function makeTerrain(t) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="2100" height="1400" viewBox="0 0 2100 1400">${t.build(t)}</svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+}
+(function buildTerrainGallery() {
+  const g = $('tex-grid'); if (!g) return;
+  TERRAIN.forEach((t) => {
+    const b = document.createElement('button');
+    b.className = 'map-opt tex-opt';
+    b.innerHTML = `<span style="display:block;height:64px;border-radius:6px;background:${t.bg}"></span><span>${t.name}</span>`;
+    b.onclick = () => {
+      const uri = makeTerrain(t);
+      socket.emit('map:set', uri); setMap(uri); $('map-modal').classList.add('hidden');
+      if (me.isGm) socket.emit('chat', { text: `🗺️ The DM lays down ${t.name} terrain.` });
+    };
+    g.appendChild(b);
+  });
+})();
+
+document.querySelectorAll('.map-opt:not(.tex-opt)').forEach((b) => {
   b.onclick = () => { const m = b.dataset.map || null; socket.emit('map:set', m); setMap(m); $('map-modal').classList.add('hidden'); };
 });
 $('map-file').onchange = (e) => {
