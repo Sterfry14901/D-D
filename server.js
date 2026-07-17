@@ -338,7 +338,7 @@ io.on('connection', (socket) => {
 
   // ---- Map / grid ----
   socket.on('map:set', (dataUrl) => {
-    const room = rooms.get(joinedRoom); if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;  // DM-only battle maps
     room.mapImage = dataUrl;
     io.to(joinedRoom).emit('map:set', dataUrl);
   });
@@ -486,7 +486,7 @@ io.on('connection', (socket) => {
 
   // ---- Weather / atmosphere ----
   socket.on('weather:set', (type) => {
-    const room = rooms.get(joinedRoom); if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;  // DM controls the weather
     const allowed = ['clear', 'rain', 'snow', 'fog', 'embers'];
     room.weather = allowed.includes(type) ? type : 'clear';
     io.to(joinedRoom).emit('weather:set', room.weather);

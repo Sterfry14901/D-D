@@ -382,6 +382,9 @@ socket.on('state', (s) => {
   $('fog-btn').classList.toggle('hidden', !me.isGm);
   $('save-btn').classList.toggle('hidden', !me.isGm);
   $('load-btn').classList.toggle('hidden', !me.isGm);
+  // DM-only controls: battle-map upload + weather/atmosphere
+  if ($('map-btn')) $('map-btn').classList.toggle('hidden', !me.isGm);
+  if ($('weather-btn')) $('weather-btn').classList.toggle('hidden', !me.isGm);
 });
 
 /* ============ SAVE / LOAD CAMPAIGN (GM) ============ */
