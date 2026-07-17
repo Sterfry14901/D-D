@@ -797,7 +797,8 @@ function chatRoll(expr) {
   socket.emit('roll', { formula: (me.name ? me.name + ' — ' : '') + label, result: total, detail });
 }
 $('dm-btn').onclick = () => { socket.emit('dm:ask', { text: $('chat-input').value.trim() }); $('chat-input').value = ''; };
-document.querySelectorAll('.dm-quick button').forEach((b) => {
+if ($('dm-recap')) $('dm-recap').onclick = () => { socket.emit('dm:recap'); flashHint('📖 Writing the recap…'); };
+document.querySelectorAll('.dm-quick button[data-dm]').forEach((b) => {
   b.onclick = () => socket.emit('dm:ask', { text: b.dataset.dm });
 });
 

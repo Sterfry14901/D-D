@@ -774,6 +774,23 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('chat', dmMsg);
   });
 
+  // DM taps "Recap" → the AI writes a short "Previously on…" from the recent transcript.
+  socket.on('dm:recap', async () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const transcript = (room.chat || []).slice(-60)
+      .filter((m) => m.role === 'player' || m.role === 'dm')
+      .map((m) => `${m.role === 'dm' ? 'DM' : (m.author || 'Player')}: ${m.text}`)
+      .join('\n').slice(-4000);
+    if (!transcript.trim()) { pushSystem(joinedRoom, 'No story yet to recap — play a little first!'); return; }
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      'Write a short, dramatic "Previously on…" recap (3-5 sentences) of the adventure so far, based only on this session transcript. Speak as the narrator, past tense, capture the key events, choices, and cliffhangers.\n\nTRANSCRIPT:\n' + transcript }]);
+    const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: '📖 Previously… ' + reply, ts: Date.now() };
+    room.chat.push(dmMsg);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    io.to(joinedRoom).emit('chat', dmMsg);
+  });
+
   // ---- WebRTC voice signaling ----
   socket.on('rtc:signal', ({ to, data }) => { io.to(to).emit('rtc:signal', { from: socket.id, data }); });
 
