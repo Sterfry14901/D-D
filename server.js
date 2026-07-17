@@ -791,6 +791,24 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('chat', dmMsg);
   });
 
+  // DM improvises on the fly — the AI invents an NPC or describes a location.
+  socket.on('dm:improv', async ({ kind } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const prompts = {
+      npc: 'Invent a memorable D&D NPC the party just met. Give: a name, race, a vivid one-line appearance, their demeanor, a secret they hide, and one line of dialogue in quotes. Keep it to 3-4 sentences. Start with the name in bold-ish plain text.',
+      place: 'Vividly describe the location the party has just entered — sights, sounds, smells, and one intriguing detail worth investigating. 3-4 sentences, present tense, second person ("you see…").',
+      hook: 'Give the party a fresh adventure hook right now: a rumor, a stranger’s plea, or a strange event, with a clear reason to act. 2-3 sentences.',
+    };
+    const p = prompts[kind] || prompts.npc;
+    const tag = kind === 'place' ? '🏰 ' : kind === 'hook' ? '🎣 ' : '🎭 ';
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content: p }]);
+    const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: tag + reply, ts: Date.now() };
+    room.chat.push(dmMsg);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    io.to(joinedRoom).emit('chat', dmMsg);
+  });
+
   // ---- WebRTC voice signaling ----
   socket.on('rtc:signal', ({ to, data }) => { io.to(to).emit('rtc:signal', { from: socket.id, data }); });
 

@@ -798,6 +798,9 @@ function chatRoll(expr) {
 }
 $('dm-btn').onclick = () => { socket.emit('dm:ask', { text: $('chat-input').value.trim() }); $('chat-input').value = ''; };
 if ($('dm-recap')) $('dm-recap').onclick = () => { socket.emit('dm:recap'); flashHint('📖 Writing the recap…'); };
+if ($('dm-improv-npc')) $('dm-improv-npc').onclick = () => { socket.emit('dm:improv', { kind: 'npc' }); flashHint('🎭 Conjuring an NPC…'); };
+if ($('dm-improv-place')) $('dm-improv-place').onclick = () => { socket.emit('dm:improv', { kind: 'place' }); flashHint('🏰 Describing the place…'); };
+if ($('dm-improv-hook')) $('dm-improv-hook').onclick = () => { socket.emit('dm:improv', { kind: 'hook' }); flashHint('🎣 Spinning a plot hook…'); };
 document.querySelectorAll('.dm-quick button[data-dm]').forEach((b) => {
   b.onclick = () => socket.emit('dm:ask', { text: b.dataset.dm });
 });
