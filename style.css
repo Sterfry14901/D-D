@@ -1009,9 +1009,11 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .quest-save { margin-top: 10px; width: 100%; background: rgba(217,177,84,.25); border: 1px solid rgba(217,177,84,.5); color: #fff; border-radius: 8px; padding: 8px; cursor: pointer; font-weight: 600; }
 .quest-save:hover { background: rgba(217,177,84,.4); }
 
-/* ===== FIX: token editor (and other join-card modals) must scroll when tall ===== */
-#token-modal { align-items: flex-start; }
-#token-modal .join-card { max-height: 92vh; overflow-y: auto; margin: 4vh auto; }
+/* ===== FIX: modal cards must scroll when taller than the viewport ===== */
+#token-modal, #map-modal { align-items: flex-start; }
+#token-modal > .join-card, #map-modal > .join-card { max-height: 92vh; overflow-y: auto; margin: 4vh auto; }
+/* join screen card also caps its height so nothing gets clipped on small screens */
+#join-screen > .join-card { max-height: 94vh; overflow-y: auto; }
 
 /* ===== Multi-quest board + library picker ===== */
 .quest-main-card.done .quest-main-txt { opacity: .55; text-decoration: line-through; }

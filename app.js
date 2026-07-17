@@ -1403,7 +1403,7 @@ function showPing(x, y, color, name) {
 $('addtoken-btn').onclick = () => {
   // Theme the token from the character: class emoji + sheet HP if a class is set.
   const theme = (window.SRD && cs && cs.cls && window.SRD.classes[cs.cls]) || null;
-  const tok = { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), size: 1, statuses: [] };
+  const tok = { x: 140 * Math.ceil(Math.random()*4), y: 140, color: me.color, label: initials(me.name), name: (cs && cs.name) || me.name, size: 1, statuses: [] };
   if (theme) {
     if (theme.emoji) tok.emoji = theme.emoji;
     if (Number(cs.maxhp) > 0) { tok.hp = Number(cs.hp) || 0; tok.maxhp = Number(cs.maxhp); }
@@ -1432,6 +1432,16 @@ function hexA(hex, a) {
   const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
   const r = parseInt(n.substr(0, 2), 16) || 0, g = parseInt(n.substr(2, 2), 16) || 0, b = parseInt(n.substr(4, 2), 16) || 0;
   return `rgba(${r},${g},${b},${a})`;
+}
+/* Can *I* move/edit this token? DM controls all; players control tokens they own
+   (their character + any companions/NPCs/animals they created). Unowned = anyone. */
+function canControlTok(t) {
+  if (!t) return false;
+  if (me.isGm) return true;
+  if (t.owner && me.name && t.owner === me.name) return true;
+  if (t.ownerId && t.ownerId === me.id) return true;
+  if (!t.owner && !t.ownerId) return true;
+  return false;
 }
 function renderToken(t) {
   let el = tokenEls[t.id];
@@ -1477,7 +1487,7 @@ function styleToken(el, t) {
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
   el.classList.toggle('bloodied', Number(t.maxhp) > 0 && Number(t.hp) > 0 && Number(t.hp) <= Number(t.maxhp) / 2);
   el.classList.toggle('ghosted', !!t.ghost);
-  const np = el.querySelector('.tk-name'); if (np) np.textContent = t.label || '';
+  const np = el.querySelector('.tk-name'); if (np) np.textContent = t.name || t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
   if (t.maxhp && Number(t.maxhp) > 0) {
@@ -1548,6 +1558,7 @@ function makeDraggable(el) {
   el.addEventListener('mousedown', (e) => {
     if (e.altKey || fogMode) return;
     if (e.shiftKey) { toggleSelect(el._token.id); e.preventDefault(); e.stopPropagation(); return; } // shift-click = (de)select
+    if (!canControlTok(el._token)) { flashHint('🔒 Not your token — only its owner or the DM can move it.'); return; } // players move only their own
     dragging = true; const c = boardCoords(e); grabX = c.x - el._token.x; grabY = c.y - el._token.y;
     startX = el._token.x; startY = el._token.y;
     groupDrag = selectedTokens.has(el._token.id) && selectedTokens.size > 1;
@@ -1579,6 +1590,7 @@ function makeDraggable(el) {
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     if (el._token && Array.isArray(el._token.chest)) { openChest(el._token); return; }
+    if (!canControlTok(el._token)) { flashHint('🔒 That token belongs to another player — only its owner or the DM can edit it.'); return; }
     openTokenModal(el._token);
   });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); showTokenCtx(el._token, e.clientX, e.clientY); });
@@ -1745,6 +1757,7 @@ let editingToken = null, editStatuses = [], editEmoji = '', editImg = null;
 function openTokenModal(t) {
   editingToken = t; editStatuses = [...(t.statuses || [])];
   editEmoji = t.emoji || ''; editImg = t.img || null;
+  if ($('tk-name')) $('tk-name').value = t.name || '';
   $('tk-label').value = t.label || ''; $('tk-color').value = t.color || '#c0392b';
   $('tk-size').value = t.size || 1;
   $('tk-hp').value = t.hp ?? ''; $('tk-maxhp').value = t.maxhp ?? '';
@@ -1877,7 +1890,7 @@ document.querySelectorAll('.status-opt').forEach((b) => {
 $('tk-save').onclick = () => {
   if (!editingToken) return;
   socket.emit('token:update', {
-    id: editingToken.id, label: $('tk-label').value, color: $('tk-color').value,
+    id: editingToken.id, label: $('tk-label').value, name: ($('tk-name') ? $('tk-name').value : editingToken.name) || '', color: $('tk-color').value,
     size: parseInt($('tk-size').value),
     hp: $('tk-hp').value === '' ? null : Number($('tk-hp').value),
     maxhp: $('tk-maxhp').value === '' ? null : Number($('tk-maxhp').value),

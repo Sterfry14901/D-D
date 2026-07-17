@@ -147,6 +147,17 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+// Who may move/edit/remove a token: the DM (all), or the token's owner
+// (matched by stable player name, or by the current socket id, or if unowned).
+function canControlToken(room, socketId, tok) {
+  if (!tok) return false;
+  if (isGm(room, socketId)) return true;
+  const myName = room.players[socketId]?.name;
+  if (tok.owner && myName && tok.owner === myName) return true;
+  if (tok.ownerId && tok.ownerId === socketId) return true;
+  if (!tok.owner && !tok.ownerId) return true;   // legacy/unowned tokens stay movable
+  return false;
+}
 // Airtight GM layer: hidden tokens never leave the server for non-GM players.
 function tokensFor(room, socketId) {
   if (isGm(room, socketId)) return room.tokens;
@@ -311,11 +322,14 @@ io.on('connection', (socket) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     token.id = token.id || 't_' + rid();
     token.ownerId = socket.id;
+    token.owner = room.players[socket.id]?.name || null;   // stable ownership by name
     room.tokens[token.id] = token;
     emitTokenPerSocket(room, 'token:add', token);
+    markDirty();
   });
   socket.on('token:move', ({ id, x, y }) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[id]) return;
+    if (!canControlToken(room, socket.id, room.tokens[id])) return;   // only your own token (DM moves all)
     room.tokens[id].x = x; room.tokens[id].y = y;
     const t = room.tokens[id];
     // Hidden tokens: only GMs (other than the mover) receive live movement.
@@ -327,13 +341,18 @@ io.on('connection', (socket) => {
   });
   socket.on('token:update', (token) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
-    room.tokens[token.id] = { ...room.tokens[token.id], ...token };
+    if (!canControlToken(room, socket.id, room.tokens[token.id])) return;   // only your own token
+    const { owner, ownerId, ...safe } = token;   // players can't reassign ownership
+    room.tokens[token.id] = { ...room.tokens[token.id], ...safe };
     emitTokenPerSocket(room, 'token:update', room.tokens[token.id]);
+    markDirty();
   });
   socket.on('token:remove', (id) => {
-    const room = rooms.get(joinedRoom); if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room || !room.tokens[id]) return;
+    if (!canControlToken(room, socket.id, room.tokens[id])) return;   // only your own token (DM removes all)
     delete room.tokens[id];
     io.to(joinedRoom).emit('token:remove', id);
+    markDirty();
   });
 
   // ---- Map / grid ----
