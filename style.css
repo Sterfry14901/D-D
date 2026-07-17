@@ -918,3 +918,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 /* ===== Cast button in the spell library ===== */
 .spell-cast { background: rgba(123,70,155,0.25); border: 1px solid rgba(171,109,172,0.5); color: inherit; border-radius: 6px; font-size: 11px; padding: 1px 8px; cursor: pointer; vertical-align: middle; }
 .spell-cast:hover { background: rgba(123,70,155,0.45); border-color: #ab6dac; }
+
+/* ===== Encumbrance meter ===== */
+.cs-carry { font-size: 12px; margin-top: 4px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(217,177,84,0.2); }
+.cs-carry.over { color: #ff9d8a; border-color: #e74c3c; background: rgba(231,76,60,0.12); font-weight: 700; }

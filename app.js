@@ -1210,7 +1210,11 @@ function makeDraggable(el) {
       groupDrag = false; group = [];
     }
   });
-  el.addEventListener('dblclick', (e) => { e.stopPropagation(); openTokenModal(el._token); });
+  el.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    if (el._token && Array.isArray(el._token.chest)) { openChest(el._token); return; }
+    openTokenModal(el._token);
+  });
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); showTokenCtx(el._token, e.clientX, e.clientY); });
 }
 
@@ -1979,15 +1983,71 @@ function csPopulate() {
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
   csRenderSlots(); csPopulateDeath(); csRenderGear();
 }
+/* Weights / hands / armor slots for common gear (SRD equipment tables). */
+const ITEM_DB = {
+  greataxe: { w: 7, h: 2 }, greatsword: { w: 6, h: 2 }, maul: { w: 10, h: 2 }, pike: { w: 18, h: 2 },
+  glaive: { w: 6, h: 2 }, halberd: { w: 6, h: 2 }, 'heavy crossbow': { w: 18, h: 2 }, longbow: { w: 2, h: 2 },
+  shortbow: { w: 2, h: 2 }, 'light crossbow': { w: 5, h: 2 },
+  longsword: { w: 3, h: 1 }, shortsword: { w: 2, h: 1 }, rapier: { w: 2, h: 1 }, scimitar: { w: 3, h: 1 },
+  battleaxe: { w: 4, h: 1 }, warhammer: { w: 2, h: 1 }, mace: { w: 4, h: 1 }, flail: { w: 2, h: 1 },
+  handaxe: { w: 2, h: 1 }, dagger: { w: 1, h: 1 }, club: { w: 2, h: 1 }, spear: { w: 3, h: 1 },
+  quarterstaff: { w: 4, h: 1 }, javelin: { w: 2, h: 1 }, sling: { w: 0, h: 1 }, shield: { w: 6, h: 1 },
+  'chain mail': { w: 55, slot: 'armor' }, 'plate armor': { w: 65, slot: 'armor' }, plate: { w: 65, slot: 'armor' },
+  'studded leather': { w: 13, slot: 'armor' }, 'leather armor': { w: 10, slot: 'armor' }, leather: { w: 10, slot: 'armor' },
+  'scale mail': { w: 45, slot: 'armor' }, 'chain shirt': { w: 20, slot: 'armor' }, 'half plate': { w: 40, slot: 'armor' },
+  'hide armor': { w: 12, slot: 'armor' }, breastplate: { w: 20, slot: 'armor' }, 'ring mail': { w: 40, slot: 'armor' }, 'padded armor': { w: 8, slot: 'armor' },
+  'potion of healing': { w: 0.5 }, potion: { w: 0.5 }, rope: { w: 10 }, torch: { w: 1 }, bedroll: { w: 7 },
+  rations: { w: 2 }, waterskin: { w: 5 }, tinderbox: { w: 1 }, 'grappling hook': { w: 4 },
+  "dungeoneer's pack": { w: 55 }, "explorer's pack": { w: 55 }, "priest's pack": { w: 29 }, "scholar's pack": { w: 22 }, "burglar's pack": { w: 42 }, "diplomat's pack": { w: 36 }, "entertainer's pack": { w: 38 },
+};
+function itemInfo(name) {
+  const k = String(name || '').trim().toLowerCase();
+  if (ITEM_DB[k]) return ITEM_DB[k];
+  const hit = Object.keys(ITEM_DB).sort((a, b) => b.length - a.length).find((key) => k.includes(key));
+  return hit ? ITEM_DB[hit] : {};
+}
+function gearInfo(g) {
+  const d = itemInfo(g.n);
+  return { w: g.w !== undefined ? g.w : (d.w !== undefined ? d.w : 1), h: g.h !== undefined ? g.h : (d.h || 0), slot: g.slot || d.slot || null };
+}
+function csCarry() { return Math.max(1, Number(cs.scores.str) || 10) * 15; }   // 5E: STR × 15 lb
 function csRenderGear() {
   const box = $('cs-gear'); if (!box) return;
   cs.gear = cs.gear || [];
   const escG = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  box.innerHTML = cs.gear.length ? cs.gear.map((g, i) => `<div class="cs-gear-item ${g.on ? 'on' : ''}">
+  let total = 0;
+  const rows = cs.gear.map((g, i) => {
+    const inf = gearInfo(g);
+    total += inf.w;
+    const tags = `${inf.w ? inf.w + ' lb' : ''}${inf.h === 2 ? ' · 🤲 two-handed' : inf.h === 1 ? ' · ✋' : ''}${inf.slot === 'armor' ? ' · 🛡 armor' : ''}`;
+    return `<div class="cs-gear-item ${g.on ? 'on' : ''}">
     <button class="cs-gear-tog" data-gear-tog="${i}" title="Toggle worn / stowed">${g.on ? '🟢 On' : '⚪ Off'}</button>
-    <span class="cs-gear-n">${escG(g.n)}</span>
+    <span class="cs-gear-n">${escG(g.n)} <em style="opacity:.6;font-size:11px">${tags}</em></span>
     <button class="cs-gear-rm" data-gear-rm="${i}" title="Remove">✕</button>
-  </div>`).join('') : '<div style="font-size:12px;opacity:.65;padding:2px 0">No tracked gear — add items below, toggle On when equipped.</div>';
+  </div>`;
+  }).join('');
+  const cap = csCarry();
+  const over = total > cap;
+  const meter = `<div class="cs-carry ${over ? 'over' : ''}">⚖️ Carrying ${Math.round(total * 10) / 10} / ${cap} lb${over ? ' — OVER-ENCUMBERED! Drop something or raise STR.' : ''}</div>`;
+  box.innerHTML = (rows || '<div style="font-size:12px;opacity:.65;padding:2px 0">No tracked gear — add items below, toggle On when equipped.</div>') + meter;
+}
+/* Can this item be equipped? Enforces two hands total + one suit of armor. */
+function gearCanEquip(idx) {
+  const g = cs.gear[idx]; if (!g) return { ok: false };
+  const inf = gearInfo(g);
+  if (inf.slot === 'armor') {
+    const worn = cs.gear.find((o, i) => i !== idx && o.on && gearInfo(o).slot === 'armor');
+    if (worn) return { ok: false, why: `You're already wearing ${worn.n} — take it off first.` };
+    return { ok: true };
+  }
+  if (inf.h > 0) {
+    const used = cs.gear.reduce((s, o, i) => s + (i !== idx && o.on ? gearInfo(o).h : 0), 0);
+    if (used + inf.h > 2) {
+      const held = cs.gear.filter((o, i) => i !== idx && o.on && gearInfo(o).h > 0).map((o) => o.n).join(' + ');
+      return { ok: false, why: `Not enough hands! ${g.n} needs ${inf.h === 2 ? 'both hands' : 'a hand'} and you're holding ${held}.` };
+    }
+  }
+  return { ok: true };
 }
 function csRenderSlots() {
   const box = $('cs-slots'); if (!box) return;
@@ -2055,13 +2115,22 @@ function csOnClick(e) {
     csRenderAttacks(); saveCS(); return;
   }
   const gt = e.target.closest('[data-gear-tog]');
-  if (gt) { const g = cs.gear[Number(gt.dataset.gearTog)]; if (g) { g.on = !g.on; csRenderGear(); saveCS(); } return; }
+  if (gt) {
+    const idx = Number(gt.dataset.gearTog), g = cs.gear[idx];
+    if (g) {
+      if (!g.on) { const chk = gearCanEquip(idx); if (!chk.ok) { flashHint('❌ ' + chk.why); return; } }
+      g.on = !g.on;
+      csRenderGear(); saveCS();
+    }
+    return;
+  }
   const gr = e.target.closest('[data-gear-rm]');
   if (gr) { cs.gear.splice(Number(gr.dataset.gearRm), 1); csRenderGear(); saveCS(); return; }
   if (e.target.id === 'cs-gear-addbtn') {
     const nm = $('cs-gear-name').value.trim(); if (!nm) return;
     cs.gear = cs.gear || [];
-    cs.gear.push({ n: nm.slice(0, 60), on: false });
+    const inf = itemInfo(nm);
+    cs.gear.push({ n: nm.slice(0, 60), on: false, w: inf.w !== undefined ? inf.w : 1, h: inf.h || 0, slot: inf.slot || null });
     $('cs-gear-name').value = '';
     csRenderGear(); saveCS(); return;
   }
@@ -2146,20 +2215,67 @@ if ($('xp-award-btn')) $('xp-award-btn').onclick = () => {
   const amt = parseInt(prompt('Award how much XP to each party member?', '300'), 10);
   if (amt > 0) socket.emit('xp:award', { amount: amt });
 };
-/* DM gives an item straight onto a player's sheet (Inventory gear list). */
+/* DM gives an item straight onto a player's sheet — optionally "from" an NPC (gifts!). */
 if ($('item-give-btn')) $('item-give-btn').onclick = () => {
   if (!me.isGm) return;
   const to = prompt('Give an item to which player? (name)'); if (!to || !to.trim()) return;
   const item = prompt('What item? (e.g. Potion of Healing)'); if (!item || !item.trim()) return;
-  socket.emit('item:give', { to: to.trim(), item: item.trim() });
+  const from = prompt('Who gives it? (NPC name — leave blank for the DM)') || '';
+  socket.emit('item:give', { to: to.trim(), item: item.trim(), from: from.trim() });
 };
 socket.on('item:give', ({ item }) => {
   if (!cs || !item) return;
   cs.gear = cs.gear || [];
-  cs.gear.push({ n: String(item).slice(0, 60), on: false });
+  const inf = itemInfo(item);
+  cs.gear.push({ n: String(item).slice(0, 60), on: false, w: inf.w !== undefined ? inf.w : 1, h: inf.h || 0, slot: inf.slot || null });
   saveCS(); if (csBuilt) csRenderGear();
   flashHint('🎁 You received: ' + item);
 });
+
+/* ============ LOOT CHESTS (DM places, players double-click to loot) ============ */
+if ($('chest-btn')) $('chest-btn').onclick = () => {
+  if (!me.isGm) return;
+  const raw = prompt("What's inside? (comma-separated items)", 'Potion of Healing, 25 gp, Dagger');
+  if (raw === null) return;
+  const items = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 20);
+  socket.emit('token:add', {
+    x: gridSize * (2 + Math.floor(Math.random() * 6)),
+    y: gridSize * (1 + Math.floor(Math.random() * 3)),
+    color: '#7a5a2e', label: 'Chest', size: 1, statuses: [],
+    emoji: '📦', chest: items,
+  });
+  flashHint('📦 Chest placed — double-click it to loot');
+};
+function openChest(t) {
+  let m = $('chest-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'chest-modal'; m.className = 'overlay';
+  const live = () => (tokenEls[t.id] && tokenEls[t.id]._token && tokenEls[t.id]._token.chest) || t.chest || [];
+  const escC = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const items = live();
+  m.innerHTML = `<div class="sb-card lvl-card">
+    <button class="sb-x" title="Close">✕</button>
+    <div class="sb-name">📦 ${escC(t.label || 'Chest')}</div>
+    ${items.length ? items.map((it, i) => `<div class="lvl-row" style="margin:4px 0"><span style="flex:1">${escC(it)}</span><button class="lvl-opt" data-take="${i}">🖐 Take</button></div>`).join('') : '<div class="lvl-feat">Empty — someone got here first.</div>'}
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', (e) => {
+    if (e.target === m || e.target.classList.contains('sb-x')) { m.remove(); return; }
+    const tb = e.target.closest('[data-take]');
+    if (tb) {
+      const i = Number(tb.dataset.take);
+      const cur = live();
+      const item = cur[i]; if (item === undefined) { m.remove(); return; }
+      const rest = cur.slice(); rest.splice(i, 1);
+      socket.emit('token:update', { id: t.id, chest: rest, label: rest.length ? (t.label || 'Chest') : 'Chest (empty)', emoji: rest.length ? '📦' : '🫙' });
+      cs.gear = cs.gear || [];
+      const inf = itemInfo(item);
+      cs.gear.push({ n: String(item).slice(0, 60), on: false, w: inf.w !== undefined ? inf.w : 1, h: inf.h || 0, slot: inf.slot || null });
+      saveCS(); if (csBuilt) csRenderGear();
+      socket.emit('chat', { text: `🧰 ${(cs && cs.name) || me.name} takes ${item} from the ${t.label || 'chest'}.` });
+      m.remove();
+    }
+  });
+}
 socket.on('xp:award', ({ amount }) => {
   if (!cs || (!cs.name && !cs.cls)) return;               // spectators without a character skip
   cs.xp = (Number(cs.xp) || 0) + (Number(amount) || 0);
