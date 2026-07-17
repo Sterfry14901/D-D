@@ -519,7 +519,16 @@ io.on('connection', (socket) => {
           done: !!(s && s.done),
         })).filter((s) => s.text)
       : [];
-    room.quests = { main, sides };
+    // NEW: full multi-quest board — many main + side quests can run at once.
+    const list = Array.isArray(q && q.list)
+      ? q.list.slice(0, 40).map((it) => ({
+          id: String((it && it.id) || ('q_' + rid())).slice(0, 40),
+          title: String((it && it.title) || '').slice(0, 300),
+          kind: (it && it.kind === 'side') ? 'side' : 'main',
+          done: !!(it && it.done),
+        })).filter((it) => it.title)
+      : [];
+    room.quests = { main, sides, list };
     io.to(joinedRoom).emit('quest:update', room.quests);
     markDirty();
   });

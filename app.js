@@ -257,61 +257,126 @@ socket.on('notes:set', (text) => applyNotes(text));
 document.addEventListener('DOMContentLoaded', initJournal);
 if (document.readyState !== 'loading') initJournal();
 
-/* ============ QUEST LOG — DM sets a main quest + side quests, party sees it ============ */
-let quests = { main: '', sides: [] };
+/* ============ QUEST LOG — a multi-quest board the DM runs; players see it live ============
+   Model: quests.list = [{id,title,kind:'main'|'side',done}]. Legacy {main,sides} still shown. */
+let quests = { main: '', sides: [], list: [] };
+const QESC = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+/* Ready-made adventure hooks (original, DM-pickable). {t:title, d:description, k:kind} */
+const QUEST_LIBRARY = [
+  { t: 'The Sunstone of Vael', k: 'main', d: 'A cult races the party to a ruined keep to claim the Sunstone, an relic that can shatter the barrier holding an old evil at bay.' },
+  { t: 'The Missing Caravan', k: 'main', d: 'A merchant caravan vanished on the forest road. Track it, learn what took it, and bring back who — or what — you find.' },
+  { t: 'Plague in Miller’s Hollow', k: 'main', d: 'A wasting sickness grips a farming village. Find its source in the old mine below before the last well runs foul.' },
+  { t: 'The Drowned Bell', k: 'main', d: 'Each midnight a bell tolls beneath the lake and one villager sleepwalks toward the water. Silence the bell before the next full moon.' },
+  { t: 'Crown of the Ash King', k: 'main', d: 'A warlord is gathering the three shards of a burned crown. Beat him to the last shard hidden in the ember wastes.' },
+  { t: 'The Debt Collector', k: 'main', d: 'A devil holds a lord’s soul-contract. Find the loophole, steal the contract, or make a bargain of your own — before the due date.' },
+  { t: 'Stars Fell on Greymoor', k: 'main', d: 'A falling star cratered the moor and things are crawling out of it at night. Reach the impact site and seal whatever opened.' },
+  { t: 'The Howling Well', k: 'side', d: 'A dry well moans at dusk. Someone — or something — is trapped at the bottom and it knows your names.' },
+  { t: 'A Fair Price', k: 'side', d: 'A traveling tinker sells wondrous trinkets that always come with a catch. Discover the true cost before a townsfolk pays it.' },
+  { t: 'The Rival Party', k: 'side', d: 'Another band of adventurers keeps beating you to the loot. Out-race, out-wit, or recruit them.' },
+  { t: 'Grandmother’s Recipe', k: 'side', d: 'An innkeeper wants a rare mushroom from a monster-haunted grove for a festival stew. Bring it back fresh.' },
+  { t: 'The Broken Shrine', k: 'side', d: 'Restore a wayside shrine and the local spirits will grant the party a boon; ignore it and the road turns unlucky.' },
+  { t: 'Ledger of Lies', k: 'side', d: 'A dead tax collector’s ledger names a smuggling ring. Follow the money without tipping off the guard captain who’s on the take.' },
+  { t: 'The Prisoner’s Map', k: 'side', d: 'A condemned thief trades a map to a hidden cache for their freedom. Is the map real, or bait for a trap?' },
+];
+
 function applyQuests(q) {
-  quests = { main: (q && q.main) || '', sides: Array.isArray(q && q.sides) ? q.sides.slice() : [] };
+  quests = {
+    main: (q && q.main) || '',
+    sides: Array.isArray(q && q.sides) ? q.sides.slice() : [],
+    list: Array.isArray(q && q.list) ? q.list.slice() : [],
+  };
   renderQuestView();
-  // fill the GM editor only when the DM isn't actively editing
-  const mainTa = $('quest-main');
-  if (mainTa && document.activeElement !== mainTa) mainTa.value = quests.main;
-  renderQuestSidesEditor();
+  renderQuestListEditor();
 }
 function renderQuestView() {
   const box = $('quest-view'); if (!box) return;
-  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  if (!quests.main && !(quests.sides || []).length) {
-    box.innerHTML = '<div class="quest-empty">No quests yet. ' + (me.isGm ? 'Set the party’s goal below, or tap “AI: suggest quests.”' : 'The DM hasn’t posted the party’s goals yet.') + '</div>';
+  const mains = (quests.list || []).filter((x) => x.kind === 'main');
+  const sides = (quests.list || []).filter((x) => x.kind === 'side');
+  // fold in legacy fields
+  if (quests.main) mains.unshift({ title: quests.main, done: false, kind: 'main', legacy: true });
+  (quests.sides || []).forEach((s) => sides.push({ title: s.text, done: s.done, kind: 'side', legacy: true }));
+  if (!mains.length && !sides.length) {
+    box.innerHTML = '<div class="quest-empty">No quests yet. ' + (me.isGm ? 'Tap “📜 Pick a Quest” to choose an adventure, add a custom one, or “AI: suggest quests.”' : 'The DM hasn’t posted the party’s goals yet.') + '</div>';
     return;
   }
   let h = '';
-  if (quests.main) h += `<div class="quest-main-card"><div class="quest-cap">⭐ Main Quest</div><div class="quest-main-txt">${esc(quests.main)}</div></div>`;
-  const sides = (quests.sides || []).filter((s) => s && s.text);
+  if (mains.length) {
+    h += '<div class="quest-cap">⭐ Main Quests</div>';
+    h += mains.map((x) => `<div class="quest-main-card ${x.done ? 'done' : ''}"><div class="quest-main-txt">${x.done ? '✅ ' : ''}${QESC(x.title)}</div></div>`).join('');
+  }
   if (sides.length) {
     h += '<div class="quest-cap" style="margin-top:10px">🗺️ Side Quests</div>';
-    h += sides.map((s) => `<div class="quest-side-card ${s.done ? 'done' : ''}">${s.done ? '✅' : '▫️'} ${esc(s.text)}</div>`).join('');
+    h += sides.map((x) => `<div class="quest-side-card ${x.done ? 'done' : ''}">${x.done ? '✅' : '▫️'} ${QESC(x.title)}</div>`).join('');
   }
   box.innerHTML = h;
 }
-function renderQuestSidesEditor() {
-  const box = $('quest-sides'); if (!box) return;
-  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  box.innerHTML = (quests.sides || []).map((s, i) => `<div class="quest-side-edit">
-    <button class="quest-done-tog" data-qdone="${i}" title="Toggle complete">${s.done ? '✅' : '▫️'}</button>
-    <span class="quest-side-t">${esc(s.text)}</span>
+function renderQuestListEditor() {
+  const box = $('quest-list'); if (!box) return;
+  if (!(quests.list || []).length) { box.innerHTML = '<div style="font-size:12px;opacity:.6;padding:2px 0">No quests on the board yet.</div>'; return; }
+  box.innerHTML = quests.list.map((x, i) => `<div class="quest-side-edit">
+    <button class="quest-done-tog" data-qdone="${i}" title="Toggle complete">${x.done ? '✅' : '▫️'}</button>
+    <span class="quest-kind-tag ${x.kind}">${x.kind === 'main' ? '⭐' : '🗺️'}</span>
+    <span class="quest-side-t">${QESC(x.title)}</span>
     <button class="quest-rm" data-qrm="${i}" title="Remove">✕</button></div>`).join('');
 }
+function questAdd(title, kind) {
+  const t = String(title || '').trim(); if (!t) return;
+  quests.list = quests.list || [];
+  if (quests.list.length >= 40) { flashHint('Quest board is full (40).'); return; }
+  quests.list.push({ id: 'q_' + Math.random().toString(36).slice(2, 8), title: t, kind: kind === 'side' ? 'side' : 'main', done: false });
+  renderQuestListEditor();
+}
 function publishQuests() {
-  const mainTa = $('quest-main');
-  const main = mainTa ? mainTa.value : quests.main;
-  socket.emit('quest:set', { main, sides: quests.sides });
+  socket.emit('quest:set', { main: quests.main, sides: quests.sides, list: quests.list });
   flashHint('🧭 Quests published to the party');
 }
+/* The library picker modal — choose a ready-made adventure or write your own. */
+function openQuestPicker() {
+  let m = $('quest-pick-modal'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'quest-pick-modal'; m.className = 'overlay';
+  const cards = QUEST_LIBRARY.map((q, i) => `
+    <button class="qpick-card" data-qpick="${i}">
+      <div class="qpick-t">${q.k === 'main' ? '⭐' : '🗺️'} ${QESC(q.t)}</div>
+      <div class="qpick-d">${QESC(q.d)}</div>
+    </button>`).join('');
+  m.innerHTML = `<div class="sb-card qpick-card-wrap">
+    <button class="sb-x" title="Close">✕</button>
+    <div class="sb-name">📜 Pick a Quest for the Party</div>
+    <div class="qpick-hint">Tap any adventure to add it to the board. Add as many as you like — several can run at once.</div>
+    <div class="qpick-grid">${cards}</div>
+    <div class="sb-h">✍️ Or write your own</div>
+    <div class="quest-add-row">
+      <input id="qpick-custom" placeholder="Custom quest…" />
+      <select id="qpick-kind" class="quest-kind"><option value="main">⭐ Main</option><option value="side">🗺️ Side</option></select>
+      <button id="qpick-add">Add</button>
+    </div>
+    <div class="quest-add-row" style="margin-top:10px">
+      <button id="qpick-publish" class="quest-save" style="margin:0">💾 Publish board to the party</button>
+    </div>
+    <div class="sb-foot">Original adventure hooks — remix them freely.</div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', (e) => {
+    if (e.target === m || e.target.classList.contains('sb-x')) { m.remove(); return; }
+    const c = e.target.closest('[data-qpick]');
+    if (c) { const q = QUEST_LIBRARY[+c.dataset.qpick]; questAdd(q.t + ' — ' + q.d, q.k); c.classList.add('added'); flashHint('➕ Added: ' + q.t); return; }
+    if (e.target.id === 'qpick-add') { const inp = $('qpick-custom'); questAdd(inp.value, $('qpick-kind').value); inp.value = ''; flashHint('➕ Custom quest added'); return; }
+    if (e.target.id === 'qpick-publish') { publishQuests(); m.remove(); return; }
+  });
+}
 function initQuests() {
-  if ($('quest-side-add')) $('quest-side-add').onclick = () => {
-    const inp = $('quest-side-in'); const t = (inp.value || '').trim(); if (!t) return;
-    quests.sides = quests.sides || []; if (quests.sides.length < 8) quests.sides.push({ text: t, done: false });
-    inp.value = ''; renderQuestSidesEditor();
-  };
-  if ($('quest-side-in')) $('quest-side-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('quest-side-add').click(); } });
-  if ($('quest-sides')) $('quest-sides').addEventListener('click', (e) => {
-    const d = e.target.closest('[data-qdone]'); if (d) { const i = +d.dataset.qdone; quests.sides[i].done = !quests.sides[i].done; renderQuestSidesEditor(); return; }
-    const r = e.target.closest('[data-qrm]'); if (r) { quests.sides.splice(+r.dataset.qrm, 1); renderQuestSidesEditor(); return; }
+  if ($('quest-pick')) $('quest-pick').onclick = openQuestPicker;
+  if ($('quest-new-add')) $('quest-new-add').onclick = () => { const inp = $('quest-new-in'); questAdd(inp.value, $('quest-new-kind').value); inp.value = ''; };
+  if ($('quest-new-in')) $('quest-new-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('quest-new-add').click(); } });
+  if ($('quest-list')) $('quest-list').addEventListener('click', (e) => {
+    const d = e.target.closest('[data-qdone]'); if (d) { const i = +d.dataset.qdone; quests.list[i].done = !quests.list[i].done; renderQuestListEditor(); return; }
+    const r = e.target.closest('[data-qrm]'); if (r) { quests.list.splice(+r.dataset.qrm, 1); renderQuestListEditor(); return; }
   });
   if ($('quest-save')) $('quest-save').onclick = publishQuests;
   if ($('quest-ai')) $('quest-ai').onclick = () => {
     socket.emit('dm:ask', { text: 'As the DM, tell the party where they are right now, then give them ONE clear main quest and TWO optional side quests they could pursue. Format as: Main Quest: ... / Side Quest 1: ... / Side Quest 2: ... Keep each to one or two sentences.' });
-    flashHint('🧭 Asked the AI DM for quest ideas — see Chat, then copy them in.');
+    flashHint('🧭 Asked the AI DM for quest ideas — see Chat, then add the ones you like.');
   };
 }
 socket.on('quest:update', (q) => applyQuests(q));
