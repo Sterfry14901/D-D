@@ -46,6 +46,8 @@ const LOCAL_AI = !/api\.openai\.com/.test(OPENAI_BASE_URL);
 
 // ---- In-memory game state. One "room" = one campaign table. ----
 const rooms = new Map();
+// Pending player-to-player trade offers: offerId -> {roomId, fromId, fromName, toId, item, ts}
+const pendingTrades = new Map();
 
 // ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
 const DATA_FILE = join(__dirname, 'rooms-data.json');
@@ -130,6 +132,7 @@ function loadRooms() {
         drawings: room.drawings || [],
         round: room.round || 1,
         partyStatus: {},
+        sheets: {},
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -166,6 +169,7 @@ function getRoom(id) {
       quests: { main: '', sides: [] },  // quest log — DM/AI set, everyone sees
       drawings: [],            // freehand map annotations [{points:[[x,y]...], color, w}]
       partyStatus: {},         // socketId -> {name, hp, maxhp, ac} (live sheet HP)
+      sheets: {},              // socketId -> full sheet summary (DM read-only oversight)
     });
   }
   return rooms.get(id);
@@ -180,6 +184,14 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+// Send the whole party's sheet summaries to every GM in the room (DM-only oversight).
+function sendSheetsToGms(roomId) {
+  const room = rooms.get(roomId); if (!room) return;
+  const list = Object.values(room.sheets || {});
+  for (const sid of Object.keys(room.players)) {
+    if (room.players[sid]?.isGm) io.to(sid).emit('sheets:update', list);
+  }
+}
 // Snapshot of the "everyone ready?" tally: who's a player, who has confirmed.
 function readyState(room) {
   const names = Object.values(room.players || {}).filter((p) => !p.isGm).map((p) => p.name);
@@ -354,6 +366,7 @@ io.on('connection', (socket) => {
     });
     broadcastPlayers(joinedRoom);
     broadcastParty(joinedRoom);
+    if (gm) io.to(socket.id).emit('sheets:update', Object.values(room.sheets || {}));  // DM sees everyone's sheets on join
     socket.to(joinedRoom).emit('peer-joined', { peerId: socket.id, name: room.players[socket.id].name });
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
   });
@@ -604,6 +617,74 @@ io.on('connection', (socket) => {
       level: Math.max(1, Math.min(20, Number(st.level) || 1)),
     };
     broadcastParty(joinedRoom);
+  });
+
+  // ---- Full sheet summary → DM read-only oversight ----
+  // Players push a compact, sanitized snapshot of their sheet. Only GMs receive it.
+  // This is the anti-cheat window: the DM can see everyone's gear/currency so items
+  // must be bought, earned, or traded — not fabricated.
+  socket.on('sheet:push', (s) => {
+    const room = rooms.get(joinedRoom); if (!room || !s) return;
+    const clip = (v, n) => String(v == null ? '' : v).slice(0, n);
+    const num = (v) => Number(v) || 0;
+    const gearIn = Array.isArray(s.gear) ? s.gear.slice(0, 60) : [];
+    const gear = gearIn.map((g) => ({
+      name: clip(g && g.name, 60),
+      qty: Math.max(1, Math.min(9999, num(g && g.qty) || 1)),
+      wt: Math.max(0, num(g && g.wt)),
+      on: !!(g && g.on),
+    })).filter((g) => g.name);
+    room.sheets[socket.id] = {
+      id: socket.id,
+      owner: clip(room.players[socket.id]?.name, 24),
+      name: clip(s.name, 32) || 'Adventurer',
+      cls: clip(s.cls, 24), level: Math.max(1, Math.min(20, num(s.level) || 1)),
+      hp: num(s.hp), maxhp: num(s.maxhp), ac: num(s.ac),
+      xp: num(s.xp),
+      coins: {
+        cp: num(s.cp), sp: num(s.sp), ep: num(s.ep), gp: num(s.gp), pp: num(s.pp),
+      },
+      gear,
+      updated: Date.now(),
+    };
+    sendSheetsToGms(joinedRoom);
+  });
+
+  // ---- Player-to-player trading ----
+  // A offers one item to B. Nothing moves until B accepts, so items change hands
+  // by agreement — you can't shove gear onto someone, and you can't duplicate it.
+  socket.on('trade:offer', ({ toId, item } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const from = room.players[socket.id]; if (!from) return;
+    const to = room.players[toId]; if (!to || toId === socket.id) return;
+    const name = String((item && item.name) || '').slice(0, 60); if (!name) return;
+    const clean = {
+      name, qty: Math.max(1, Math.min(9999, Number(item && item.qty) || 1)),
+      wt: Math.max(0, Number(item && item.wt) || 0), on: false,
+    };
+    // cap outstanding offers per sender to avoid spam
+    let mine = 0; for (const t of pendingTrades.values()) if (t.fromId === socket.id) mine++;
+    if (mine > 12) { io.to(socket.id).emit('chat', { system: true, text: '⚠️ Too many pending trade offers. Wait for some to resolve.', ts: Date.now() }); return; }
+    const offerId = 'tr_' + Math.random().toString(36).slice(2, 10);
+    pendingTrades.set(offerId, { roomId: joinedRoom, fromId: socket.id, fromName: from.name, toId, item: clean, ts: Date.now() });
+    io.to(toId).emit('trade:incoming', { offerId, fromName: from.name, item: clean });
+    io.to(socket.id).emit('chat', { system: true, text: `🤝 You offered ${clean.name} to ${to.name}. Waiting for them to accept…`, ts: Date.now() });
+  });
+
+  socket.on('trade:respond', ({ offerId, accept } = {}) => {
+    const t = pendingTrades.get(offerId); if (!t) return;
+    if (t.toId !== socket.id || t.roomId !== joinedRoom) return;  // only the offeree can respond
+    pendingTrades.delete(offerId);
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const to = room.players[socket.id];
+    const fromStillHere = !!room.players[t.fromId];
+    if (accept) {
+      if (fromStillHere) io.to(t.fromId).emit('trade:take', { item: t.item, toName: to ? to.name : 'someone' });
+      io.to(socket.id).emit('trade:give', { item: t.item, fromName: t.fromName });
+      pushSystem(joinedRoom, `🤝 ${t.fromName} traded ${t.item.name} to ${to ? to.name : 'someone'}.`);
+    } else if (fromStillHere) {
+      io.to(t.fromId).emit('trade:declined', { toName: to ? to.name : 'They', item: t.item });
+    }
   });
 
   // ---- Weather / atmosphere ----
@@ -859,9 +940,12 @@ io.on('connection', (socket) => {
       const name = room.players[socket.id].name;
       delete room.players[socket.id];
       delete room.partyStatus[socket.id];
+      delete room.sheets[socket.id];
+      for (const [oid, t] of pendingTrades) if (t.fromId === socket.id || t.toId === socket.id) pendingTrades.delete(oid);
       socket.to(joinedRoom).emit('peer-left', { peerId: socket.id });
       broadcastPlayers(joinedRoom);
       broadcastParty(joinedRoom);
+      sendSheetsToGms(joinedRoom);
       pushSystem(joinedRoom, `${name} left the table.`);
     }
   });

@@ -1084,3 +1084,57 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 
 /* ===== Token loot indicator (💰 corner badge for tokens carrying loot) ===== */
 .token.has-loot::after { content: '💰'; position: absolute; right: -4px; top: -6px; font-size: 13px; filter: drop-shadow(0 1px 1px #000); pointer-events: none; z-index: 3; }
+
+/* ===== #167 DM party-sheets viewer ===== */
+.party-sheets-btn{display:block;width:100%;margin:0 0 10px;padding:9px 10px;border:1px solid #6d5ac4;
+  background:linear-gradient(180deg,#3a2f66,#2a2350);color:#e9e3ff;border-radius:8px;font-weight:700;cursor:pointer}
+.party-sheets-btn:hover{filter:brightness(1.12)}
+#party-sheets-modal{align-items:center;justify-content:center;z-index:1400}
+.ps-modal-card{width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column;
+  background:#171a22;border:1px solid #333a48;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.6);overflow:hidden}
+.ps-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #2a3140;background:#1d2130}
+.ps-modal-head h2{margin:0;font-size:17px;color:#e9e3ff}
+.ps-close{background:#2a3140;border:1px solid #3a4254;color:#cfd6e4;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px}
+.ps-close:hover{background:#3a2f66}
+.ps-note{padding:8px 16px;font-size:12px;color:#9aa6bd;background:#141821;border-bottom:1px solid #232a36}
+.ps-body{padding:14px 16px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.ps-body{grid-template-columns:1fr}}
+.ps-empty{grid-column:1/-1;text-align:center;color:#8a93a6;padding:30px 10px}
+.ps-card{background:#1c2130;border:1px solid #2c3444;border-radius:10px;padding:11px 12px}
+.ps-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.ps-name{font-weight:800;color:#f0ead9;font-size:15px}
+.ps-sub{font-size:12px;color:#9aa6bd;white-space:nowrap}
+.ps-owner{font-size:11px;color:#7f8aa0;margin:2px 0 8px}
+.ps-owner b{color:#b9a6ff}
+.ps-fresh{margin-left:6px}
+.ps-stats{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12.5px;color:#d6ddec;margin-bottom:6px}
+.ps-coins{font-size:12.5px;color:#e9d17a;margin-bottom:8px}
+.ps-gear-title{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#7f8aa0;margin:4px 0 3px}
+.ps-gear{list-style:none;margin:0;padding:0;max-height:160px;overflow-y:auto}
+.ps-gear li{font-size:12.5px;color:#cfd6e4;padding:2px 0;border-bottom:1px solid #232a36;display:flex;justify-content:space-between;gap:8px}
+.ps-gear li em{color:#8a93a6;font-style:normal;font-size:11px}
+.ps-gear-empty{font-size:12px;color:#8a93a6}
+
+/* ===== #168 player-to-player trading ===== */
+.cs-gear-trade{background:#243a2e;border:1px solid #3a5a46;color:#bfe6cf;border-radius:6px;cursor:pointer;padding:2px 6px;font-size:13px}
+.cs-gear-trade:hover{background:#2f5140}
+#trade-modal{align-items:center;justify-content:center;z-index:1450}
+.tr-card{width:min(420px,92vw);background:#171a22;border:1px solid #333a48;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.6);overflow:hidden}
+.tr-head{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid #2a3140;background:#1d2130}
+.tr-head h2{margin:0;font-size:16px;color:#e9e3ff}
+.tr-bodywrap{padding:15px}
+.tr-empty{color:#8a93a6;text-align:center;padding:18px 6px}
+.tr-item,.tr-offer{color:#d6ddec;margin-bottom:10px}
+.tr-item b,.tr-offer b{color:#f0ead9}
+.tr-people{display:flex;flex-direction:column;gap:8px}
+.tr-person{display:flex;align-items:center;gap:8px;padding:9px 11px;background:#1c2130;border:1px solid #2c3444;border-radius:8px;color:#e9e3ff;cursor:pointer;font-size:14px;text-align:left}
+.tr-person:hover{background:#26314a;border-color:#4a5a80}
+.tr-person .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.tr-offer-item{font-size:16px;color:#f0ead9;background:#1c2130;border:1px solid #2c3444;border-radius:8px;padding:11px 12px;margin-bottom:14px}
+.tr-offer-item em{color:#8a93a6;font-style:normal;font-size:12px}
+.tr-actions{display:flex;gap:10px}
+.tr-accept,.tr-decline{flex:1;padding:10px;border-radius:8px;cursor:pointer;font-weight:700;border:1px solid}
+.tr-accept{background:linear-gradient(180deg,#2f6f43,#245536);border-color:#3a7a4c;color:#eafff0}
+.tr-accept:hover{filter:brightness(1.12)}
+.tr-decline{background:#2a2130;border-color:#4a3a4a;color:#e6cfd6}
+.tr-decline:hover{filter:brightness(1.12)}

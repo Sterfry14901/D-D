@@ -216,6 +216,7 @@ function sendPartyStatus() {
     level: cs ? Math.max(1, Math.min(20, Number(cs.level) || 1)) : 1,
   });
   syncLinkedToken();
+  pushSheet();
 }
 socket.on('party:list', (list) => {
   const box = $('party-status'); if (!box) return;
@@ -229,6 +230,113 @@ socket.on('party:list', (list) => {
       <div class="pm-hp">${p.maxhp > 0 ? `${p.hp} / ${p.maxhp} HP` : 'no HP set'}</div>
     </div>`;
   }).join('');
+});
+
+/* ============ DM PARTY-SHEETS VIEWER (read-only oversight) ============ */
+// The DM receives a sanitized snapshot of every player's sheet so no one can
+// quietly add items — gear has to be bought, earned, or traded.
+let allSheets = [];
+socket.on('sheets:update', (list) => {
+  allSheets = Array.isArray(list) ? list : [];
+  const btn = $('party-sheets-btn'); if (btn) btn.style.display = me.isGm ? '' : 'none';
+  if ($('party-sheets-modal') && $('party-sheets-modal').style.display === 'flex') renderPartySheets();
+});
+function coinLine(c) {
+  c = c || {};
+  const parts = [];
+  if (c.pp) parts.push(`${c.pp} pp`); if (c.gp) parts.push(`${c.gp} gp`);
+  if (c.ep) parts.push(`${c.ep} ep`); if (c.sp) parts.push(`${c.sp} sp`);
+  if (c.cp) parts.push(`${c.cp} cp`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+function renderPartySheets() {
+  const box = $('party-sheets-body'); if (!box) return;
+  if (!allSheets.length) { box.innerHTML = '<div class="ps-empty">No player sheets shared yet. Players appear here as soon as they open their sheet.</div>'; return; }
+  const sorted = allSheets.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  box.innerHTML = sorted.map((s) => {
+    const gw = (s.gear || []).reduce((t, g) => t + (Number(g.wt) || 0) * (Number(g.qty) || 1), 0);
+    const gear = (s.gear || []).length
+      ? `<ul class="ps-gear">${s.gear.map((g) => `<li>${g.on ? '🟢' : '⚪'} ${escapeHtml(g.name)}${g.qty > 1 ? ` ×${g.qty}` : ''} <em>${Math.round((Number(g.wt) || 0) * 10) / 10} lb</em></li>`).join('')}</ul>`
+      : '<div class="ps-gear-empty">No tracked gear.</div>';
+    const age = s.updated ? Math.max(0, Math.round((Date.now() - s.updated) / 1000)) : null;
+    const freshness = age == null ? '' : age < 90 ? '🟢 live' : age < 600 ? '🟡 recent' : '⚪ stale';
+    return `<div class="ps-card">
+      <div class="ps-head">
+        <span class="ps-name">${escapeHtml(s.name || 'Adventurer')}</span>
+        <span class="ps-sub">${escapeHtml(s.cls || '—')} · Lv ${s.level || 1}</span>
+      </div>
+      <div class="ps-owner">controlled by <b>${escapeHtml(s.owner || '—')}</b> <span class="ps-fresh">${freshness}</span></div>
+      <div class="ps-stats">
+        <span>❤️ ${s.hp}/${s.maxhp}</span><span>🛡️ ${s.ac || '—'}</span>
+        <span>⭐ ${s.xp || 0} XP</span><span>⚖️ ${Math.round(gw * 10) / 10} lb</span>
+      </div>
+      <div class="ps-coins">💰 ${coinLine(s.coins)}</div>
+      <div class="ps-gear-title">Inventory (${(s.gear || []).length})</div>
+      ${gear}
+    </div>`;
+  }).join('');
+}
+function openPartySheets() {
+  const m = $('party-sheets-modal'); if (!m) return;
+  renderPartySheets();
+  m.style.display = 'flex';
+}
+function closePartySheets() { const m = $('party-sheets-modal'); if (m) m.style.display = 'none'; }
+
+/* ============ PLAYER-TO-PLAYER TRADING ============ */
+function closeTrade() { const m = $('trade-modal'); if (m) m.style.display = 'none'; }
+// Step 1: I pick who to give one of my items to.
+function openTradeGive(i) {
+  const g = (cs.gear || [])[i]; if (!g) return;
+  const others = (roomPlayers || []).filter((p) => p.id && p.id !== me.id);
+  const m = $('trade-modal'), body = $('trade-body'), title = $('trade-title'); if (!m || !body) return;
+  title.textContent = '🤝 Trade an item';
+  if (!others.length) { body.innerHTML = '<div class="tr-empty">No one else is at the table to trade with.</div>'; m.style.display = 'flex'; return; }
+  const item = { name: g.n, wt: gearInfo(g).w, qty: Number(g.q) || 1 };
+  body.innerHTML = `<div class="tr-item">Give <b>${escapeHtml(g.n)}</b> to:</div>
+    <div class="tr-people">${others.map((p) => `<button class="tr-person" data-to="${p.id}"><span class="dot" style="background:${p.color}"></span>${escapeHtml(p.name)}${p.isGm ? ' (GM)' : ''}</button>`).join('')}</div>`;
+  body.querySelectorAll('.tr-person').forEach((btn) => {
+    btn.onclick = () => {
+      socket.emit('trade:offer', { toId: btn.dataset.to, item });
+      closeTrade();
+    };
+  });
+  m.style.display = 'flex';
+}
+// Step 2 (receiver): an offer arrives — accept or decline.
+socket.on('trade:incoming', ({ offerId, fromName, item } = {}) => {
+  if (!item) return;
+  const m = $('trade-modal'), body = $('trade-body'), title = $('trade-title'); if (!m || !body) return;
+  title.textContent = '🤝 Trade offer';
+  const wt = Number(item.wt) || 0;
+  body.innerHTML = `<div class="tr-offer"><b>${escapeHtml(fromName || 'A player')}</b> offers you:</div>
+    <div class="tr-offer-item">🎁 ${escapeHtml(item.name)} <em>${Math.round(wt * 10) / 10} lb</em></div>
+    <div class="tr-actions">
+      <button class="tr-accept" id="tr-accept">✅ Accept</button>
+      <button class="tr-decline" id="tr-decline">✖ Decline</button>
+    </div>`;
+  $('tr-accept').onclick = () => { socket.emit('trade:respond', { offerId, accept: true }); closeTrade(); };
+  $('tr-decline').onclick = () => { socket.emit('trade:respond', { offerId, accept: false }); closeTrade(); };
+  m.style.display = 'flex';
+  try { if (window.flashHint) flashHint('🤝 Trade offer from ' + (fromName || 'a player')); } catch {}
+});
+// Sender: the offer was accepted → hand the item over (remove from my sheet).
+socket.on('trade:take', ({ item, toName } = {}) => {
+  if (!item) return;
+  const idx = (cs.gear || []).findIndex((g) => String(g.n) === String(item.name));
+  if (idx >= 0) { cs.gear.splice(idx, 1); csRenderGear(); saveCS(); }
+  try { if (window.flashHint) flashHint('🤝 You gave ' + item.name + ' to ' + (toName || 'them')); } catch {}
+});
+// Receiver: the offer was accepted → the item lands on my sheet.
+socket.on('trade:give', ({ item, fromName } = {}) => {
+  if (!item) return;
+  cs.gear = cs.gear || [];
+  cs.gear.push({ n: String(item.name), on: false, w: Number(item.wt) || 0 });
+  csRenderGear(); saveCS();
+  try { if (window.flashHint) flashHint('🎁 ' + (fromName || 'A player') + ' gave you ' + item.name); } catch {}
+});
+socket.on('trade:declined', ({ toName, item } = {}) => {
+  try { if (window.flashHint) flashHint('✖ ' + (toName || 'They') + ' declined ' + (item ? item.name : 'the trade')); } catch {}
 });
 
 /* ============ SHARED CAMPAIGN JOURNAL ============ */
@@ -2155,6 +2263,11 @@ function applyPartyHeal(amt, full) {
 if ($('party-dmg')) $('party-dmg').onclick = () => { const n = parseInt(prompt('Damage to the whole party:', '5'), 10); if (n > 0) applyPartyDamage(n); };
 if ($('party-heal')) $('party-heal').onclick = () => { const n = parseInt(prompt('Heal the whole party by:', '5'), 10); if (n > 0) applyPartyHeal(n, false); };
 if ($('party-full')) $('party-full').onclick = () => { if (confirm('Restore every player to full HP?')) applyPartyHeal(0, true); };
+if ($('party-sheets-btn')) $('party-sheets-btn').onclick = () => openPartySheets();
+if ($('party-sheets-close')) $('party-sheets-close').onclick = () => closePartySheets();
+if ($('party-sheets-modal')) $('party-sheets-modal').addEventListener('click', (e) => { if (e.target === $('party-sheets-modal')) closePartySheets(); });
+if ($('trade-close')) $('trade-close').onclick = () => closeTrade();
+if ($('trade-modal')) $('trade-modal').addEventListener('click', (e) => { if (e.target === $('trade-modal')) closeTrade(); });
 
 /* ===== Saved encounters — capture the current monsters and re-drop them later ===== */
 function monsterTokens() {
@@ -2543,7 +2656,24 @@ function loadCS() {
   }
   if (csBuilt) { csPopulate(); csRecompute(); csRenderAttacks(); }
 }
-function saveCS() { try { localStorage.setItem(csKey(), JSON.stringify(cs)); } catch {} }
+function saveCS() { try { localStorage.setItem(csKey(), JSON.stringify(cs)); } catch {} pushSheetDebounced(); }
+// ---- DM oversight: push a sanitized sheet summary so the GM can see (read-only)
+// exactly what every player is carrying. Keeps the inventory honest — items must be
+// bought, earned, or traded, not fabricated.
+function buildSheetSummary() {
+  const gear = (cs.gear || []).map((g) => ({
+    name: String(g.n || ''), qty: Number(g.q) || 1, wt: gearInfo(g).w, on: !!g.on,
+  })).filter((g) => g.name);
+  return {
+    name: cs.name || me.name, cls: cs.cls || '', level: Number(cs.level) || 1,
+    hp: Number(cs.hp) || 0, maxhp: Number(cs.maxhp) || 0, ac: Number(cs.ac) || 0, xp: Number(cs.xp) || 0,
+    cp: Number(cs.cp) || 0, sp: Number(cs.sp) || 0, ep: Number(cs.ep) || 0, gp: Number(cs.gp) || 0, pp: Number(cs.pp) || 0,
+    gear,
+  };
+}
+let _sheetTimer = null;
+function pushSheet() { if (!socket || !me.room || me.isGm) return; try { socket.emit('sheet:push', buildSheetSummary()); } catch {} }
+function pushSheetDebounced() { if (_sheetTimer) return; _sheetTimer = setTimeout(() => { _sheetTimer = null; pushSheet(); }, 800); }
 function csMod(s) { return Math.floor((Number(s || 10) - 10) / 2); }
 function csProf() { return 2 + Math.floor((Number(cs.level || 1) - 1) / 4); }
 function csFmt(n) { return n >= 0 ? '+' + n : '' + n; }
@@ -2911,6 +3041,7 @@ function csRenderGear() {
     <button class="cs-gear-tog" data-gear-tog="${i}" title="Toggle worn / stowed">${g.on ? '🟢 On' : '⚪ Off'}</button>
     <span class="cs-gear-n">${escG(g.n)} <em style="opacity:.6;font-size:11px">${tags}</em></span>
     <label class="cs-gear-wl" title="Weight in pounds — editable"><input class="cs-gear-w" type="number" step="0.1" min="0" data-gear-w="${i}" value="${inf.w}" /> lb</label>
+    <button class="cs-gear-trade" data-gear-trade="${i}" title="Trade to another player">🤝</button>
     <button class="cs-gear-rm" data-gear-rm="${i}" title="Remove">✕</button>
   </div>`;
   }).join('');
@@ -3242,6 +3373,8 @@ function csOnClick(e) {
     }
     return;
   }
+  const gtr = e.target.closest('[data-gear-trade]');
+  if (gtr) { openTradeGive(Number(gtr.dataset.gearTrade)); return; }
   const gr = e.target.closest('[data-gear-rm]');
   if (gr) { cs.gear.splice(Number(gr.dataset.gearRm), 1); csRenderGear(); saveCS(); return; }
   const rpip = e.target.closest('[data-res-pip]');

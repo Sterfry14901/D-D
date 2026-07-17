@@ -416,6 +416,7 @@
 
         <!-- Party / Players -->
         <div class="tabpane" id="tab-players">
+          <button id="party-sheets-btn" class="party-sheets-btn" style="display:none">👁 View party sheets (DM)</button>
           <div class="party-title">Party HP</div>
           <div id="party-status" class="party-status"></div>
           <div class="party-title">At the table</div>
@@ -580,6 +581,24 @@
   </div>
 
   <!-- Token edit modal -->
+  <div id="party-sheets-modal" class="overlay" style="display:none">
+    <div class="ps-modal-card">
+      <div class="ps-modal-head">
+        <h2>👁 Party sheets — DM oversight</h2>
+        <button id="party-sheets-close" class="ps-close" title="Close">✕</button>
+      </div>
+      <div class="ps-note">Read-only. This is everything each player is carrying — gear should be bought, earned, or traded, never fabricated.</div>
+      <div id="party-sheets-body" class="ps-body"></div>
+    </div>
+  </div>
+
+  <div id="trade-modal" class="overlay" style="display:none">
+    <div class="tr-card">
+      <div class="tr-head"><h2 id="trade-title">🤝 Trade</h2><button id="trade-close" class="ps-close" title="Close">✕</button></div>
+      <div id="trade-body" class="tr-bodywrap"></div>
+    </div>
+  </div>
+
   <div id="token-modal" class="overlay hidden">
     <div class="join-card">
       <h2>Edit token</h2>
