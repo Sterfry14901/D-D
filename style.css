@@ -971,3 +971,16 @@ body.sheet-only #me-plate { display: none !important; }
 #cs-prepared { display: flex; flex-direction: column; gap: 4px; }
 .cs-prep-item { display: flex; align-items: center; gap: 6px; }
 .cs-prep-item .cs-cantrip-cast { flex: 1; text-align: left; }
+
+/* ===== Spellcasting stat block ===== */
+.cs-spellrow { display: flex; gap: 8px; }
+.cs-spellstat-box { flex: 1; text-align: center; background: rgba(120,90,200,.14); border: 1px solid rgba(150,120,230,.35); border-radius: 8px; padding: 6px 4px; color: inherit; font-family: inherit; }
+button.cs-spellstat-box { cursor: pointer; transition: background .12s; }
+button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
+.cs-spellstat-n { font-size: 20px; font-weight: 800; line-height: 1; }
+.cs-spellstat-l { font-size: 10px; opacity: .7; margin-top: 3px; text-transform: uppercase; letter-spacing: .3px; }
+
+/* ===== Modals must sit ABOVE the popped-out sheet (sheet page is z-index 200) ===== */
+#lvl-modal.overlay, #sb-modal.overlay, body.sheet-only .overlay { z-index: 400 !important; }
+/* ===== Inventory quick-add datalist row ===== */
+.cs-gear-add input { flex: 1; }

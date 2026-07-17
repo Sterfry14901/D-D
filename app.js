@@ -2226,6 +2226,7 @@ function buildCS() {
     </div>
   </div>
   <div class="cs-grid cs-grid3">
+    <div class="cs-sec" id="cs-spellstat-sec"><div class="cs-sec-t">🔮 Spellcasting</div><div id="cs-spellstat"></div></div>
     <div class="cs-sec cs-cantrip-sec"><div class="cs-sec-t">✨ Cantrips — at-will, click to cast</div><div id="cs-cantrips"></div></div>
     <div class="cs-sec"><div class="cs-sec-t">📖 Prepared Spells — click ✨ to cast (uses a slot)</div>
       <div id="cs-prepared"></div>
@@ -2234,7 +2235,7 @@ function buildCS() {
     <div class="cs-sec"><div class="cs-sec-t">Spell Notes</div><textarea data-cs="spells" placeholder="Extra notes, rituals, prepared list…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Inventory</div>
       <div id="cs-gear" class="cs-gear"></div>
-      <div class="cs-gear-add"><input id="cs-gear-name" placeholder="Add item… (e.g. Shield)" /><button id="cs-gear-addbtn">Add</button></div>
+      <div class="cs-gear-add"><input id="cs-gear-name" placeholder="Add item… type or pick" list="cs-gear-list" /><datalist id="cs-gear-list"></datalist><button id="cs-gear-addbtn">Add</button></div>
       <textarea data-cs="inventory" placeholder="Other equipment, coins, consumables…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
   </div>`);
@@ -2281,9 +2282,33 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
-  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes(); csRenderCantrips(); csRenderPrepared();
+  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes(); csRenderSpellcasting(); csRenderCantrips(); csRenderPrepared();
 }
 /* Prepared / known leveled spells — click to cast (consumes a slot via castSpell). */
+/* Spell save DC + spell attack bonus, auto from casting ability & proficiency. */
+function csRenderSpellcasting() {
+  const box = $('cs-spellstat'); if (!box) return;
+  const sec = $('cs-spellstat-sec');
+  const clsName = String(cs.cls || '').trim();
+  const srd = window.SRD && window.SRD.classes ? window.SRD.classes[clsName] : null;
+  const ct = window.SRD && window.SRD.casterType ? window.SRD.casterType[clsName] : null;
+  const abilName = srd && srd.castAbil ? String(srd.castAbil).split(/[\s(]/)[0].toLowerCase() : '';
+  const KEY = { charisma: 'cha', wisdom: 'wis', intelligence: 'int' };
+  const key = KEY[abilName];
+  if (!ct || !key) { if (sec) sec.style.display = 'none'; return; }
+  if (sec) sec.style.display = '';
+  const lvl = Number(cs.level) || 1;
+  const prof = 2 + Math.floor((lvl - 1) / 4);
+  const am = csMod(cs.scores[key]);
+  const dc = 8 + prof + am;
+  const atk = prof + am;
+  const AB = { cha: 'CHA', wis: 'WIS', int: 'INT' }[key];
+  box.innerHTML =
+    `<div class="cs-spellrow">` +
+    `<div class="cs-spellstat-box"><div class="cs-spellstat-n">${dc}</div><div class="cs-spellstat-l">Spell save DC</div></div>` +
+    `<button class="cs-spellstat-box cs-spellatk" data-spellatk="${atk}" title="Roll a spell attack (d20 ${atk >= 0 ? '+' : ''}${atk})"><div class="cs-spellstat-n">${atk >= 0 ? '+' : ''}${atk}</div><div class="cs-spellstat-l">Spell attack 🎲</div></button>` +
+    `</div><div style="font-size:11px;opacity:.65;margin-top:4px">${AB} caster · proficiency +${prof} · ${AB} mod ${am >= 0 ? '+' : ''}${am}. Enemies roll saves vs DC ${dc}.</div>`;
+}
 function csRenderPrepared() {
   const box = $('cs-prepared'); if (!box) return;
   cs.knownSpells = cs.knownSpells || [];
@@ -2351,9 +2376,32 @@ function gearInfo(g) {
   return { w: g.w !== undefined ? g.w : (d.w !== undefined ? d.w : 1), h: g.h !== undefined ? g.h : (d.h || 0), slot: g.slot || d.slot || null };
 }
 function csCarry() { return Math.max(1, Number(cs.scores.str) || 10) * 15; }   // 5E: STR × 15 lb
+/* Common adventuring gear for the Inventory quick-add dropdown (SRD equipment). */
+const COMMON_ITEMS = [
+  'Shield', 'Torch', 'Rope (50 ft)', 'Rations (1 day)', 'Waterskin', 'Bedroll', 'Backpack',
+  'Tinderbox', 'Lantern (hooded)', 'Oil (flask)', 'Healing Potion', 'Potion of Healing',
+  'Grappling Hook', 'Crowbar', 'Hammer', 'Piton', 'Chain (10 ft)', 'Manacles', 'Lock', 'Bag of 1,000 ball bearings',
+  'Caltrops', 'Thieves’ Tools', 'Healer’s Kit', 'Herbalism Kit', 'Holy Symbol', 'Holy Water (flask)',
+  'Spellbook', 'Component Pouch', 'Arcane Focus', 'Druidic Focus', 'Quiver', 'Arrows (20)', 'Bolts (20)',
+  'Dagger', 'Handaxe', 'Shortsword', 'Longsword', 'Greatsword', 'Greataxe', 'Warhammer', 'Mace', 'Quarterstaff',
+  'Spear', 'Rapier', 'Scimitar', 'Battleaxe', 'Shortbow', 'Longbow', 'Light Crossbow', 'Heavy Crossbow', 'Sling',
+  'Padded Armor', 'Leather Armor', 'Studded Leather', 'Hide Armor', 'Chain Shirt', 'Scale Mail', 'Breastplate',
+  'Half Plate', 'Ring Mail', 'Chain Mail', 'Splint Armor', 'Plate Armor',
+  'Mess Kit', 'Blanket', 'Candle', 'Ink & Quill', 'Parchment', 'Map/Scroll Case', 'Signal Whistle',
+  'Climber’s Kit', 'Disguise Kit', 'Forgery Kit', 'Poisoner’s Kit', 'Ball of String', 'Pole (10 ft)',
+  'Vial', 'Bucket', 'Shovel', 'Whetstone', 'Fishing Tackle', 'Antitoxin', 'Alchemist’s Fire (flask)',
+  'Acid (vial)', 'Hunting Trap', 'Net', 'Playing Cards', 'Dice Set', 'Lute', 'Bagpipes', 'Drum', 'Flute', 'Horn',
+];
+function csFillGearList() {
+  const dl = $('cs-gear-list'); if (!dl) return;
+  const have = (cs.gear || []).map((g) => String(g.n || '').toLowerCase());
+  dl.innerHTML = COMMON_ITEMS.filter((n) => !have.includes(n.toLowerCase()))
+    .map((n) => `<option value="${String(n).replace(/"/g, '&quot;')}"></option>`).join('');
+}
 function csRenderGear() {
   const box = $('cs-gear'); if (!box) return;
   cs.gear = cs.gear || [];
+  csFillGearList();
   const escG = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   let total = 0;
   const rows = cs.gear.map((g, i) => {
@@ -2632,8 +2680,8 @@ function csPopulateDeath() {
 
 function csOnChange(e) {
   const el = e.target;
-  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderCantrips(); csRenderPrepared(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
-  else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderSpellcasting(); csRenderCantrips(); csRenderPrepared(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
+  else if (el.dataset.score !== undefined) { cs.scores[el.dataset.score] = Number(el.value) || 0; if (['int','wis','cha'].includes(el.dataset.score)) csRenderSpellcasting(); }
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
   else if (el.dataset.slotmax !== undefined) {
@@ -2720,6 +2768,16 @@ function csOnClick(e) {
     for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * die); sum += r; rolls.push(r); }
     socket.emit('chat', { text: `✨ ${(cs && cs.name) || me.name} — ${cr.dataset.cantrip} (${n}d${die}): ${sum} (${rolls.join('+')})` });
     flashHint('✨ ' + cr.dataset.cantrip + ': ' + sum);
+    return;
+  }
+  const sa = e.target.closest('[data-spellatk]');
+  if (sa) {
+    const bonus = parseInt(sa.dataset.spellatk, 10) || 0;
+    const d20 = 1 + Math.floor(Math.random() * 20);
+    const total = d20 + bonus;
+    const crit = d20 === 20 ? ' 💥CRIT' : d20 === 1 ? ' 💀nat 1' : '';
+    socket.emit('chat', { text: `🔮 ${(cs && cs.name) || me.name} spell attack: ${total} (d20 ${d20} ${bonus >= 0 ? '+' : ''}${bonus})${crit}` });
+    flashHint('🔮 Spell attack: ' + total + crit);
     return;
   }
   const sn = e.target.closest('[data-sneak]');
@@ -3030,16 +3088,30 @@ function doRest(type) {
     const total = parseInt(cs.hitDiceTotal) || 0;
     const m = (cs.hitDiceTotal || '').match(/d(\d+)/i); const die = m ? parseInt(m[1]) : 8;
     const used = Number(cs.hitDiceUsed) || 0;
-    let msg = 'takes a short rest.';
+    const notes = [];
+    // 1) Spend one Hit Die to heal (SRD: roll die + CON mod), if hurt and dice remain.
     if (total > 0 && used < total && Number(cs.hp) < Number(cs.maxhp)) {
       const conMod = csMod(cs.scores.con), roll = 1 + Math.floor(Math.random() * die);
       const heal = Math.max(0, roll + conMod);
       cs.hp = Math.min(Number(cs.maxhp) || 0, (Number(cs.hp) || 0) + heal);
       cs.hitDiceUsed = used + 1;
-      msg = `takes a short rest, spending a hit die (d${die} ${csFmt(conMod)} = ${heal} HP recovered).`;
+      notes.push(`spends a hit die (d${die} ${csFmt(conMod)} = ${heal} HP)`);
+    }
+    // 2) Warlock Pact Magic slots come back on a short rest.
+    const clsName = String(cs.cls || '').trim();
+    const ct = window.SRD && window.SRD.casterType && window.SRD.casterType[clsName];
+    if (ct === 'pact') { for (let l = 1; l <= 9; l++) if (cs.slots[l]) cs.slots[l].used = 0; notes.push('Pact Magic slots restored'); }
+    // 3) Class resources that recharge on a short rest (Second Wind, Action Surge, Ki, Channel Divinity, etc.).
+    cs.resUsed = cs.resUsed || {};
+    if (typeof classResources === 'function') {
+      const lvl = Number(cs.level) || 1, chaMod = csMod(cs.scores.cha);
+      const shortRes = classResources(clsName, lvl, chaMod).filter((r) => r.reset === 'short');
+      let cleared = 0;
+      shortRes.forEach((r) => { if (cs.resUsed[r.id]) { delete cs.resUsed[r.id]; cleared++; } });
+      if (cleared) notes.push(cleared + ' short-rest ability' + (cleared > 1 ? 'ies' : '') + ' recovered');
     }
     csPopulate(); csRecompute(); saveCS(); sendPartyStatus();
-    announce(msg);
+    announce('takes a short rest' + (notes.length ? ' — ' + notes.join(', ') + '.' : '.'));
   }
 }
 
