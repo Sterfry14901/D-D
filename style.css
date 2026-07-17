@@ -901,3 +901,16 @@ button:active:not(:disabled) { transform: translateY(1px); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(217,177,84,0.3); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(217,177,84,0.55); }
+
+/* ===== Gear & equipment tracker ===== */
+.cs-gear { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.cs-gear-item { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.22); border: 1px solid rgba(217,177,84,0.18); border-radius: 6px; padding: 4px 8px; font-size: 13px; }
+.cs-gear-item.on { border-color: rgba(127,191,106,0.6); background: rgba(78,154,68,0.12); }
+.cs-gear-tog { background: none; border: 1px solid rgba(217,177,84,0.3); border-radius: 6px; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 8px; white-space: nowrap; }
+.cs-gear-n { flex: 1; }
+.cs-gear-rm { background: none; border: 0; color: #c96a5a; cursor: pointer; font-size: 13px; }
+.cs-gear-add { display: flex; gap: 6px; margin-bottom: 6px; }
+.cs-gear-add input { flex: 1; }
+/* Journal dictation button */
+#journal-rec.on { background: #7a2318; color: #fff; animation: recPulse 1.2s ease-in-out infinite; }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,.5); } 50% { box-shadow: 0 0 0 6px rgba(231,76,60,0); } }

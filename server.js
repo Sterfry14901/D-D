@@ -550,6 +550,15 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, '🎉 The DM declares a milestone — the party levels up!');
     io.to(joinedRoom).emit('milestone');
   });
+  // GM gives an item to a named player's sheet.
+  socket.on('item:give', ({ to, item }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !item || !String(item).trim()) return;
+    const target = Object.values(room.players).find((p) => p.name.toLowerCase() === String(to || '').trim().toLowerCase());
+    if (!target) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `No player named "${to}" at the table.`, ts: Date.now() }); return; }
+    const clean = String(item).slice(0, 60);
+    io.to(target.id).emit('item:give', { item: clean });
+    pushSystem(joinedRoom, `🎁 The DM gives ${target.name}: ${clean}`);
+  });
   // GM XP award: every character at the table gains XP.
   socket.on('xp:award', (data) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

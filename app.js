@@ -223,6 +223,33 @@ socket.on('notes:set', (text) => applyNotes(text));
 document.addEventListener('DOMContentLoaded', initJournal);
 if (document.readyState !== 'loading') initJournal();
 
+/* Voice dictation into the journal (Web Speech API — Chrome/Edge). */
+(function () {
+  const btn = $('journal-rec'); if (!btn) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { btn.title = 'Voice dictation needs Chrome or Edge.'; btn.style.opacity = '.5'; }
+  let rec = null, recOn = false;
+  btn.onclick = () => {
+    if (!SR) { alert('Voice dictation is not supported in this browser — try Chrome or Edge.'); return; }
+    if (recOn) { rec.stop(); return; }
+    rec = new SR();
+    rec.continuous = true; rec.interimResults = false; rec.lang = 'en-US';
+    rec.onresult = (e) => {
+      const ta = $('journal-text'); if (!ta) return;
+      let text = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      if (!text.trim()) return;
+      const sep = ta.value && !/\s$/.test(ta.value) ? ' ' : '';
+      ta.value += sep + text.trim();
+      ta.dispatchEvent(new Event('input', { bubbles: true }));   // reuse the normal sync/save path
+    };
+    rec.onstart = () => { recOn = true; btn.textContent = '⏺ Recording…'; btn.classList.add('on'); flashHint('🎤 Dictating into the journal — click again to stop'); };
+    rec.onend = () => { recOn = false; btn.textContent = '🎤 Rec'; btn.classList.remove('on'); };
+    rec.onerror = (e) => { recOn = false; btn.textContent = '🎤 Rec'; btn.classList.remove('on'); if (e.error === 'not-allowed') alert('Microphone access denied.'); };
+    rec.start();
+  };
+})();
+
 /* ============ INITIAL STATE ============ */
 socket.on('state', (s) => {
   me.id = s.youId;
@@ -1710,7 +1737,7 @@ function csDefault() {
   return { name:'', pronouns:'', race:'', cls:'', level:1, xp:0, background:'', inspiration:false,
     ac:10, speed:30, hp:10, maxhp:10, temphp:0,
     scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
-    saves:{}, skills:{}, attacks:[], conditions:[], notes:'',
+    saves:{}, skills:{}, attacks:[], gear:[], conditions:[], notes:'',
     resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'',
     slots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
     deathSucc:0, deathFail:0, hitDiceTotal:'', hitDiceUsed:0, cp:0, sp:0, ep:0, gp:0, pp:0 };
@@ -1860,7 +1887,10 @@ function buildCS() {
   </div>
   <div class="cs-grid cs-grid3">
     <div class="cs-sec"><div class="cs-sec-t">Spells</div><textarea data-cs="spells" placeholder="Spell slots, prepared spells, cantrips…"></textarea></div>
-    <div class="cs-sec"><div class="cs-sec-t">Inventory</div><textarea data-cs="inventory" placeholder="Equipment, coins, consumables…"></textarea></div>
+    <div class="cs-sec"><div class="cs-sec-t">Inventory</div>
+      <div id="cs-gear" class="cs-gear"></div>
+      <div class="cs-gear-add"><input id="cs-gear-name" placeholder="Add item… (e.g. Shield)" /><button id="cs-gear-addbtn">Add</button></div>
+      <textarea data-cs="inventory" placeholder="Other equipment, coins, consumables…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
   </div>`);
   const deathPips = (t) => [0,1,2].map((i) => `<button class="cs-dpip ${t}" data-death="${t}:${i}"></button>`).join('');
@@ -1904,7 +1934,17 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
-  csRenderSlots(); csPopulateDeath();
+  csRenderSlots(); csPopulateDeath(); csRenderGear();
+}
+function csRenderGear() {
+  const box = $('cs-gear'); if (!box) return;
+  cs.gear = cs.gear || [];
+  const escG = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  box.innerHTML = cs.gear.length ? cs.gear.map((g, i) => `<div class="cs-gear-item ${g.on ? 'on' : ''}">
+    <button class="cs-gear-tog" data-gear-tog="${i}" title="Toggle worn / stowed">${g.on ? '🟢 On' : '⚪ Off'}</button>
+    <span class="cs-gear-n">${escG(g.n)}</span>
+    <button class="cs-gear-rm" data-gear-rm="${i}" title="Remove">✕</button>
+  </div>`).join('') : '<div style="font-size:12px;opacity:.65;padding:2px 0">No tracked gear — add items below, toggle On when equipped.</div>';
 }
 function csRenderSlots() {
   const box = $('cs-slots'); if (!box) return;
@@ -1970,6 +2010,17 @@ function csOnClick(e) {
     cs.attacks.push({ name: nm, bonus: Number($('cs-atk-bonus').value) || 0, dmg: $('cs-atk-dmg').value.trim() });
     $('cs-atk-name').value = ''; $('cs-atk-bonus').value = ''; $('cs-atk-dmg').value = '';
     csRenderAttacks(); saveCS(); return;
+  }
+  const gt = e.target.closest('[data-gear-tog]');
+  if (gt) { const g = cs.gear[Number(gt.dataset.gearTog)]; if (g) { g.on = !g.on; csRenderGear(); saveCS(); } return; }
+  const gr = e.target.closest('[data-gear-rm]');
+  if (gr) { cs.gear.splice(Number(gr.dataset.gearRm), 1); csRenderGear(); saveCS(); return; }
+  if (e.target.id === 'cs-gear-addbtn') {
+    const nm = $('cs-gear-name').value.trim(); if (!nm) return;
+    cs.gear = cs.gear || [];
+    cs.gear.push({ n: nm.slice(0, 60), on: false });
+    $('cs-gear-name').value = '';
+    csRenderGear(); saveCS(); return;
   }
 }
 
@@ -2052,6 +2103,20 @@ if ($('xp-award-btn')) $('xp-award-btn').onclick = () => {
   const amt = parseInt(prompt('Award how much XP to each party member?', '300'), 10);
   if (amt > 0) socket.emit('xp:award', { amount: amt });
 };
+/* DM gives an item straight onto a player's sheet (Inventory gear list). */
+if ($('item-give-btn')) $('item-give-btn').onclick = () => {
+  if (!me.isGm) return;
+  const to = prompt('Give an item to which player? (name)'); if (!to || !to.trim()) return;
+  const item = prompt('What item? (e.g. Potion of Healing)'); if (!item || !item.trim()) return;
+  socket.emit('item:give', { to: to.trim(), item: item.trim() });
+};
+socket.on('item:give', ({ item }) => {
+  if (!cs || !item) return;
+  cs.gear = cs.gear || [];
+  cs.gear.push({ n: String(item).slice(0, 60), on: false });
+  saveCS(); if (csBuilt) csRenderGear();
+  flashHint('🎁 You received: ' + item);
+});
 socket.on('xp:award', ({ amount }) => {
   if (!cs || (!cs.name && !cs.cls)) return;               // spectators without a character skip
   cs.xp = (Number(cs.xp) || 0) + (Number(amount) || 0);
