@@ -621,11 +621,17 @@ function renderWorld() {
   // vendors
   const vendors = (here.vendors || []).map((v) => `<button class="world-vendor" data-vendor="${v.id}"><span class="wv-name">${escapeHtml(v.name)}</span><span class="wv-type">${VTYPE_LABEL[v.type] || v.type}${v.open ? '' : ' · closed'}</span></button>`).join('');
   // travel options
+  const tp = (worldState.party && worldState.party.transport) || { horse: false, wagon: false, boat: false };
+  const owns = (m) => m === 'walk' || !!tp[m];
   const routes = (here.links || []).map((l) => {
     const dest = worldState.cities[l.to]; if (!dest) return '';
-    const modes = Object.keys(l.modes || {}).map((m) => `<button class="world-mode" data-to="${l.to}" data-mode="${m}">${MODE_LABEL[m] || m} · ${l.modes[m]}h</button>`).join('');
+    const modes = Object.keys(l.modes || {}).map((m) => {
+      const locked = !owns(m);
+      return `<button class="world-mode${locked ? ' locked' : ''}" data-to="${l.to}" data-mode="${m}"${locked ? ' title="Your party doesn\'t have this yet"' : ''}>${locked ? '🔒 ' : ''}${MODE_LABEL[m] || m} · ${l.modes[m]}h</button>`;
+    }).join('');
     return `<div class="world-route"><div class="wr-dest">${escapeHtml(dest.name)} <span class="wr-kind">${dest.kind || ''}</span></div><div class="wr-modes">${modes}</div></div>`;
   }).join('');
+  const transportLine = `<div class="world-transport">🐴 Horses ${tp.horse ? '✅' : '❌'} · 🛒 Wagon ${tp.wagon ? '✅' : '❌'} · ⛵ Ship ${tp.boat ? '✅' : '❌'}</div>`;
   // active travel vote
   let voteHtml = '';
   if (worldState.vote) {
@@ -649,12 +655,14 @@ function renderWorld() {
     <div class="world-vendors">${vendors || '<div class="world-empty">No vendors here.</div>'}</div>
     ${voteHtml}
     <div class="world-sec-t">Travel${me.isGm ? '' : ' — propose a destination (DM confirms)'}</div>
+    ${transportLine}
     <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>
     <button id="world-rest" class="world-rest">🌙 Rest here (long rest · +8h)</button>`;
   box.querySelectorAll('[data-vendor]').forEach((b) => { b.onclick = () => { const v = findVendorLocal(here.id, b.dataset.vendor); if (v) openVendor(here.id, v); }; });
   box.querySelectorAll('.world-mode').forEach((b) => {
     b.onclick = () => {
       const to = b.dataset.to, mode = b.dataset.mode;
+      if (!owns(mode)) { flashHint('🔒 The party needs ' + ({ horse: 'horses', wagon: 'a wagon', boat: 'a ship' }[mode] || 'transport') + ' first — ask the DM.'); return; }
       if (me.isGm) socket.emit('world:travel', { to, mode });
       else { socket.emit('world:propose', { to, mode }); flashHint('🗳️ Proposed — the party can vote.'); }
     };
@@ -695,6 +703,10 @@ function renderWorldBuilder(box, here) {
     <div class="wb-manage">
       ${(here.links || []).map((l) => `<span class="wb-chip">→ ${escapeHtml((worldState.cities[l.to] || {}).name || l.to)} <button data-lrm="${l.to}" title="Remove route">✕</button></span>`).join('') || '<span class="wb-none">no routes</span>'}
     </div>
+    <div class="wb-t">Party transport (grant as they buy/earn it)</div>
+    <div class="wb-row wb-transport">
+      ${['horse', 'wagon', 'boat'].map((k) => { const on = !!((worldState.party.transport || {})[k]); return `<button class="wb-tp${on ? ' on' : ''}" data-tp="${k}">${{ horse: '🐴 Horses', wagon: '🛒 Wagon', boat: '⛵ Ship' }[k]} ${on ? '✅' : '❌'}</button>`; }).join('')}
+    </div>
     <div class="wb-t">Travel encounters</div>
     <div class="wb-row"><label style="flex:1;color:#9aa6bd;font-size:12px">Chance <b>${worldState.encounterChance != null ? worldState.encounterChance : 35}%</b><input id="wb-enc-chance" type="range" min="0" max="100" step="5" value="${worldState.encounterChance != null ? worldState.encounterChance : 35}" style="width:100%"></label></div>
     <div class="wb-row"><button id="wb-enc-now">🎲 Roll a road encounter now</button><button id="wb-enc-sea">⛵ Sea encounter</button></div>
@@ -711,6 +723,7 @@ function renderWorldBuilder(box, here) {
   const chance = wrap.querySelector('#wb-enc-chance'); if (chance) chance.onchange = () => socket.emit('world:travelConfig', { chance: Number(chance.value) || 0 });
   const encNow = wrap.querySelector('#wb-enc-now'); if (encNow) encNow.onclick = () => socket.emit('world:encounterNow', { mode: 'walk' });
   const encSea = wrap.querySelector('#wb-enc-sea'); if (encSea) encSea.onclick = () => socket.emit('world:encounterNow', { mode: 'boat' });
+  wrap.querySelectorAll('[data-tp]').forEach((b) => { b.onclick = () => { const k = b.dataset.tp; const cur = !!((worldState.party.transport || {})[k]); socket.emit('world:grantTransport', { kind: k, val: !cur }); }; });
 }
 
 /* ---- Vendor shop (location-bound) ---- */

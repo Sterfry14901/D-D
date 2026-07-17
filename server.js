@@ -56,7 +56,7 @@ let _vid = 0;
 function mkVendor(name, type) { return { id: 'v' + (++_vid), name, type, items: [], open: true }; }
 function buildStarterWorld() {
   return {
-    party: { at: 'havenbrook' },
+    party: { at: 'havenbrook', transport: { horse: false, wagon: false, boat: false } },
     vote: null,   // {to, mode, byName, yes:[socketIds], no:[socketIds]}
     clock: { day: 1, hour: 8 },   // in-world time; travel advances it
     encounterChance: 35,          // % chance of a random encounter per journey
@@ -897,6 +897,12 @@ io.on('connection', (socket) => {
     if (!here || !dest) return;
     const link = (here.links || []).find((l) => l.to === to);
     if (!link || !link.modes[mode]) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ No ${mode} route from ${here.name} to ${dest ? dest.name : to}.`, ts: Date.now() }); return; }
+    // mounts/vehicles must be owned; foot is always free
+    w.party.transport = w.party.transport || { horse: false, wagon: false, boat: false };
+    if (mode !== 'walk' && !w.party.transport[mode]) {
+      const need = { horse: 'horses', wagon: 'a wagon', boat: 'a ship or passage' }[mode] || 'transport';
+      io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ The party has no ${need} — acquire ${need} before traveling ${MODE_LABEL[mode] || 'that way'}.`, ts: Date.now() }); return;
+    }
     const hours = link.modes[mode];
     w.party.at = to; w.vote = null;
     // advance the in-world clock
@@ -913,6 +919,16 @@ io.on('connection', (socket) => {
       pushSystem(joinedRoom, `⚔️ On the journey — ${enc}`);
       for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode });
     }
+  });
+  // DM grants (or revokes) the party's mounts and vehicles as they buy/earn them.
+  socket.on('world:grantTransport', ({ kind, val } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const KINDS = ['horse', 'wagon', 'boat']; if (!KINDS.includes(kind)) return;
+    const w = room.world; w.party.transport = w.party.transport || { horse: false, wagon: false, boat: false };
+    w.party.transport[kind] = !!val;
+    markDirty(); broadcastWorld(joinedRoom);
+    const label = { horse: '🐴 horses', wagon: '🛒 a wagon', boat: '⛵ a ship' }[kind];
+    pushSystem(joinedRoom, val ? `The party acquires ${label}!` : `The party no longer has ${label}.`);
   });
   // DM tunes how often journeys are interrupted, or forces an encounter now.
   socket.on('world:travelConfig', ({ chance } = {}) => {
