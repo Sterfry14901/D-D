@@ -1030,3 +1030,9 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .qpick-card.added { background: rgba(90,180,90,.18); border-color: rgba(120,200,120,.5); }
 .qpick-t { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
 .qpick-d { font-size: 12px; opacity: .78; line-height: 1.35; }
+
+/* ===== DM AI backend badge ===== */
+.ai-badge { font-weight: 600; }
+.ai-badge.ai-local { background: rgba(90,180,90,.22); border-color: rgba(120,200,120,.55); color: #d7f5d7; }
+.ai-badge.ai-openai { background: rgba(90,130,220,.2); border-color: rgba(120,150,230,.5); color: #dbe6ff; }
+.ai-badge.ai-off { background: rgba(200,140,50,.2); border-color: rgba(220,160,70,.55); color: #ffe6c2; }

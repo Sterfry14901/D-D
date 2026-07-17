@@ -532,6 +532,20 @@ function addRollHistory(m) {
 socket.on('chat', addChat);
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
 
+/* ============ DM AI BADGE — shows which brain the DM is using (from /ai-status) ============ */
+async function refreshAiBadge() {
+  const el = $('ai-badge'); if (!el) return;
+  try {
+    const r = await fetch('/ai-status?' + Date.now());
+    const s = await r.json();
+    const local = /local|self-hosted/i.test(s.backend || '');
+    if (!s.ready) { el.textContent = '⚠️ DM AI: none'; el.className = 'ghost ai-badge ai-off'; el.title = 'No AI configured — the DM is a stub. ' + (s.note || ''); return; }
+    if (local) { el.textContent = '🧠 DM: Local (' + (s.model || 'model') + ')'; el.className = 'ghost ai-badge ai-local'; el.title = 'Running on your self-hosted / Ollama model — no billing. Host: ' + (s.baseUrlHost || '?'); }
+    else { el.textContent = '🧠 DM: OpenAI (' + (s.model || 'model') + ')'; el.className = 'ghost ai-badge ai-openai'; el.title = 'Running on OpenAI. Point OPENAI_BASE_URL at Ollama to go local/free.'; }
+  } catch (e) { el.textContent = '🧠 DM AI: ?'; el.className = 'ghost ai-badge'; el.title = 'Could not read AI status.'; }
+}
+if ($('ai-badge')) { $('ai-badge').onclick = refreshAiBadge; refreshAiBadge(); }
+
 /* ============ AI DM VOICE — text-to-speech so the DM & NPCs speak aloud ============ */
 let ttsOn = false;
 const SYNTH = ('speechSynthesis' in window) ? window.speechSynthesis : null;
