@@ -1064,3 +1064,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
   background: linear-gradient(180deg,#3a1a12,#241009); border: 1px solid #c9553f;
   box-shadow: 0 12px 34px rgba(0,0,0,.55); color: #ffe6df; max-width: 92vw; }
 .dm-alert.show { display: flex; }
+
+/* ===== DM party-wide damage/heal row ===== */
+.party-actions { align-items: center; gap: 6px; flex-wrap: wrap; }
+.party-actions-l { font-size: 12px; opacity: .8; margin-right: 2px; }

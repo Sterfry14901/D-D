@@ -2092,6 +2092,35 @@ $('init-add-btn').onclick = () => {
 $('init-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('init-add-btn').click(); });
 $('init-sort').onclick = () => socket.emit('init:sort');
 $('init-next').onclick = () => socket.emit('init:turn', 'next');
+
+/* ===== DM party-wide damage / heal — applies to every player-owned token ===== */
+function partyTokens() {
+  const gmNames = new Set((roomPlayers || []).filter((p) => p.isGm).map((p) => p.name));
+  return Object.values(tokenEls).map((e) => e && e._token).filter((t) =>
+    t && t.owner && !gmNames.has(t.owner) && Number(t.maxhp) > 0);
+}
+function applyPartyDamage(amt) {
+  const list = partyTokens(); if (!list.length) { flashHint('No player tokens to hit — make sure players placed their tokens.'); return; }
+  list.forEach((t) => {
+    const temp = Number(t.temphp) || 0, absorbed = Math.min(temp, amt);
+    socket.emit('token:update', { id: t.id, temphp: temp - absorbed, hp: Math.max(0, (Number(t.hp) || 0) - (amt - absorbed)) });
+  });
+  socket.emit('chat', { text: `💥 The whole party takes ${amt} damage!` });
+  flashHint(`💥 ${amt} damage to ${list.length} player${list.length > 1 ? 's' : ''}`);
+}
+function applyPartyHeal(amt, full) {
+  const list = partyTokens(); if (!list.length) { flashHint('No player tokens to heal.'); return; }
+  list.forEach((t) => {
+    const mx = Number(t.maxhp) || 0;
+    const hp = full ? mx : Math.min(mx, (Number(t.hp) || 0) + amt);
+    socket.emit('token:update', { id: t.id, hp });
+  });
+  socket.emit('chat', { text: full ? `🌙 The party is restored to full health.` : `💚 The whole party heals ${amt} HP.` });
+  flashHint(full ? '🌙 Party fully healed' : `💚 +${amt} to ${list.length} player${list.length > 1 ? 's' : ''}`);
+}
+if ($('party-dmg')) $('party-dmg').onclick = () => { const n = parseInt(prompt('Damage to the whole party:', '5'), 10); if (n > 0) applyPartyDamage(n); };
+if ($('party-heal')) $('party-heal').onclick = () => { const n = parseInt(prompt('Heal the whole party by:', '5'), 10); if (n > 0) applyPartyHeal(n, false); };
+if ($('party-full')) $('party-full').onclick = () => { if (confirm('Restore every player to full HP?')) applyPartyHeal(0, true); };
 $('init-prev').onclick = () => socket.emit('init:turn', 'prev');
 $('init-clear').onclick = () => socket.emit('init:clear');
 let combat = { list: [], turnIndex: 0, round: 1, turnStart: Date.now(), _key: '' };
