@@ -1494,6 +1494,12 @@ function renderInit(list, turnIndex, round) {
     if (wasInit && me.isGm && list.length && list[turnIndex]) {
       socket.emit('chat', { text: `▶ ${list[turnIndex].name}'s turn — Round ${round || 1}` });
     }
+    // Chime + flash when it becomes YOUR turn.
+    const active = list.length ? list[turnIndex] : null;
+    if (wasInit && active && (active.name === me.name || (cs && cs.name && active.name === cs.name))) {
+      turnChime();
+      flashHint("⚔️ It's your turn!");
+    }
   }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
@@ -1537,6 +1543,43 @@ if ($('timer-add')) $('timer-add').onclick = () => {
 };
 if ($('timer-rounds')) $('timer-rounds').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('timer-add').click(); });
 loadTimers(); renderTimers();
+
+/* Short two-note chime for turn alerts. */
+let _chimeCtx = null;
+function turnChime() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    _chimeCtx = _chimeCtx || new AC();
+    if (_chimeCtx.state === 'suspended') _chimeCtx.resume();
+    const t0 = _chimeCtx.currentTime;
+    [[880, 0], [1174.7, 0.12]].forEach(([f, dt]) => {
+      const o = _chimeCtx.createOscillator(), g = _chimeCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + dt);
+      g.gain.exponentialRampToValueAtTime(0.12, t0 + dt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.35);
+      o.connect(g); g.connect(_chimeCtx.destination);
+      o.start(t0 + dt); o.stop(t0 + dt + 0.4);
+    });
+  } catch {}
+}
+
+/* Cast a spell from the library: consumes the lowest available slot ≥ its level. */
+window.castSpell = function (name, level) {
+  const who = (cs && cs.name) || me.name || 'Someone';
+  if (!level) { socket.emit('chat', { text: `✨ ${who} casts ${name} (cantrip).` }); flashHint('✨ ' + name + ' cast'); return; }
+  if (!cs) return;
+  cs.slots = cs.slots || {};
+  let use = 0;
+  for (let l = level; l <= 9; l++) { const s = cs.slots[l]; if (s && s.max > 0 && s.used < s.max) { use = l; break; } }
+  if (!use) { flashHint(`❌ No level-${level}+ spell slots left — take a rest!`); return; }
+  cs.slots[use].used++;
+  saveCS(); if (csBuilt) csRenderSlots();
+  const left = cs.slots[use].max - cs.slots[use].used;
+  const upcast = use > level ? ` (upcast with a level-${use} slot)` : '';
+  socket.emit('chat', { text: `✨ ${who} casts ${name}${upcast} — level ${use} slot used, ${left} left.` });
+  flashHint(`✨ ${name} — slot used (${left} left)`);
+};
 
 function highlightActiveToken() {
   const name = combat.list.length ? combat.list[combat.turnIndex].name : null;

@@ -175,11 +175,12 @@
     box.innerHTML = list.map((s) => {
       const dm = s.x.match(/(\d+)d(\d+)/);
       const rb = dm ? `<button class="sb-roll spell-roll" data-name="${esc(s.n)}" data-n="${dm[1]}" data-die="${dm[2]}" title="Roll ${dm[0]}">🎲 ${dm[0]}</button>` : '';
+      const cb = `<button class="spell-cast" data-cast="${esc(s.n)}" data-lv="${s.l}" title="${s.l === 0 ? 'Cast cantrip (no slot needed)' : 'Cast — uses a spell slot from your sheet'}">✨ Cast</button>`;
       return `
       <div class="spell">
         <div class="spell-h"><span class="spell-n">${esc(s.n)}</span><span class="spell-lv">${esc(lvlName(s.l))} · ${esc(SCHOOL_ABBR[s.s] || s.s)}</span></div>
         <div class="spell-meta">${esc(s.t)} · ${esc(s.r)} · ${esc(s.c)} · ${esc(s.d)}</div>
-        <div class="spell-x">${esc(s.x)} ${rb}</div>
+        <div class="spell-x">${esc(s.x)} ${rb} ${cb}</div>
       </div>`;
     }).join('');
   }
@@ -193,6 +194,8 @@
     q.addEventListener('input', apply);
     const box = document.getElementById('spell-content');
     if (box) box.addEventListener('click', (e) => {
+      const cbtn = e.target.closest && e.target.closest('.spell-cast');
+      if (cbtn) { if (typeof window.castSpell === 'function') window.castSpell(cbtn.dataset.cast, parseInt(cbtn.dataset.lv, 10) || 0); return; }
       const rb = e.target.closest && e.target.closest('.spell-roll'); if (!rb) return;
       const n = parseInt(rb.dataset.n, 10) || 0, die = parseInt(rb.dataset.die, 10) || 0;
       let sum = 0; const rolls = [];
