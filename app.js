@@ -270,7 +270,7 @@ function renderPartySheets() {
         <span>❤️ ${s.hp}/${s.maxhp}</span><span>🛡️ ${s.ac || '—'}</span>
         <span>⭐ ${s.xp || 0} XP</span><span>⚖️ ${Math.round(gw * 10) / 10} lb</span>
       </div>
-      <div class="ps-coins">💰 ${coinLine(s.coins)} <button class="ps-give" data-give="${s.id}" title="Give or take gold">＋ gold</button></div>
+      <div class="ps-coins">💰 ${coinLine(s.coins)} <button class="ps-give" data-give="${s.id}" title="Give or take gold">＋ gold</button> <button class="ps-give ps-hp" data-hp="${s.id}" title="Heal or damage (negative)">❤️ HP</button></div>
       <div class="ps-gear-title">Inventory (${(s.gear || []).length})</div>
       ${gear}
     </div>`;
@@ -283,6 +283,16 @@ function renderPartySheets() {
       if (!amt) return;
       socket.emit('dm:grantCoin', { targetId: b.dataset.give, coin: 'gp', amt });
       flashHint(amt > 0 ? '💰 Gave ' + amt + ' gp' : '💰 Took ' + Math.abs(amt) + ' gp');
+    };
+  });
+  box.querySelectorAll('[data-hp]').forEach((b) => {
+    b.onclick = () => {
+      const raw = prompt('Heal this player (use a negative number for damage):', '5');
+      if (raw === null) return;
+      const amt = Math.floor(Number(raw) || 0);
+      if (!amt) return;
+      socket.emit('dm:hpOne', { targetId: b.dataset.hp, amt });
+      flashHint(amt > 0 ? '❤️ Healed ' + amt : '💥 Dealt ' + Math.abs(amt) + ' damage');
     };
   });
 }
@@ -347,6 +357,18 @@ socket.on('trade:give', ({ item, fromName } = {}) => {
 });
 socket.on('trade:declined', ({ toName, item } = {}) => {
   try { if (window.flashHint) flashHint('✖ ' + (toName || 'They') + ' declined ' + (item ? item.name : 'the trade')); } catch {}
+});
+
+// ---- DM heal/damage applied to my sheet ----
+socket.on('dm:hpApply', ({ amt } = {}) => {
+  const n = Number(amt) || 0; if (!n) return;
+  if (n > 0) { cs.hp = Math.min(Number(cs.maxhp || 0), (Number(cs.hp) || 0) + n); }
+  else {
+    let rem = -n; const t = Number(cs.temphp || 0); const used = Math.min(t, rem);
+    cs.temphp = t - used; rem -= used; cs.hp = Math.max(0, (Number(cs.hp) || 0) - rem);
+  }
+  csPopulate(); saveCS(); sendPartyStatus();
+  try { if (window.flashHint) flashHint(n > 0 ? '❤️ The DM healed you ' + n : '💥 The DM hit you for ' + Math.abs(n)); } catch {}
 });
 
 // ---- Coin trading ----

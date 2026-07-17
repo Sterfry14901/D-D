@@ -806,6 +806,15 @@ io.on('connection', (socket) => {
     io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🏪 Stocked the shop with ${items.length} items. Open it when you're ready to sell.`, ts: Date.now() });
   });
 
+  // ---- DM heals or damages one player's sheet HP straight from the oversight viewer ----
+  socket.on('dm:hpOne', ({ targetId, amt } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const to = room.players[targetId]; if (!to) return;
+    const n = Math.floor(Number(amt) || 0); if (n === 0 || n < -999 || n > 999) return;
+    io.to(targetId).emit('dm:hpApply', { amt: n });
+    pushSystem(joinedRoom, n > 0 ? `❤️ The DM healed ${to.name} for ${n} HP.` : `💥 The DM dealt ${Math.abs(n)} damage to ${to.name}.`);
+  });
+
   // ---- DM grants coins straight to a player (reward or refund) ----
   socket.on('dm:grantCoin', ({ targetId, coin, amt } = {}) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
