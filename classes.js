@@ -274,9 +274,33 @@
     };
   });
   window.SRD.weapons = WEAPONS;
+  // Auto-fill data for the sheet's Senses & Defenses boxes.
+  const SPECIES_SENSES = {
+    Dragonborn: 'Darkvision 60 ft', Dwarf: 'Darkvision 120 ft; Tremorsense on stone (Stonecunning)',
+    Elf: 'Darkvision 60 ft; Keen Senses', Gnome: 'Darkvision 60 ft', Orc: 'Darkvision 120 ft',
+    Tiefling: 'Darkvision 60 ft', 'Half-Elf': 'Darkvision 60 ft', 'Half-Orc': 'Darkvision 60 ft',
+  };
+  const SPECIES_DEFENSES = {
+    Dragonborn: "Resistance to your draconic ancestry's damage type",
+    Dwarf: 'Resistance to poison; advantage on saves vs. Poisoned',
+    Elf: 'Advantage on saves vs. Charmed; magic can’t put you to sleep',
+    Gnome: 'Advantage on INT/WIS/CHA saves vs. magic (Gnomish Cunning)',
+    Halfling: 'Advantage on saves vs. Frightened (Brave)',
+    Orc: 'Relentless Endurance (drop to 1 HP instead of 0, once per Long Rest)',
+    Tiefling: 'Resistance per your Fiendish Legacy (fire / necrotic / poison)',
+    'Half-Elf': 'Advantage on saves vs. Charmed; immune to magical sleep',
+    'Half-Orc': 'Relentless Endurance (drop to 1 HP instead of 0, once per Long Rest)',
+  };
+  const CLASS_DEFENSES = {
+    Barbarian: 'While Raging: resistance to bludgeoning, piercing & slashing damage',
+  };
   SPECIES.forEach((s) => {
-    window.SRD.species[s.n] = { speed: parseInt(s.speed, 10) || 30, size: s.size, traits: s.traits };
+    window.SRD.species[s.n] = {
+      speed: parseInt(s.speed, 10) || 30, size: s.size, traits: s.traits,
+      senses: SPECIES_SENSES[s.n] || '', defenses: SPECIES_DEFENSES[s.n] || '',
+    };
   });
+  window.SRD.classDefenses = CLASS_DEFENSES;
   BACKGROUNDS.forEach((b) => {
     window.SRD.backgrounds[b.n] = {
       skills: String(b.skills).split(/\s*&\s*|\s*,\s*/).map((x) => x.trim()).filter(Boolean),

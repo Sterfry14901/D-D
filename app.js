@@ -113,6 +113,14 @@ function applyOrigin() {
     if (bg) feats += '\n\n' + bgName + ' background — Origin feat: ' + bg.feat + '. Increase ' + bg.abilities + ' (one by 2 & one by 1, or all three by 1).';
     cs.features = feats;
     cs.notes = (cs.notes ? cs.notes + '\n' : '') + 'Class skills — ' + cls.skills;
+    // Senses & Defenses auto-filled from species + class
+    const senseBits = [];
+    if (sp && sp.senses) senseBits.push(sp.senses);
+    cs.senses = senseBits.join('\n');
+    const defBits = [];
+    if (sp && sp.defenses) defBits.push(sp.defenses);
+    if (window.SRD.classDefenses && window.SRD.classDefenses[clsName]) defBits.push(window.SRD.classDefenses[clsName]);
+    cs.resistances = defBits.join('\n');
     // Level-1 spell slots + casting ability for casters (2024 rules)
     if (cls.slots1 > 0) {
       cs.slots[1] = { max: cls.slots1, used: 0 };
