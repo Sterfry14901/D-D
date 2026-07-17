@@ -756,6 +756,20 @@ io.on('connection', (socket) => {
     broadcastShop(joinedRoom);
     pushSystem(joinedRoom, `🛒 ${buyer.name} bought ${it.name} for ${it.price} gp.`);
   });
+  // A player sells an item back to the shop. Coin add + item removal are client-side
+  // (same trust model as buying); the server announces the sale and restocks.
+  socket.on('shop:sell', ({ name } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.shop || !room.shop.open) return;
+    const seller = room.players[socket.id]; if (!seller) return;
+    const nm = String(name || '').trim().toLowerCase(); if (!nm) return;
+    const it = room.shop.items.find((x) => String(x.name).toLowerCase() === nm); if (!it) return;
+    if (it.stock >= 0) it.stock += 1;  // the item goes back on the shelf
+    const sell = Math.floor(Number(it.price) / 2);
+    markDirty();
+    broadcastShop(joinedRoom);
+    pushSystem(joinedRoom, `🪙 ${seller.name} sold ${it.name} for ${sell} gp.`);
+  });
+
   // DM one-click: let the AI stock the shop with themed items + prices.
   socket.on('shop:ai', async ({ theme } = {}) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

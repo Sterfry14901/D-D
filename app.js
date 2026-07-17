@@ -425,7 +425,29 @@ function renderShop() {
       <button class="shop-buy" data-buy="${it.id}" ${sold || !canAfford ? 'disabled' : ''}>${sold ? 'Sold' : canAfford ? 'Buy' : 'Need gold'}</button>
     </div>`;
   }).join('')}</div>` : '<div class="tr-empty">Nothing for sale yet.</div>');
+  // Sell section — the player can sell back items the shop stocks (half price).
+  const priceByName = {}; items.forEach((it) => { priceByName[String(it.name).toLowerCase()] = Number(it.price) || 0; });
+  const sellable = (cs.gear || []).map((g, i) => ({ i, name: g.n, key: String(g.n).toLowerCase() })).filter((g) => priceByName[g.key] != null);
+  if (sellable.length) {
+    body.innerHTML += `<div class="shop-sell-title">Sell your items (half price)</div><div class="shop-list">${sellable.map((g) => {
+      const sp = Math.floor((priceByName[g.key] || 0) / 2);
+      return `<div class="shop-row"><div class="shop-info"><span class="shop-name">${escapeHtml(g.name)}</span><span class="shop-meta">sells for ${sp} gp</span></div><button class="shop-sell-btn" data-sell="${g.i}">Sell</button></div>`;
+    }).join('')}</div>`;
+  }
   body.querySelectorAll('[data-buy]').forEach((b) => { b.onclick = () => buyShopItem(b.dataset.buy); });
+  body.querySelectorAll('[data-sell]').forEach((b) => { b.onclick = () => sellShopItem(Number(b.dataset.sell)); });
+}
+function sellShopItem(gearIdx) {
+  const g = (cs.gear || [])[gearIdx]; if (!g) return;
+  if (!shopState.open) { flashHint('The shop is closed.'); return; }
+  const match = (shopState.items || []).find((x) => String(x.name).toLowerCase() === String(g.n).toLowerCase());
+  if (!match) { flashHint('The shopkeeper won’t buy that.'); return; }
+  const sp = Math.floor((Number(match.price) || 0) / 2);
+  cs.gear.splice(gearIdx, 1);
+  cs.gp = (Number(cs.gp) || 0) + sp;
+  csPopulate(); csRenderGear(); saveCS();
+  socket.emit('shop:sell', { name: g.n });
+  flashHint('🪙 Sold ' + g.n + ' for ' + sp + ' gp');
 }
 function buyShopItem(id) {
   const it = (shopState.items || []).find((x) => x.id === id); if (!it) return;

@@ -1176,3 +1176,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* ===== #172 DM give-gold ===== */
 .ps-give{margin-left:8px;padding:2px 8px;border:1px solid #b8863a;background:#3f2c14;color:#f3e2c0;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700}
 .ps-give:hover{filter:brightness(1.15)}
+
+/* ===== #173 sell to shop ===== */
+.shop-sell-title{margin:16px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#7f8aa0;border-top:1px solid #2a3140;padding-top:12px}
+.shop-sell-btn{padding:7px 14px;border-radius:7px;border:1px solid #b8863a;background:#3f2c14;color:#f3e2c0;font-weight:700;cursor:pointer}
+.shop-sell-btn:hover{filter:brightness(1.15)}
