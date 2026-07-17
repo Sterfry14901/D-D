@@ -604,6 +604,7 @@ function applyWorld(w) {
   }
 }
 socket.on('world:state', (w) => applyWorld(w));
+socket.on('travel:encounter', ({ text } = {}) => { try { if (window.flashHint) flashHint('⚔️ Encounter! ' + (text || '').slice(0, 60)); } catch {} });
 function findVendorLocal(cityId, vendorId) {
   const c = worldState && worldState.cities && worldState.cities[cityId]; if (!c) return null;
   return (c.vendors || []).find((v) => v.id === vendorId) || null;
@@ -637,6 +638,7 @@ function renderWorld() {
   box.innerHTML = `
     <div class="world-here">
       <div class="world-city">📍 ${escapeHtml(here.name)} <span class="world-kind">${here.kind || ''}</span></div>
+      ${worldState.clock ? `<div class="world-clock">🕐 Day ${worldState.clock.day}, ${String(worldState.clock.hour).padStart(2, '0')}:00</div>` : ''}
       <div class="world-desc">${escapeHtml(here.desc || '')}</div>
     </div>
     <div class="world-sec-t">Vendors here</div>
@@ -687,6 +689,9 @@ function renderWorldBuilder(box, here) {
     <div class="wb-manage">
       ${(here.links || []).map((l) => `<span class="wb-chip">→ ${escapeHtml((worldState.cities[l.to] || {}).name || l.to)} <button data-lrm="${l.to}" title="Remove route">✕</button></span>`).join('') || '<span class="wb-none">no routes</span>'}
     </div>
+    <div class="wb-t">Travel encounters</div>
+    <div class="wb-row"><label style="flex:1;color:#9aa6bd;font-size:12px">Chance <b>${worldState.encounterChance != null ? worldState.encounterChance : 35}%</b><input id="wb-enc-chance" type="range" min="0" max="100" step="5" value="${worldState.encounterChance != null ? worldState.encounterChance : 35}" style="width:100%"></label></div>
+    <div class="wb-row"><button id="wb-enc-now">🎲 Roll a road encounter now</button><button id="wb-enc-sea">⛵ Sea encounter</button></div>
     ${cities.length > 1 ? `<button id="wb-city-rm" class="wb-danger">🗑️ Delete ${escapeHtml(here.name)}</button>` : ''}`;
   box.appendChild(wrap);
   const val = (id) => (document.getElementById(id) ? document.getElementById(id).value : '');
@@ -697,6 +702,9 @@ function renderWorldBuilder(box, here) {
   wrap.querySelectorAll('[data-vrm]').forEach((b) => { b.onclick = () => socket.emit('world:vendorRemove', { cityId: here.id, vendorId: b.dataset.vrm }); });
   wrap.querySelectorAll('[data-lrm]').forEach((b) => { b.onclick = () => socket.emit('world:cityUnlink', { from: here.id, to: b.dataset.lrm }); });
   const rm = wrap.querySelector('#wb-city-rm'); if (rm) rm.onclick = () => { if (confirm('Delete ' + here.name + ' and all its routes?')) socket.emit('world:cityRemove', { cityId: here.id }); };
+  const chance = wrap.querySelector('#wb-enc-chance'); if (chance) chance.onchange = () => socket.emit('world:travelConfig', { chance: Number(chance.value) || 0 });
+  const encNow = wrap.querySelector('#wb-enc-now'); if (encNow) encNow.onclick = () => socket.emit('world:encounterNow', { mode: 'walk' });
+  const encSea = wrap.querySelector('#wb-enc-sea'); if (encSea) encSea.onclick = () => socket.emit('world:encounterNow', { mode: 'boat' });
 }
 
 /* ---- Vendor shop (location-bound) ---- */

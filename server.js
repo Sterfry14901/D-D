@@ -58,6 +58,8 @@ function buildStarterWorld() {
   return {
     party: { at: 'havenbrook' },
     vote: null,   // {to, mode, byName, yes:[socketIds], no:[socketIds]}
+    clock: { day: 1, hour: 8 },   // in-world time; travel advances it
+    encounterChance: 35,          // % chance of a random encounter per journey
     cities: {
       havenbrook: {
         id: 'havenbrook', name: 'Havenbrook', kind: 'town',
@@ -81,6 +83,39 @@ function buildStarterWorld() {
   };
 }
 const MODE_LABEL = { walk: '🥾 on foot', horse: '🐴 on horseback', wagon: '🛒 by wagon', boat: '⛵ by boat' };
+// Random travel encounters — land routes lean on highwaymen/thieves & beasts, sea routes on pirates & storms.
+const ROAD_ENCOUNTERS = [
+  'a band of masked highwaymen steps from the treeline, demanding a toll of 10 gp a head.',
+  'cutpurses trail the party into a narrow defile — a Perception check to notice before they strike.',
+  'a lone hooded figure at a crossroads offers to sell a "map to buried coin"… for a price.',
+  'a wolf pack, gaunt with hunger, paces the party at the wood\'s edge.',
+  'a merchant\'s wagon lies overturned in the mud — a trap, or a soul in genuine need?',
+  'a swaying rope bridge is watched by a troll collecting a "crossing fee."',
+  'bandits have felled a tree across the road and wait in ambush behind it.',
+  'a wandering peddler hawks dubious potions and very real gossip.',
+  'a press-gang of deserters mistakes the party for easy marks.',
+  'a rockslide blocks the pass; something moved those stones on purpose.',
+  'a caravan of refugees warns of raiders on the road ahead.',
+  'a giant spider\'s web strung between the trees glints with old bones.',
+  'a fox-cloaked thief tries to lift a coin purse in the confusion of a passing festival.',
+  'a knight-errant challenges the strongest-looking traveler to an honor duel.',
+];
+const SEA_ENCOUNTERS = [
+  'a black-sailed pirate cutter closes fast off the port bow.',
+  'a squall rolls in — the crew calls for hands and Strength checks at the rigging.',
+  'the water goes glassy and still; something vast passes beneath the hull.',
+  'smugglers signal from a hidden cove, offering illicit cargo at a fence\'s price.',
+  'a merfolk envoy surfaces, curious and wary, bearing news of the depths.',
+  'a derelict ship drifts abeam, sails in tatters, decks silent.',
+  'a sea serpent\'s coils break the surface a bowshot away.',
+  'the ship is becalmed for hours; tempers — and rations — run thin.',
+  'a reef looms in the fog; a hard Navigation check to thread it.',
+  'ghostly lanterns lure the ship toward the rocks.',
+];
+function rollEncounter(mode) {
+  const table = mode === 'boat' ? SEA_ENCOUNTERS : ROAD_ENCOUNTERS;
+  return table[Math.floor(Math.random() * table.length)];
+}
 const VTYPE_LABEL = { general: '🏪 General store', blacksmith: '⚒️ Blacksmith', wagon: '🛒 Wagon merchant', fence: '🗡️ Fence (black market)', magic: '✨ Arcane vault', tavern: '🍺 Tavern', alchemist: '⚗️ Alchemist' };
 
 // ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
@@ -864,8 +899,32 @@ io.on('connection', (socket) => {
     if (!link || !link.modes[mode]) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ No ${mode} route from ${here.name} to ${dest ? dest.name : to}.`, ts: Date.now() }); return; }
     const hours = link.modes[mode];
     w.party.at = to; w.vote = null;
+    // advance the in-world clock
+    w.clock = w.clock || { day: 1, hour: 8 };
+    w.clock.hour += hours; while (w.clock.hour >= 24) { w.clock.hour -= 24; w.clock.day += 1; }
+    // roll for a road/sea encounter
+    const chance = Math.max(0, Math.min(100, Number(w.encounterChance != null ? w.encounterChance : 35)));
+    const hit = (Math.floor(Math.random() * 100) + 1) <= chance;
+    const enc = hit ? rollEncounter(mode) : null;
     markDirty(); broadcastWorld(joinedRoom);
-    pushSystem(joinedRoom, `🧭 The party travels from ${here.name} to ${dest.name} ${MODE_LABEL[mode] || 'by road'} — about ${hours} hours' journey.`);
+    const hh = String(w.clock.hour).padStart(2, '0');
+    pushSystem(joinedRoom, `🧭 The party travels from ${here.name} to ${dest.name} ${MODE_LABEL[mode] || 'by road'} — about ${hours} hours. It is now Day ${w.clock.day}, ${hh}:00.`);
+    if (enc) {
+      pushSystem(joinedRoom, `⚔️ On the journey — ${enc}`);
+      for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode });
+    }
+  });
+  // DM tunes how often journeys are interrupted, or forces an encounter now.
+  socket.on('world:travelConfig', ({ chance } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    if (chance != null) room.world.encounterChance = Math.max(0, Math.min(100, Math.floor(Number(chance) || 0)));
+    markDirty(); broadcastWorld(joinedRoom);
+  });
+  socket.on('world:encounterNow', ({ mode } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const enc = rollEncounter(mode === 'boat' ? 'boat' : 'walk');
+    pushSystem(joinedRoom, `⚔️ ${enc}`);
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: mode || 'walk' });
   });
   // A player proposes travel; opens a vote.
   socket.on('world:propose', ({ to, mode } = {}) => {
