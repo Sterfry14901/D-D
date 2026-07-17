@@ -2439,6 +2439,9 @@ function csRenderCanDo() {
       if (!has) nextShown++;
       h += `<div class="cando-p ${has ? 'on' : 'off'}"><b>Lv ${l}</b> — ${escC(f)}${has ? '' : ' 🔒'}</div>`;
     }
+    // Per-class signature mechanics that scale with level.
+    const sig = classSignature(clsName, lvl);
+    if (sig) h += `<div class="cando-h">Signature</div>${sig}`;
     const asiLvls = [4, 8, 12, 16].concat(clsName === 'Fighter' ? [6, 14] : []).concat(clsName === 'Rogue' ? [10] : []);
     const gotASI = asiLvls.filter((l) => l <= lvl).length;
     if (gotASI) h += `<div class="cando-p on"><b>Ability Score Improvements</b> — ${gotASI} earned so far (next at level ${asiLvls.find((l) => l > lvl) || '—'}).</div>`;
@@ -2452,6 +2455,45 @@ function csRenderCanDo() {
     h += '<div class="cando-p off">Set your Class up top (or pick one when joining) and this panel fills with everything your class can do at your level.</div>';
   }
   box.innerHTML = h;
+}
+
+/* Per-class signature mechanics that scale with level — shown in the Can-Do panel. */
+function classSignature(cls, lvl) {
+  const p = (t) => `<div class="cando-p on">${t}</div>`;
+  const metaKnown = lvl >= 17 ? 6 : lvl >= 10 ? 5 : lvl >= 3 ? 3 : 2;
+  const invKnown = lvl >= 18 ? 8 : lvl >= 15 ? 7 : lvl >= 12 ? 6 : lvl >= 9 ? 5 : lvl >= 7 ? 4 : lvl >= 5 ? 3 : lvl >= 2 ? 2 : 0;
+  switch (cls) {
+    case 'Barbarian': {
+      const rd = lvl >= 16 ? 4 : lvl >= 9 ? 3 : 2;
+      return p(`🔥 <b>Rage damage</b> +${rd} on Strength melee hits. Rages: use the pips above. Unarmored Defense: AC = 10 + DEX + CON.`);
+    }
+    case 'Rogue': {
+      const dice = Math.ceil(lvl / 2);
+      return p(`🗡️ <b>Sneak Attack</b> <b>${dice}d6</b> once per turn (advantage, or an ally next to the target). <button class="sb-roll" data-sneak="${dice}" title="Roll Sneak Attack">🎲 ${dice}d6</button>`);
+    }
+    case 'Monk': {
+      const md = lvl >= 17 ? 12 : lvl >= 11 ? 10 : lvl >= 5 ? 8 : 6;
+      const move = lvl >= 18 ? 30 : lvl >= 14 ? 25 : lvl >= 10 ? 20 : lvl >= 6 ? 15 : 10;
+      return p(`👊 <b>Martial Arts d${md}</b> for unarmed strikes (use DEX). Unarmored Movement +${move} ft. Focus Points: pips above.`);
+    }
+    case 'Sorcerer':
+      return lvl >= 3 ? p(`✨ <b>Metamagic</b> — ${metaKnown} options known (e.g. Twinned, Quickened, Subtle, Empowered). Spend Sorcery Points to bend spells.`) : '';
+    case 'Warlock':
+      return invKnown ? p(`👁️ <b>Eldritch Invocations</b> — ${invKnown} known. Pact Magic slots are all your highest level and refresh on a Short Rest.`) : '';
+    case 'Fighter':
+      return p(`⚔️ <b>Extra Attack</b> ${lvl >= 20 ? '×4' : lvl >= 11 ? '×3' : lvl >= 5 ? '×2' : '×1'} per Attack action. Weapon Mastery + your Fighting Style apply every swing.`);
+    case 'Paladin':
+      return p(`⚡ <b>Divine Smite</b> — expend a spell slot on a hit for +2d8 radiant (+1d8 per slot level above 1st, +1d8 vs undead/fiends). Lay on Hands pool above.`);
+    case 'Ranger':
+      return p(`🏹 <b>Extra Attack</b> ${lvl >= 5 ? '×2' : '×1'}. Favored Enemy: Hunter's Mark always prepared (+1d6 on your hits vs the mark).`);
+    case 'Cleric': case 'Paladin ':
+      return '';
+    case 'Druid':
+      return lvl >= 2 ? p(`🐾 <b>Wild Shape</b> — transform with the button above. Prepared caster: you can swap prepared spells on a Long Rest.`) : '';
+    case 'Bard':
+      return p(`🎶 <b>Bardic Inspiration d${lvl >= 15 ? 12 : lvl >= 10 ? 10 : lvl >= 5 ? 8 : 6}</b> — pips above. Jack of All Trades adds ½ proficiency to other checks.`);
+    default: return '';
+  }
 }
 
 /* Can this item be equipped? Enforces two hands total + one suit of armor. */
@@ -2557,6 +2599,15 @@ function csOnClick(e) {
     const used = cs.resUsed[id] || 0;
     cs.resUsed[id] = idx < used ? idx : idx + 1;   // click a lit pip to restore back to it, unlit to spend
     csRenderRes(); saveCS(); return;
+  }
+  const sn = e.target.closest('[data-sneak]');
+  if (sn) {
+    const n = parseInt(sn.dataset.sneak, 10) || 1;
+    let sum = 0; const rolls = [];
+    for (let i = 0; i < n; i++) { const r = 1 + Math.floor(Math.random() * 6); sum += r; rolls.push(r); }
+    socket.emit('chat', { text: `🗡️ ${(cs && cs.name) || me.name} Sneak Attack — ${n}d6: ${sum} (${rolls.join('+')})` });
+    flashHint('🗡️ Sneak Attack: ' + sum);
+    return;
   }
   if (e.target.closest('[data-wildshape]')) { openWildShape(); return; }
   if (e.target.closest('[data-wildrevert]')) { revertWildShape(); return; }
