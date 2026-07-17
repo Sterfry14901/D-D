@@ -2025,7 +2025,7 @@ function csDefault() {
   return { name:'', pronouns:'', race:'', cls:'', level:1, xp:0, background:'', inspiration:false,
     ac:10, speed:30, hp:10, maxhp:10, temphp:0,
     scores:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
-    saves:{}, skills:{}, attacks:[], gear:[], conditions:[], notes:'', resUsed:{}, wildShape:null,
+    saves:{}, skills:{}, attacks:[], gear:[], conditions:[], notes:'', resUsed:{}, wildShape:null, knownSpells:[],
     resistances:'', senses:'', proficiencies:'', spells:'', inventory:'', features:'',
     slots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
     deathSucc:0, deathFail:0, hitDiceTotal:'', hitDiceUsed:0, cp:0, sp:0, ep:0, gp:0, pp:0 };
@@ -2227,7 +2227,11 @@ function buildCS() {
   </div>
   <div class="cs-grid cs-grid3">
     <div class="cs-sec cs-cantrip-sec"><div class="cs-sec-t">✨ Cantrips — at-will, click to cast</div><div id="cs-cantrips"></div></div>
-    <div class="cs-sec"><div class="cs-sec-t">Spells</div><textarea data-cs="spells" placeholder="Spell slots, prepared spells, cantrips…"></textarea></div>
+    <div class="cs-sec"><div class="cs-sec-t">📖 Prepared Spells — click ✨ to cast (uses a slot)</div>
+      <div id="cs-prepared"></div>
+      <div class="cs-prep-add"><input id="cs-prep-q" placeholder="Add a spell you know…" list="cs-prep-list" /><datalist id="cs-prep-list"></datalist><button id="cs-prep-addbtn">Add</button></div>
+    </div>
+    <div class="cs-sec"><div class="cs-sec-t">Spell Notes</div><textarea data-cs="spells" placeholder="Extra notes, rituals, prepared list…"></textarea></div>
     <div class="cs-sec"><div class="cs-sec-t">Inventory</div>
       <div id="cs-gear" class="cs-gear"></div>
       <div class="cs-gear-add"><input id="cs-gear-name" placeholder="Add item… (e.g. Shield)" /><button id="cs-gear-addbtn">Add</button></div>
@@ -2277,7 +2281,29 @@ function csPopulate() {
   body.querySelectorAll('[data-skill]').forEach((el) => el.checked = !!cs.skills[el.dataset.skill]);
   body.querySelectorAll('[data-cond]').forEach((el) => el.classList.toggle('on', cs.conditions.includes(el.dataset.cond)));
   const insp = body.querySelector('[data-insp]'); if (insp) insp.classList.toggle('on', !!cs.inspiration);
-  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes(); csRenderCantrips();
+  csRenderSlots(); csPopulateDeath(); csRenderGear(); csRenderCanDo(); csRenderRes(); csRenderCantrips(); csRenderPrepared();
+}
+/* Prepared / known leveled spells — click to cast (consumes a slot via castSpell). */
+function csRenderPrepared() {
+  const box = $('cs-prepared'); if (!box) return;
+  cs.knownSpells = cs.knownSpells || [];
+  const escC = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  // refresh the autocomplete list from the class's available spells
+  const dl = $('cs-prep-list');
+  if (dl && typeof window.leveledSpellsForClass === 'function') {
+    let maxSlot = 0; for (let l = 9; l >= 1; l--) if (cs.slots[l] && cs.slots[l].max > 0) { maxSlot = l; break; }
+    const avail = window.leveledSpellsForClass(cs.cls, maxSlot || 9).filter((s) => !cs.knownSpells.includes(s.n));
+    dl.innerHTML = avail.map((s) => `<option value="${escC(s.n)}">L${s.l}</option>`).join('');
+  }
+  if (!cs.knownSpells.length) { box.innerHTML = '<div style="font-size:12px;opacity:.6">No prepared spells yet — add the leveled spells your character knows below.</div>'; return; }
+  box.innerHTML = cs.knownSpells.map((name, i) => {
+    const info = (typeof window.spellByName === 'function') ? window.spellByName(name) : null;
+    const lv = info ? info.l : '?';
+    return `<div class="cs-prep-item">
+      <button class="cs-cantrip-cast" data-prepcast="${escC(name)}" data-preplv="${lv}" title="${escC(info ? info.x : '')}">✨ ${escC(name)} <em style="opacity:.6">L${lv}</em></button>
+      <button class="cs-gear-rm" data-prep-rm="${i}" title="Forget">✕</button>
+    </div>`;
+  }).join('');
 }
 /* At-will cantrip buttons for the character's class — scale by character level. */
 function csRenderCantrips() {
@@ -2606,7 +2632,7 @@ function csPopulateDeath() {
 
 function csOnChange(e) {
   const el = e.target;
-  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderCantrips(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
+  if (el.dataset.cs !== undefined) { const f = el.dataset.cs; cs[f] = CS_NUMF.includes(f) ? Number(el.value) || 0 : el.value; if (['name','hp','maxhp','ac'].includes(f)) sendPartyStatusDebounced(); if (['cls','level','speed','str'].includes(f)) { csRenderCanDo(); csRenderGear(); csRenderRes(); csRenderCantrips(); csRenderPrepared(); if (window.refreshSpellGates) window.refreshSpellGates(); } }
   else if (el.dataset.score !== undefined) cs.scores[el.dataset.score] = Number(el.value) || 0;
   else if (el.dataset.save !== undefined) cs.saves[el.dataset.save] = el.checked;
   else if (el.dataset.skill !== undefined) cs.skills[el.dataset.skill] = el.checked;
@@ -2670,6 +2696,19 @@ function csOnClick(e) {
     const used = cs.resUsed[id] || 0;
     cs.resUsed[id] = idx < used ? idx : idx + 1;   // click a lit pip to restore back to it, unlit to spend
     csRenderRes(); saveCS(); return;
+  }
+  const pc = e.target.closest('[data-prepcast]');
+  if (pc) { if (typeof window.castSpell === 'function') window.castSpell(pc.dataset.prepcast, parseInt(pc.dataset.preplv, 10) || 1); return; }
+  const prm = e.target.closest('[data-prep-rm]');
+  if (prm) { cs.knownSpells.splice(Number(prm.dataset.prepRm), 1); csRenderPrepared(); saveCS(); return; }
+  if (e.target.id === 'cs-prep-addbtn') {
+    const nm = ($('cs-prep-q').value || '').trim(); if (!nm) return;
+    const info = (typeof window.spellByName === 'function') ? window.spellByName(nm) : null;
+    if (!info || info.l === 0) { flashHint('Type a leveled spell name (use the suggestions).'); return; }
+    cs.knownSpells = cs.knownSpells || [];
+    if (!cs.knownSpells.includes(info.n)) cs.knownSpells.push(info.n);
+    $('cs-prep-q').value = '';
+    csRenderPrepared(); saveCS(); return;
   }
   const cc = e.target.closest('[data-cantripcast]');
   if (cc) { socket.emit('chat', { text: `✨ ${(cs && cs.name) || me.name} casts ${cc.dataset.cantripcast} (cantrip).` }); flashHint('✨ ' + cc.dataset.cantripcast); return; }

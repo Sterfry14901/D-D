@@ -244,6 +244,18 @@
     return SPELLS.filter((s) => s.l === 0 && (SPELL_CLASSES[s.n] || '').includes(L))
       .map((s) => ({ n: s.n, x: s.x, s: s.s }));
   };
+  // Look up a spell by name (for the sheet's prepared-spell list).
+  window.spellByName = function (name) {
+    const s = SPELLS.find((x) => x.n === name);
+    return s ? { n: s.n, l: s.l, x: s.x, classes: SPELL_CLASSES[s.n] || '' } : null;
+  };
+  // Leveled spells (1+) a class can learn, up to a max spell level.
+  window.leveledSpellsForClass = function (clsName, maxLevel) {
+    const L = CLS_LETTER[String(clsName || '').trim()];
+    if (!L) return [];
+    return SPELLS.filter((s) => s.l >= 1 && s.l <= (maxLevel || 9) && (SPELL_CLASSES[s.n] || '').includes(L))
+      .map((s) => ({ n: s.n, l: s.l, x: s.x }));
+  };
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
 })();

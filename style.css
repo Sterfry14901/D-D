@@ -964,3 +964,10 @@ body.sheet-only #me-plate { display: none !important; }
 .cs-cantrip { display: inline-flex; align-items: center; gap: 2px; }
 .cs-cantrip-cast { background: rgba(123,70,155,0.22); border: 1px solid rgba(171,109,172,0.45); color: inherit; border-radius: 6px; font-size: 12px; padding: 4px 9px; cursor: pointer; }
 .cs-cantrip-cast:hover { background: rgba(123,70,155,0.4); border-color: #ab6dac; }
+
+/* ===== Prepared spells section ===== */
+.cs-prep-add { display: flex; gap: 6px; margin-top: 6px; }
+.cs-prep-add input { flex: 1; }
+#cs-prepared { display: flex; flex-direction: column; gap: 4px; }
+.cs-prep-item { display: flex; align-items: center; gap: 6px; }
+.cs-prep-item .cs-cantrip-cast { flex: 1; text-align: left; }
