@@ -2121,6 +2121,52 @@ function applyPartyHeal(amt, full) {
 if ($('party-dmg')) $('party-dmg').onclick = () => { const n = parseInt(prompt('Damage to the whole party:', '5'), 10); if (n > 0) applyPartyDamage(n); };
 if ($('party-heal')) $('party-heal').onclick = () => { const n = parseInt(prompt('Heal the whole party by:', '5'), 10); if (n > 0) applyPartyHeal(n, false); };
 if ($('party-full')) $('party-full').onclick = () => { if (confirm('Restore every player to full HP?')) applyPartyHeal(0, true); };
+
+/* ===== Saved encounters — capture the current monsters and re-drop them later ===== */
+function monsterTokens() {
+  const gmNames = new Set((roomPlayers || []).filter((p) => p.isGm).map((p) => p.name));
+  return Object.values(tokenEls).map((e) => e && e._token).filter((t) =>
+    t && !Array.isArray(t.chest) && Number(t.maxhp) > 0 &&
+    !(t.owner && !gmNames.has(t.owner)));   // exclude player-owned tokens
+}
+function loadSavedEnc() { try { return JSON.parse(localStorage.getItem('dnd-saved-encounters') || '[]'); } catch { return []; } }
+function storeSavedEnc(list) { try { localStorage.setItem('dnd-saved-encounters', JSON.stringify(list)); } catch {} }
+function renderSavedEnc() {
+  const box = $('enc-saved'); if (!box) return;
+  const list = loadSavedEnc();
+  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.6;padding:4px 0">No saved encounters yet — drop some monsters, then “Save current monsters.”</div>'; return; }
+  box.innerHTML = list.map((enc, i) => `<div class="enc-saved-row">
+    <button class="enc-drop" data-encdrop="${i}" title="Drop this encounter onto the map">▶ ${escapeHtml(enc.name)} <em style="opacity:.6">(${enc.mobs.length})</em></button>
+    <button class="enc-del" data-encdel="${i}" title="Delete">✕</button></div>`).join('');
+}
+function saveCurrentEnc() {
+  const mons = monsterTokens();
+  if (!mons.length) { flashHint('No monsters on the map to save.'); return; }
+  const name = (prompt(`Save these ${mons.length} monster(s) as an encounter named:`, 'New Encounter') || '').trim();
+  if (!name) return;
+  const mobs = mons.map((t) => ({ label: t.label || t.name || 'Monster', emoji: t.emoji || '', color: t.color || '#7a2318', hp: Number(t.hp) || Number(t.maxhp) || 1, maxhp: Number(t.maxhp) || 1, size: t.size || 1, cr: t.cr || '' }));
+  const list = loadSavedEnc(); list.unshift({ name, mobs }); storeSavedEnc(list.slice(0, 40)); renderSavedEnc();
+  flashHint('⭐ Saved “' + name + '”');
+}
+function dropSavedEnc(i) {
+  const enc = loadSavedEnc()[i]; if (!enc) return;
+  enc.mobs.forEach((m, k) => {
+    socket.emit('token:add', {
+      x: gridSize * (2 + (k % 6)), y: gridSize * (1 + Math.floor(k / 6)),
+      color: m.color, label: m.label, size: m.size || 1, statuses: [], emoji: m.emoji, hp: m.maxhp, maxhp: m.maxhp, cr: m.cr,
+    });
+    socket.emit('init:add', { name: m.label, init: 1 + Math.floor(Math.random() * 20) });
+  });
+  socket.emit('chat', { text: `🐲 The DM sets the stage: ${enc.name} (${enc.mobs.length} foes) appears!` });
+  flashHint('▶ Dropped “' + enc.name + '”');
+}
+if ($('enc-save')) $('enc-save').onclick = saveCurrentEnc;
+if ($('enc-saved')) $('enc-saved').addEventListener('click', (e) => {
+  const d = e.target.closest('[data-encdrop]'); if (d) { dropSavedEnc(+d.dataset.encdrop); return; }
+  const x = e.target.closest('[data-encdel]'); if (x) { const l = loadSavedEnc(); l.splice(+x.dataset.encdel, 1); storeSavedEnc(l); renderSavedEnc(); return; }
+});
+document.addEventListener('DOMContentLoaded', renderSavedEnc);
+if (document.readyState !== 'loading') renderSavedEnc();
 $('init-prev').onclick = () => socket.emit('init:turn', 'prev');
 $('init-clear').onclick = () => socket.emit('init:clear');
 let combat = { list: [], turnIndex: 0, round: 1, turnStart: Date.now(), _key: '' };
