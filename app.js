@@ -666,6 +666,7 @@ function renderWorld() {
     <div class="world-sec-t">Travel${me.isGm ? '' : ' — propose a destination (DM confirms)'}</div>
     ${transportLine}
     <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>
+    ${me.isGm && Object.keys(worldState.cities).length > 2 ? `<div class="world-journey"><select id="journey-to"><option value="">Journey to any city…</option>${Object.values(worldState.cities).filter((c) => c.id !== here.id).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}</select><button id="journey-go">🧭 Go</button></div>` : ''}
     <button id="world-rest" class="world-rest">🌙 Rest here (long rest · +8h)</button>
     <div class="world-sec-t">Travel encounters (d20)</div>
     <div class="enc-roller">
@@ -686,6 +687,7 @@ function renderWorld() {
   const go = box.querySelector('[data-vgo]'); if (go) go.onclick = () => socket.emit('world:travel', { to: go.dataset.vgo, mode: go.dataset.vmode });
   const cancel = box.querySelector('.wvote-cancel'); if (cancel) cancel.onclick = () => socket.emit('world:voteCancel');
   const rest = box.querySelector('#world-rest'); if (rest) rest.onclick = () => socket.emit('world:rest');
+  const jgo = box.querySelector('#journey-go'); if (jgo) jgo.onclick = () => { const to = box.querySelector('#journey-to').value; if (to) socket.emit('world:travelTo', { to }); };
   const encRoll = box.querySelector('#enc-roll'); if (encRoll) encRoll.onclick = () => socket.emit('world:encounterRoll', { mode: box.querySelector('#enc-mode').value });
   const encBrowse = box.querySelector('#enc-browse'); if (encBrowse) encBrowse.onclick = () => socket.emit('world:encounterList', { mode: box.querySelector('#enc-mode').value });
   if (me.isGm) renderWorldBuilder(box, here);

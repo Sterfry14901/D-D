@@ -352,6 +352,31 @@ function findVendor(world, cityId, vendorId) {
   const c = world && world.cities && world.cities[cityId]; if (!c) return null;
   return (c.vendors || []).find((v) => v.id === vendorId) || null;
 }
+// Fastest route between two cities using only the travel modes the party can use
+// (foot is always allowed; horse/wagon/boat require ownership). Dijkstra on hours.
+function findRoute(world, from, to, ownedModes) {
+  if (!world || !world.cities[from] || !world.cities[to]) return null;
+  const allow = (m) => m === 'walk' || (ownedModes && ownedModes[m]);
+  const dist = { [from]: 0 }; const prev = {}; const seen = {};
+  while (true) {
+    let u = null, best = Infinity;
+    for (const k of Object.keys(dist)) if (!seen[k] && dist[k] < best) { best = dist[k]; u = k; }
+    if (u == null) break;
+    if (u === to) break;
+    seen[u] = true;
+    for (const link of (world.cities[u].links || [])) {
+      let cheapest = Infinity, cheapMode = null;
+      for (const m of Object.keys(link.modes || {})) if (allow(m) && link.modes[m] < cheapest) { cheapest = link.modes[m]; cheapMode = m; }
+      if (cheapMode == null) continue;
+      const nd = dist[u] + cheapest;
+      if (nd < (dist[link.to] == null ? Infinity : dist[link.to])) { dist[link.to] = nd; prev[link.to] = { from: u, mode: cheapMode, hours: cheapest }; }
+    }
+  }
+  if (dist[to] == null) return null;
+  const legs = []; let cur = to;
+  while (cur !== from) { const p = prev[cur]; if (!p) return null; legs.unshift({ from: p.from, to: cur, mode: p.mode, hours: p.hours }); cur = p.from; }
+  return { hours: dist[to], legs };
+}
 // Send the whole party's sheet summaries to every GM in the room (DM-only oversight).
 function sendSheetsToGms(roomId) {
   const room = rooms.get(roomId); if (!room) return;
@@ -1063,6 +1088,30 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, hasInn
       ? `🛏️ The party takes rooms at an inn in ${here.name} and rests the night. It is now Day ${w.clock.day}, ${hh}:00.`
       : `🏕️ The party makes camp and takes a long rest. It is now Day ${w.clock.day}, ${hh}:00.`);
+  });
+  // Multi-hop journey to any city — auto-routes the fastest path using owned transport.
+  socket.on('world:travelTo', ({ to } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const w = room.world; const from = w.party.at; const dest = w.cities[to];
+    if (!dest || to === from) return;
+    w.party.transport = w.party.transport || { horse: false, wagon: false, boat: false };
+    const route = findRoute(w, from, to, w.party.transport);
+    if (!route) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ No route to ${dest.name} with your current transport — acquire horses/a wagon/a ship, or build a linking road.`, ts: Date.now() }); return; }
+    w.party.at = to; w.vote = null;
+    w.clock = w.clock || { day: 1, hour: 8 };
+    w.clock.hour += route.hours; while (w.clock.hour >= 24) { w.clock.hour -= 24; w.clock.day += 1; }
+    // roll an encounter per leg, but announce at most two so chat isn't flooded
+    const chance = Math.max(0, Math.min(100, Number(w.encounterChance != null ? w.encounterChance : 35)));
+    const encs = [];
+    for (const leg of route.legs) if ((Math.floor(Math.random() * 100) + 1) <= chance) encs.push({ leg, text: rollEncounter(leg.mode) });
+    markDirty(); broadcastWorld(joinedRoom);
+    const path = [w.cities[from].name, ...route.legs.map((l) => w.cities[l.to].name)].join(' → ');
+    const hh = String(w.clock.hour).padStart(2, '0');
+    pushSystem(joinedRoom, `🧭 The party journeys ${path} — ${route.hours} hours over ${route.legs.length} leg${route.legs.length > 1 ? 's' : ''}. It is now Day ${w.clock.day}, ${hh}:00.`);
+    for (const e of encs.slice(0, 2)) {
+      pushSystem(joinedRoom, `⚔️ En route (${w.cities[e.leg.from].name}→${w.cities[e.leg.to].name}) — ${e.text}`);
+      for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: e.text, mode: e.leg.mode });
+    }
   });
   // A player proposes travel; opens a vote.
   socket.on('world:propose', ({ to, mode } = {}) => {
