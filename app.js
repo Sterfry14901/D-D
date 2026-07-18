@@ -605,6 +605,15 @@ function applyWorld(w) {
 }
 socket.on('world:state', (w) => applyWorld(w));
 socket.on('travel:encounter', ({ text } = {}) => { try { if (window.flashHint) flashHint('⚔️ Encounter! ' + (text || '').slice(0, 60)); } catch {} });
+// DM's encounter picker — a browsable list of the chosen mode's table.
+socket.on('world:encounterList', ({ mode, list } = {}) => {
+  const m = $('enc-modal'), body = $('enc-body'), title = $('enc-title'); if (!m || !body) return;
+  const labels = { walk: '🥾 Foot', horse: '🐴 Horse', wagon: '🛒 Wagon', boat: '⛵ Boat' };
+  title.textContent = 'Pick an encounter — ' + (labels[mode] || mode);
+  body.innerHTML = (list || []).map((t, i) => `<button class="enc-pick" data-i="${i}"><b>${i + 1}.</b> ${escapeHtml(t)}</button>`).join('');
+  body.querySelectorAll('.enc-pick').forEach((b) => { b.onclick = () => { socket.emit('world:encounterPick', { mode, index: Number(b.dataset.i) }); m.style.display = 'none'; }; });
+  m.style.display = 'flex';
+});
 socket.on('world:rest', ({ inn } = {}) => {
   try { if (csBuilt && typeof doRest === 'function') doRest('long'); } catch {}
   try { if (window.flashHint) flashHint(inn ? '🛏️ Rested at the inn — full recovery.' : '🏕️ Made camp — long rest complete.'); } catch {}
@@ -657,7 +666,13 @@ function renderWorld() {
     <div class="world-sec-t">Travel${me.isGm ? '' : ' — propose a destination (DM confirms)'}</div>
     ${transportLine}
     <div class="world-routes">${routes || '<div class="world-empty">No routes from here.</div>'}</div>
-    <button id="world-rest" class="world-rest">🌙 Rest here (long rest · +8h)</button>`;
+    <button id="world-rest" class="world-rest">🌙 Rest here (long rest · +8h)</button>
+    <div class="world-sec-t">Travel encounters (d20)</div>
+    <div class="enc-roller">
+      <select id="enc-mode"><option value="walk">🥾 Foot</option><option value="horse">🐴 Horse</option><option value="wagon">🛒 Wagon</option><option value="boat">⛵ Boat</option></select>
+      <button id="enc-roll">🎲 Roll d20</button>
+      ${me.isGm ? '<button id="enc-browse">📜 Pick…</button>' : ''}
+    </div>`;
   box.querySelectorAll('[data-vendor]').forEach((b) => { b.onclick = () => { const v = findVendorLocal(here.id, b.dataset.vendor); if (v) openVendor(here.id, v); }; });
   box.querySelectorAll('.world-mode').forEach((b) => {
     b.onclick = () => {
@@ -671,6 +686,8 @@ function renderWorld() {
   const go = box.querySelector('[data-vgo]'); if (go) go.onclick = () => socket.emit('world:travel', { to: go.dataset.vgo, mode: go.dataset.vmode });
   const cancel = box.querySelector('.wvote-cancel'); if (cancel) cancel.onclick = () => socket.emit('world:voteCancel');
   const rest = box.querySelector('#world-rest'); if (rest) rest.onclick = () => socket.emit('world:rest');
+  const encRoll = box.querySelector('#enc-roll'); if (encRoll) encRoll.onclick = () => socket.emit('world:encounterRoll', { mode: box.querySelector('#enc-mode').value });
+  const encBrowse = box.querySelector('#enc-browse'); if (encBrowse) encBrowse.onclick = () => socket.emit('world:encounterList', { mode: box.querySelector('#enc-mode').value });
   if (me.isGm) renderWorldBuilder(box, here);
 }
 function renderWorldBuilder(box, here) {
@@ -2652,6 +2669,8 @@ if ($('party-sheets-close')) $('party-sheets-close').onclick = () => closePartyS
 if ($('party-sheets-modal')) $('party-sheets-modal').addEventListener('click', (e) => { if (e.target === $('party-sheets-modal')) closePartySheets(); });
 if ($('trade-close')) $('trade-close').onclick = () => closeTrade();
 if ($('trade-modal')) $('trade-modal').addEventListener('click', (e) => { if (e.target === $('trade-modal')) closeTrade(); });
+if ($('enc-close')) $('enc-close').onclick = () => { $('enc-modal').style.display = 'none'; };
+if ($('enc-modal')) $('enc-modal').addEventListener('click', (e) => { if (e.target === $('enc-modal')) $('enc-modal').style.display = 'none'; });
 if ($('vendor-close')) $('vendor-close').onclick = () => closeVendor();
 if ($('vendor-modal')) $('vendor-modal').addEventListener('click', (e) => { if (e.target === $('vendor-modal')) closeVendor(); });
 if ($('shop-btn')) $('shop-btn').onclick = () => openShop();

@@ -83,39 +83,120 @@ function buildStarterWorld() {
   };
 }
 const MODE_LABEL = { walk: '🥾 on foot', horse: '🐴 on horseback', wagon: '🛒 by wagon', boat: '⛵ by boat' };
-// Random travel encounters — land routes lean on highwaymen/thieves & beasts, sea routes on pirates & storms.
-const ROAD_ENCOUNTERS = [
-  'a band of masked highwaymen steps from the treeline, demanding a toll of 10 gp a head.',
-  'cutpurses trail the party into a narrow defile — a Perception check to notice before they strike.',
-  'a lone hooded figure at a crossroads offers to sell a "map to buried coin"… for a price.',
-  'a wolf pack, gaunt with hunger, paces the party at the wood\'s edge.',
-  'a merchant\'s wagon lies overturned in the mud — a trap, or a soul in genuine need?',
-  'a swaying rope bridge is watched by a troll collecting a "crossing fee."',
-  'bandits have felled a tree across the road and wait in ambush behind it.',
-  'a wandering peddler hawks dubious potions and very real gossip.',
-  'a press-gang of deserters mistakes the party for easy marks.',
-  'a rockslide blocks the pass; something moved those stones on purpose.',
-  'a caravan of refugees warns of raiders on the road ahead.',
-  'a giant spider\'s web strung between the trees glints with old bones.',
-  'a fox-cloaked thief tries to lift a coin purse in the confusion of a passing festival.',
-  'a knight-errant challenges the strongest-looking traveler to an honor duel.',
-];
-const SEA_ENCOUNTERS = [
-  'a black-sailed pirate cutter closes fast off the port bow.',
-  'a squall rolls in — the crew calls for hands and Strength checks at the rigging.',
-  'the water goes glassy and still; something vast passes beneath the hull.',
-  'smugglers signal from a hidden cove, offering illicit cargo at a fence\'s price.',
-  'a merfolk envoy surfaces, curious and wary, bearing news of the depths.',
-  'a derelict ship drifts abeam, sails in tatters, decks silent.',
-  'a sea serpent\'s coils break the surface a bowshot away.',
-  'the ship is becalmed for hours; tempers — and rations — run thin.',
-  'a reef looms in the fog; a hard Navigation check to thread it.',
-  'ghostly lanterns lure the ship toward the rocks.',
-];
-function rollEncounter(mode) {
-  const table = mode === 'boat' ? SEA_ENCOUNTERS : ROAD_ENCOUNTERS;
-  return table[Math.floor(Math.random() * table.length)];
-}
+// Mode-specific travel encounter tables — 25 each (100 total). The DM can pick from a
+// list or anyone can roll a d20 against the table for how the party is travelling.
+const ENCOUNTERS = {
+  walk: [
+    'masked highwaymen step from the treeline, demanding a toll of 10 gp a head.',
+    'cutpurses trail the party into a narrow defile, hands drifting toward hidden knives.',
+    'a lone hooded figure at a crossroads offers a "map to buried coin"… for a price.',
+    'a gaunt, hungry wolf pack paces the party at the wood\'s edge.',
+    'an overturned merchant\'s cart blocks the path — genuine misfortune, or bait for an ambush?',
+    'a troll squats beneath a rope bridge, collecting a grisly "crossing fee."',
+    'bandits have felled a tree across the road and wait behind it with crossbows.',
+    'a wandering peddler hawks dubious potions and very real gossip.',
+    'a press-gang of army deserters sizes the party up as easy marks.',
+    'a rockslide blocks the pass — and the stones were moved on purpose.',
+    'a column of refugees warns of raiders burning villages on the road ahead.',
+    'a giant spider\'s web strung between the trees glints with old, picked-clean bones.',
+    'a pilgrim begs an escort to the next shrine, promising a blessing in return.',
+    'a goblin toll-booth (three goblins, one very official-looking hat) demands "the road tax."',
+    'a wounded knight slumps against a milestone, whispering of an ambush just ahead.',
+    'strange standing stones hum faintly; a Religion check reveals an old warding circle.',
+    'a hunter\'s snare-line crosses the trail; something large is already thrashing in one.',
+    'a talking raven lands on a branch and offers a riddle for a shiny coin.',
+    'a mud-slick ford runs high and fast — Strength (Athletics) to cross without losing gear.',
+    'a hedge-witch offers a night\'s shelter and a warm meal… with unsettling curiosity.',
+    'a will-o\'-wisp bobs off the path, promising treasure deeper in the marsh.',
+    'brigands demand the party\'s boots and cloaks "for the toll of the low road."',
+    'a merchant guard mistakes the party for the thieves who robbed him yesterday.',
+    'a swarm of stirges bursts from a hollow log at dusk.',
+    'an old signpost has been turned to point every road the wrong way.',
+  ],
+  horse: [
+    'a rival band of riders challenges the party to a race for a purse of gold.',
+    'one mount pulls up lame — a stone in the shoe, or something worse in the tendon.',
+    'a mounted patrol of the local lord halts the party for questioning and papers.',
+    'horse-thieves try to cut the picket line in the night and scatter the mounts.',
+    'a low branch and a spooked horse — DEX save or be thrown from the saddle.',
+    'a fallen tree spans the road; a running jump (Animal Handling) or the long way around.',
+    'a courier gallops past, then wheels back — she carries urgent, dangerous news.',
+    'wolves give chase across open ground, testing the horses\' nerve and speed.',
+    'a broken fence spills livestock across the road in a bawling, dust-choked mess.',
+    'a toll-knight bars a stone bridge, refusing passage to any who won\'t joust him.',
+    'the mounts shy hard at a smell of blood carried on the wind.',
+    'a bog to one side; ride the firm verge (Nature check) or risk miring a horse.',
+    'a hooded rider paces the party for a mile, then peels off toward a hidden camp.',
+    'a farrier\'s wagon offers to re-shoe the horses — cheap, but the nails look brittle.',
+    'a stampede of wild horses thunders across the plain; a chance to rope a fine one.',
+    'raiders on light steeds harry the flanks, loosing arrows and wheeling away.',
+    'a river crossing: swim the horses (Athletics) or seek a ford hours upstream.',
+    'a saddle-girth frays at the worst moment on a steep, shale-strewn descent.',
+    'a noble\'s hunt crosses the road, hounds baying, and demands the party yield the way.',
+    'a lone foal follows the party, and its protective dam is not far behind.',
+    'a dust cloud on the horizon resolves into an approaching cavalry company.',
+    'a snake in the grass spooks the lead horse into a full bolt.',
+    'a mounted herald proclaims a bounty — and the description sounds oddly like a party member.',
+    'thin ice over a frozen stream cracks under a hoof.',
+    'a windmill\'s turning sails panic the horses as the party passes too close.',
+  ],
+  wagon: [
+    'a wagon wheel shatters in a rut — a Tinker\'s tools or Strength repair, or a long delay.',
+    'the axle groans under the load; shed weight or risk it snapping on the next hill.',
+    'a caravan of other merchants offers to travel together for safety — and to talk trade.',
+    'a mudhole swallows a wheel to the hub; everyone out to push (group Athletics).',
+    'a toll-keeper inspects the cargo far too closely, hinting a bribe would speed things.',
+    'a stowaway is found curled among the crates — a runaway, a spy, or a thief.',
+    'bandits roll a burning hay-cart across the road to force the wagon to stop.',
+    'a bridge\'s timbers look rotten; test the weight or ford the shallow stream beside it.',
+    'a peddler flags the wagon down to barter for a lift and pays in rumor.',
+    'the draft horses balk at a narrow cliff-road with a long drop on one side.',
+    'a wheel-rut reveals old coins spilled by some earlier, unluckier traveler.',
+    'a checkpoint of the local militia searches for smuggled goods, crate by crate.',
+    'the tarp tears in a gust and cargo scatters down the muddy slope.',
+    'a family whose own wagon broke down begs to load their belongings aboard.',
+    'a lame ox blocks a mountain switchback, its owner refusing to move without help.',
+    'raiders demand "cargo tax" — half the load, or a fight over the reins.',
+    'a rockfall half-buries the road; dig out a path or unload and carry the goods across.',
+    'a friendly caravan-master warns the bridge ahead has been claimed by a river hag.',
+    'the brake fails on a long downgrade and the wagon begins to run away.',
+    'a swarm of flies signals a rotting carcass — and the predators feeding on it.',
+    'a wandering tinker offers to grease the axles and mend the harness for a coin.',
+    'a fork in the road: the fast route is rumored haunted, the safe route adds a day.',
+    'a fallen highwayman\'s body lies in the road — and his coin purse is suspiciously full.',
+    'a herd crossing forces an hour\'s halt while drovers curse and whistle.',
+    'a wheel throws a spoke just as thunder promises a road-drowning storm.',
+  ],
+  boat: [
+    'a black-sailed pirate cutter closes fast off the port bow.',
+    'a squall rolls in — all hands and Strength checks at the rigging.',
+    'the water goes glassy and still; something vast passes slow beneath the hull.',
+    'smugglers signal from a hidden cove, offering illicit cargo at a fence\'s price.',
+    'a merfolk envoy surfaces, wary and curious, bearing news of the depths.',
+    'a derelict ship drifts abeam, sails in tatters, decks silent and swept clean.',
+    'a sea serpent\'s coils break the surface a bowshot away.',
+    'the ship is becalmed for hours; tempers — and fresh water — run thin.',
+    'a reef looms in the fog; a hard Wisdom (Survival) check to thread the gap.',
+    'ghostly lanterns bob on the water, luring the ship toward the rocks.',
+    'a whale breaches close enough to swamp the deck with its wake.',
+    'a rival trader signals a challenge to race to the next port for cargo rights.',
+    'a man clings to floating wreckage, hailing the ship in a language none aboard know.',
+    'a waterspout stalks across the party\'s course, dark and roaring.',
+    'sahuagin raiders scale the hull in the dead of the night watch.',
+    'a fog bank swallows the ship; navigate by stars (if any show) or drift blind.',
+    'a pod of dolphins escorts the ship — sailors call it luck; the captain looks nervous.',
+    'a floating shrine bobs past; leaving an offering is said to calm the sea.',
+    'the current drags the ship toward a maelstrom on the horizon.',
+    'a customs cutter demands to board and inspect the hold for contraband.',
+    'a giant squid\'s tentacle curls over the gunwale, groping for a sailor.',
+    'an island appears that is not on any chart, its beach strewn with old crates.',
+    'the ship springs a leak below the waterline; bail and patch (group check) or sink lower.',
+    'a becalmed rival ship signals for aid — or is it a lure for an ambush?',
+    'a storm of flying fish and worse comes aboard on a freak green wave.',
+  ],
+};
+function encTable(mode) { return ENCOUNTERS[mode] || ENCOUNTERS.walk; }
+function rollEncounter(mode) { const t = encTable(mode); return t[Math.floor(Math.random() * t.length)]; }
 const VTYPE_LABEL = { general: '🏪 General store', blacksmith: '⚒️ Blacksmith', wagon: '🛒 Wagon merchant', fence: '🗡️ Fence (black market)', magic: '✨ Arcane vault', tavern: '🍺 Tavern', alchemist: '⚗️ Alchemist' };
 
 // ---- Persistence: auto-save rooms to disk so campaigns survive restarts. ----
@@ -938,9 +1019,35 @@ io.on('connection', (socket) => {
   });
   socket.on('world:encounterNow', ({ mode } = {}) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
-    const enc = rollEncounter(mode === 'boat' ? 'boat' : 'walk');
+    const m = ENCOUNTERS[mode] ? mode : 'walk';
+    const enc = rollEncounter(m);
     pushSystem(joinedRoom, `⚔️ ${enc}`);
-    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: mode || 'walk' });
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: m });
+  });
+  // Anyone can roll a d20 on the current travel-mode encounter table.
+  socket.on('world:encounterRoll', ({ mode } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const m = ENCOUNTERS[mode] ? mode : 'walk';
+    const t = encTable(m);
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const enc = t[roll - 1] || t[0];
+    const who = room.players[socket.id]?.name || 'Someone';
+    pushSystem(joinedRoom, `🎲 ${who} rolls a d20 travel check (${MODE_LABEL[m] || m}) — ${roll}: ${enc}`);
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: m, roll });
+  });
+  // DM browses a mode's full table, then picks a specific encounter.
+  socket.on('world:encounterList', ({ mode } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const m = ENCOUNTERS[mode] ? mode : 'walk';
+    io.to(socket.id).emit('world:encounterList', { mode: m, list: encTable(m) });
+  });
+  socket.on('world:encounterPick', ({ mode, index } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const m = ENCOUNTERS[mode] ? mode : 'walk';
+    const t = encTable(m); const i = Math.max(0, Math.min(t.length - 1, Math.floor(Number(index) || 0)));
+    const enc = t[i];
+    pushSystem(joinedRoom, `⚔️ ${enc}`);
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) io.to(sid).emit('travel:encounter', { text: enc, mode: m });
   });
   // The party takes a long rest — at an inn if the city has a tavern, else making camp.
   // Advances the world clock 8 hours and triggers everyone's long-rest recovery.
