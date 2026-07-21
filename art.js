@@ -170,3 +170,22 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', heroize);
   else heroize();
 })();
+
+/* #188 Masterpiece monster & legend art (all public domain, Commons-verified) */
+(function () {
+  const MORE = [
+    { q: 'leviathan sea serpent kraken monster ocean', f: 'Destruction of Leviathan.png' },
+    { q: 'hydra hercules many heads', f: 'Gustave Moreau - Hercules and the Lernaean Hydra, 1876-1880.jpg' },
+    { q: 'wild hunt ghost riders host spectral', f: 'Peter Nicolai Arbo - The wild Hunt of Odin - NG.M.00258 - National Museum of Art, Architecture and Design.jpg' },
+    { q: 'sea troll swamp monster kittelsen', f: 'Theodor Kittelsen - Sjøtrollet, 1887 (The Sea Troll).jpg' },
+    { q: 'nightmare demon incubus night hag fiend', f: 'Henry Fuseli (1741–1825), The Nightmare, 1781.jpg' },
+    { q: 'dragon eastern serpent storm', f: 'Kuniyoshi Utagawa, Dragon 2.jpg' },
+    { q: 'ghost specter undead haunting spirit', f: 'Hokusai The Ghost Kohada Koheiji.jpg' },
+    { q: 'hero warrior legend rackham', f: 'Siegfried and the Twilight of the Gods p 022.jpg' },
+  ];
+  if (Array.isArray(window.PD_ART)) window.PD_ART.push(...MORE);
+  if (Array.isArray(window.PD_HERO)) window.PD_HERO.push(
+    { f: 'Peter Nicolai Arbo - The wild Hunt of Odin - NG.M.00258 - National Museum of Art, Architecture and Design.jpg', by: 'Peter Nicolai Arbo — The Wild Hunt of Odin (1872)' },
+    { f: 'Destruction of Leviathan.png', by: 'Gustave Doré — Destruction of Leviathan (1865)' },
+  );
+})();
