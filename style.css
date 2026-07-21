@@ -1354,3 +1354,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .cb-green { background: linear-gradient(180deg, #2e7d32, #1d5a22); color: #eaffea; }
 .cb-red { background: linear-gradient(180deg, #b3212e, #7d1620); color: #ffecec; }
 #cb-target { width: 100%; margin-top: 4px; background: #12141a; border: 1px solid #3a3f4c; border-radius: 8px; color: #e8ecf4; padding: 9px 10px; font-size: 13px; }
+
+/* #192 Discord link on the join screen */
+.discord-link { display: block; margin-top: 10px; text-align: center; background: #5865F2; color: #fff; border-radius: 9px; padding: 9px; font-size: 13px; font-weight: 700; text-decoration: none; }
+.discord-link:hover { filter: brightness(1.12); }
