@@ -132,7 +132,6 @@
     { f: 'Theodor Kittelsen - Far, far away Soria Moria Palace shimmered like Gold - Google Art Project.jpg', by: 'Kittelsen — Soria Moria Palace (1900)' },
     { f: 'John Bauer - The Princess and the Trolls - Google Art Project.jpg', by: 'John Bauer — The Princess and the Trolls (1913)' },
     { f: 'Boys King Arthur - N. C. Wyeth - p16.jpg', by: 'N.C. Wyeth — The Boy’s King Arthur (1922)' },
-    { f: 'Paradise Lost 12.jpg', by: 'Gustave Doré — Paradise Lost' },
     { f: 'Ivan Bilibin 001.jpg', by: 'Ivan Bilibin (1899)' },
   ];
   // Upgrade city headers: paintings first, engravings as character
@@ -143,7 +142,6 @@
     { k: 'hold mountain dwarf forge iron', f: 'Dore woodcut Divine Comedy 01.jpg' },
     { k: 'forest grove wood glade', f: 'John Bauer 1915.jpg' },
     { k: 'village hamlet farm brook', f: 'John Bauer - The Princess and the Trolls - Google Art Project.jpg' },
-    { k: 'tower spire mage', f: 'Arthur Rackham 1909 Undine (7 of 15).jpg' },
     { k: 'temple shrine cathedral holy', f: 'Cathedral (PSF).jpg' },
     { k: 'town', f: 'Boys King Arthur - N. C. Wyeth - p306.jpg' },
   ];
@@ -174,18 +172,32 @@
 /* #188 Masterpiece monster & legend art (all public domain, Commons-verified) */
 (function () {
   const MORE = [
-    { q: 'leviathan sea serpent kraken monster ocean', f: 'Destruction of Leviathan.png' },
-    { q: 'hydra hercules many heads', f: 'Gustave Moreau - Hercules and the Lernaean Hydra, 1876-1880.jpg' },
-    { q: 'wild hunt ghost riders host spectral', f: 'Peter Nicolai Arbo - The wild Hunt of Odin - NG.M.00258 - National Museum of Art, Architecture and Design.jpg' },
     { q: 'sea troll swamp monster kittelsen', f: 'Theodor Kittelsen - Sjøtrollet, 1887 (The Sea Troll).jpg' },
     { q: 'nightmare demon incubus night hag fiend', f: 'Henry Fuseli (1741–1825), The Nightmare, 1781.jpg' },
     { q: 'dragon eastern serpent storm', f: 'Kuniyoshi Utagawa, Dragon 2.jpg' },
     { q: 'ghost specter undead haunting spirit', f: 'Hokusai The Ghost Kohada Koheiji.jpg' },
-    { q: 'hero warrior legend rackham', f: 'Siegfried and the Twilight of the Gods p 022.jpg' },
   ];
   if (Array.isArray(window.PD_ART)) window.PD_ART.push(...MORE);
   if (Array.isArray(window.PD_HERO)) window.PD_HERO.push(
-    { f: 'Peter Nicolai Arbo - The wild Hunt of Odin - NG.M.00258 - National Museum of Art, Architecture and Design.jpg', by: 'Peter Nicolai Arbo — The Wild Hunt of Odin (1872)' },
-    { f: 'Destruction of Leviathan.png', by: 'Gustave Doré — Destruction of Leviathan (1865)' },
+  );
+})();
+
+/* #189 Family-safe masterpiece expansion (no nudity — Commons-verified) */
+(function () {
+  const SAFE = [
+    { q: 'giant skeleton undead witch specter', f: 'Takiyasha the Witch and the Skeleton Spectre, by Utagawa Kuniyoshi.jpg' },
+    { q: 'knight saint george dragon lance', f: 'Saint George and the Dragon by Paolo Uccello (London) 01.jpg' },
+    { q: 'forest troll woods giant', f: 'Theodor Kittelsen - Skogtroll, 1906 (Forest Troll).jpg' },
+    { q: 'hag crone plague witch death', f: 'Theodor Kittelsen - Pesta i trappen, 1896 (Pesta on the Stairs).jpg' },
+    { q: 'red rider horseman flame knight', f: 'Ivan Bilibin - red-rider-illustration-for-the-fairy-tale-vasilisa-the-beautiful-1899.jpg' },
+    { q: 'flying carpet magic wizard sky', f: 'Vasnetsov samolet.jpg' },
+    { q: 'shipwreck storm sea ocean wave sailors', f: 'Hovhannes Aivazovsky - The Ninth Wave - Google Art Project.jpg' },
+    { q: 'mountain wanderer adventurer mist peak', f: 'Caspar David Friedrich - Wanderer above the sea of fog.jpg' },
+  ];
+  if (Array.isArray(window.PD_ART)) window.PD_ART.push(...SAFE);
+  if (Array.isArray(window.PD_HERO)) window.PD_HERO.push(
+    { f: 'Caspar David Friedrich - Wanderer above the sea of fog.jpg', by: 'Caspar David Friedrich — Wanderer above the Sea of Fog (1818)' },
+    { f: 'Hovhannes Aivazovsky - The Ninth Wave - Google Art Project.jpg', by: 'Ivan Aivazovsky — The Ninth Wave (1850)' },
+    { f: 'Saint George and the Dragon by Paolo Uccello (London) 01.jpg', by: 'Paolo Uccello — Saint George and the Dragon (c. 1470)' },
   );
 })();
