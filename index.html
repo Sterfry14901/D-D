@@ -624,6 +624,37 @@
     </div>
   </div>
 
+  <!-- #190 Combat panel (attack + heal/damage) -->
+  <div id="cb-modal" class="overlay" style="display:none">
+    <div class="lic-card">
+      <div class="tr-head"><h2 id="cb-title">⚔️ Attack</h2><button id="cb-close" class="ps-close" title="Close">✕</button></div>
+      <div id="cb-who" class="lic-sub"></div>
+      <div id="cb-atk-sec">
+        <label class="lic-label">Target
+          <select id="cb-target"></select>
+        </label>
+        <div class="join-row">
+          <label style="flex:1" class="lic-label">Attack bonus <input id="cb-bonus" type="text" value="+4" maxlength="4" /></label>
+          <label style="flex:1" class="lic-label">Damage on hit <input id="cb-dmg" type="text" value="1d8+2" maxlength="12" placeholder="2d6+3 or 5" /></label>
+        </div>
+        <div class="cb-adv">
+          <button type="button" data-adv="dis">⬇ Disadv.</button>
+          <button type="button" data-adv="normal" class="on">Normal</button>
+          <button type="button" data-adv="adv">⬆ Advantage</button>
+        </div>
+        <button id="cb-roll" class="cb-go">🎲 Roll Attack</button>
+      </div>
+      <div id="cb-heal-sec">
+        <label class="lic-label">Amount <input id="cb-amt" type="number" value="5" min="1" max="999" /></label>
+        <div class="cb-hd">
+          <button id="cb-heal" class="cb-go cb-green">💚 Heal</button>
+          <button id="cb-harm" class="cb-go cb-red">💥 Damage</button>
+        </div>
+        <p class="lic-fine">Damage eats temp HP first; healing never passes max HP. Everything is announced to the table.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- #178 DM Pro license modal -->
   <div id="lic-modal" class="overlay" style="display:none">
     <div class="lic-card">

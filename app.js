@@ -2413,6 +2413,7 @@ function showTokenCtx(t, px, py) {
   }
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
   row('⚔️', 'Attack…', () => { closeTokenCtx(); startAttackFlow(t); });
+  row('❤️', 'Heal / Damage…', () => { closeTokenCtx(); openCombatModal(t, 'heal'); });
   if (me.isGm) {
     const hasLoot = Array.isArray(t.chest) && t.chest.length;
     row('💰', hasLoot ? `Loot inside (${t.chest.length}) — edit…` : 'Stock loot…', () => {
@@ -5148,3 +5149,73 @@ socket.on('state', (s) => {          // extra listener: show upgrade path inside
     location.href = '/?room=' + encodeURIComponent(nm.replace(/\s+/g, '-').toLowerCase());
   };
 });
+
+/* ===================== #190 Combat panel — modal attack & heal ===================== */
+let cbState = { token: null, adv: 'normal' };
+function openCombatModal(tok, mode) {
+  const m = $('cb-modal'); if (!m) return;
+  cbState.token = tok; cbState.adv = 'normal';
+  m.style.display = 'flex';
+  $('cb-title').textContent = mode === 'heal' ? '❤️ Heal / Damage' : '⚔️ Attack';
+  $('cb-who').textContent = (mode === 'heal' ? 'Target: ' : 'Attacker: ') + (tok.label || tok.name || 'token');
+  $('cb-atk-sec').style.display = mode === 'heal' ? 'none' : '';
+  $('cb-heal-sec').style.display = mode === 'heal' ? '' : 'none';
+  m.querySelectorAll('.cb-adv button').forEach((b) => b.classList.toggle('on', b.dataset.adv === 'normal'));
+  if (mode !== 'heal') {
+    // targets: everything else on the board, HP-bearers first
+    const others = Object.values(tokenEls).map((el) => el._token).filter((x) => x && x.id !== tok.id);
+    others.sort((a, b) => ((Number(b.maxhp) || 0) > 0 ? 1 : 0) - ((Number(a.maxhp) || 0) > 0 ? 1 : 0));
+    $('cb-target').innerHTML = others.map((x) => {
+      const hp = (Number(x.maxhp) || 0) > 0 ? ` — ${x.hp}/${x.maxhp} HP${x.ac ? ', AC ' + x.ac : ''}` : '';
+      return `<option value="${x.id}">${escapeHtml(x.label || x.name || 'token')}${hp}</option>`;
+    }).join('');
+    // prefill: token's own stat block → SRD table → your sheet → default
+    let defB = '+4', defD = '1d8+2';
+    try {
+      const own = Array.isArray(tok.atk) && tok.atk[0];
+      const srd = (window.MON_COMBAT || {})[String(tok.label || tok.name || '').toLowerCase()];
+      if (own) { defB = String(own.bonus >= 0 ? '+' + own.bonus : own.bonus); defD = String(own.dmg || defD); }
+      else if (srd) { defB = '+' + srd.b; defD = srd.d; }
+      else if (typeof linkedToken !== 'undefined' && linkedToken === tok.id && cs && cs.attacks && cs.attacks[0]) {
+        defB = String(cs.attacks[0].bonus ?? defB); defD = String(cs.attacks[0].dmg || defD);
+      }
+    } catch {}
+    $('cb-bonus').value = defB; $('cb-dmg').value = defD;
+  }
+}
+(function wireCombatModal() {
+  const m = $('cb-modal'); if (!m) return;
+  $('cb-close').onclick = () => { m.style.display = 'none'; };
+  m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+  m.querySelectorAll('.cb-adv button').forEach((b) => {
+    b.onclick = () => {
+      cbState.adv = b.dataset.adv;
+      m.querySelectorAll('.cb-adv button').forEach((x) => x.classList.toggle('on', x === b));
+    };
+  });
+  $('cb-roll').onclick = () => {
+    const tok = cbState.token; if (!tok) return;
+    const tgt = $('cb-target').value; if (!tgt) { flashHint('No target on the board.'); return; }
+    // teach the target its SRD AC if the GM is attacking and it has none
+    try {
+      const tt = tokenEls[tgt] && tokenEls[tgt]._token;
+      const tsrd = tt && (window.MON_COMBAT || {})[String(tt.label || tt.name || '').toLowerCase()];
+      if (me.isGm && tsrd && !(Number(tt.ac) > 0)) socket.emit('token:update', { id: tgt, ac: tsrd.ac });
+    } catch {}
+    socket.emit('combat:attack', {
+      attackerId: tok.id, targetId: tgt,
+      bonus: parseInt(String($('cb-bonus').value).replace(/[^\-\d]/g, '')) || 0,
+      dmg: String($('cb-dmg').value).trim(), adv: cbState.adv,
+    });
+    m.style.display = 'none';
+  };
+  const send = (kind) => {
+    const tok = cbState.token; if (!tok) return;
+    socket.emit('combat:heal', { targetId: tok.id, amount: Number($('cb-amt').value) || 0, kind });
+    m.style.display = 'none';
+  };
+  $('cb-heal').onclick = () => send('heal');
+  $('cb-harm').onclick = () => send('damage');
+})();
+// the old prompt-chain entry point now opens the panel
+startAttackFlow = function (attacker) { openCombatModal(attacker, 'attack'); };

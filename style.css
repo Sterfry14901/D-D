@@ -1343,3 +1343,14 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #demo-banner button { border: 0; border-radius: 7px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
 #demo-banner #demo-upgrade { background: #d4a017; color: #171207; font-weight: 700; }
 #demo-banner #demo-x { background: none; color: #7fa886; }
+
+/* #190 combat panel */
+.cb-adv { display: flex; gap: 8px; margin: 10px 0; }
+.cb-adv button { flex: 1; background: #12141a; border: 1px solid #3a3f4c; color: #aeb6c4; border-radius: 8px; padding: 7px 0; cursor: pointer; font-size: 12px; }
+.cb-adv button.on { background: #2c2416; border-color: #d4a017; color: #f0c657; font-weight: 700; }
+.cb-go { width: 100%; background: linear-gradient(180deg, #d4a017, #a97b0a); color: #171207; font-weight: 800; border: 0; border-radius: 9px; padding: 11px; cursor: pointer; font-size: 15px; }
+.cb-go:hover { filter: brightness(1.1); }
+.cb-hd { display: flex; gap: 10px; margin-top: 8px; }
+.cb-green { background: linear-gradient(180deg, #2e7d32, #1d5a22); color: #eaffea; }
+.cb-red { background: linear-gradient(180deg, #b3212e, #7d1620); color: #ffecec; }
+#cb-target { width: 100%; margin-top: 4px; background: #12141a; border: 1px solid #3a3f4c; border-radius: 8px; color: #e8ecf4; padding: 9px 10px; font-size: 13px; }

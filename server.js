@@ -841,6 +841,31 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ---- #190 Heal / direct damage with server announcements ----
+  socket.on('combat:heal', ({ targetId, amount, kind } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const tgt = room.tokens[targetId]; if (!tgt) return;
+    if (!canControlToken(room, socket.id, tgt)) return;
+    const amt = Math.max(1, Math.min(999, Math.floor(Number(amount) || 0)));
+    const who = room.players[socket.id]?.name || 'Someone';
+    const nm = tgt.label || tgt.name || 'token';
+    const prevHp = Number(tgt.hp) || 0;
+    const mx = Number(tgt.maxhp) || 0;
+    if (kind === 'heal') {
+      tgt.hp = mx > 0 ? Math.min(mx, prevHp + amt) : prevHp + amt;
+      pushSystem(joinedRoom, `💚 ${who} heals ${nm} for ${amt}. ${nm}: ${tgt.hp}${mx > 0 ? '/' + mx : ''} HP.`);
+    } else {
+      const temp = Number(tgt.temphp) || 0;
+      const absorbed = Math.min(temp, amt);
+      tgt.temphp = temp - absorbed;
+      tgt.hp = Math.max(0, prevHp - (amt - absorbed));
+      pushSystem(joinedRoom, `💥 ${who} deals ${amt} damage to ${nm}.${absorbed ? ` (${absorbed} soaked by temp HP.)` : ''} ${nm}: ${tgt.hp}${mx > 0 ? '/' + mx : ''} HP${tgt.hp <= 0 && mx > 0 ? ' — DOWN!' : ''}`);
+      if (prevHp > 0 && tgt.hp <= 0 && mx > 0) questCheckKill(joinedRoom, tgt.name || tgt.label);
+    }
+    emitTokenPerSocket(room, 'token:update', tgt);
+    markDirty();
+  });
+
   // ---- #178 DM Pro license ----
   socket.on('license:activate', async ({ key } = {}) => {
     socket.data = socket.data || {};
