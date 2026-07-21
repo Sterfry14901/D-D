@@ -201,3 +201,14 @@
     { f: 'Saint George and the Dragon by Paolo Uccello (London) 01.jpg', by: 'Paolo Uccello — Saint George and the Dragon (c. 1470)' },
   );
 })();
+
+/* #191 More family-safe masterpieces (Commons-verified; tarn Tuvstarr skipped per no-nudity rule) */
+(function () {
+  const MORE2 = [
+    { q: 'giant spider demon monster swarm', f: 'Minamoto no Yorimitsu-ko no yakata ni tsuchigumo yokai o nasu zu 源頼光公館土蜘作妖怪圖 (The Earth Spider Conjures up Demons at the Mansion of Minamoto no Raiko) (BM 2008,3037.20906).jpg' },
+    { q: 'water horror lake spirit nokken eyes', f: 'Kittelsen - Nøkken (Nasjonalmuseet)2.jpg' },
+    { q: 'fey princess giant elk moose rider', f: 'Tuvstarr on Skutt by John Bauer 1913.jpg' },
+    { q: 'mythical bird prophet harpy gamayun', f: 'Gamaun.jpg' },
+  ];
+  if (Array.isArray(window.PD_ART)) window.PD_ART.push(...MORE2);
+})();
