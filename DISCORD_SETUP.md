@@ -1,76 +1,79 @@
 # Discord server — Realms of Fate
 
-Permanent invite: **https://discord.gg/qymT99jZrN** (also linked in-game on the join screen).
+Permanent invite: **https://discord.gg/qymT99jZrN** (linked in-game on the join screen).
 
-## What's built (done for you)
+## What's built (done)
 
-**Categories & text channels**
+**Categories & channels**
 
 | Category | Channels |
 |---|---|
-| INFORMATION | #rules, #announcements*, #introductions, #faq, #roadmap, #patch-notes, #events, #polls |
-| COMMUNITY | #general*, #table-talk, #character-builds, #campaign-stories, #fan-art, #screenshots, #memes, #off-topic |
-| GAME SUPPORT | #help-and-questions*, #bug-reports*, #suggestions*, #known-issues, #technical-support, #looking-for-group* |
+| INFORMATION | #rules ✍️, #introductions, #faq ✍️, #roadmap ✍️, #patch-notes, #events, #polls |
+| COMMUNITY | #table-talk, #character-builds, #campaign-stories, #fan-art, #screenshots, #memes, #off-topic |
+| GAME SUPPORT | #known-issues, #technical-support |
 | DEVELOPMENT | #dev-updates, #feature-voting, #beta-testing, #design-feedback |
-| VOICE | General, Party Finder, Dungeon 1–3, Raid, Developer Lounge, AFK |
+| 🎲 DUNGEON MASTERS | #dm-lounge ✍️, #dm-resources, #dm-map-sharing, #dm-tools, #dm-announcements |
+| 💎 SUPPORTERS | #supporter-chat, #sneak-peeks, #beta-downloads, #supporter-polls |
+| 🧪 TESTING | #alpha-testing ✍️, #closed-beta, #open-beta, #ptr-builds, #experimental-builds |
+| Voice | General, Party Finder, Dungeon 1–3, Raid, Developer Lounge, AFK |
 
-\* created earlier under "Text Channels" — drag them into their category in the sidebar (10 seconds each; drag-and-drop can't be automated safely).
+✍️ = starter post already written (rules, FAQ, roadmap, testing-program kickoff, DM welcome).
+Older channels (#general, #announcements, #looking-for-group, #help-and-questions,
+#bug-reports, #suggestions) still sit under "Text Channels" — drag each into its
+category when you have a minute.
 
-Starter content is posted in #rules, #faq and #roadmap. A welcome message with the
-game link is pinned in #general.
+**28 roles created, colored, in hierarchy order:**
+- Staff: 👑 Founder · 🛡 Owner · ⚙️ Lead Developer · 💻 Developer · 🤝 Community Manager · 🛠 Moderator · 💬 Support Team · 🤖 Bot Manager
+- DMs: 🎲 Official DM · 🎲 Dungeon Master · ✅ Verified DM
+- Testing: 🧪 Alpha Tester · 🧪 Closed Beta · 🧪 Open Beta · 🧪 PTR Tester · 🧪 Experimental Builds
+- Supporters: 💎 Platinum · 🥇 Gold · 🥈 Silver · 🥉 Bronze · ❤️ Supporter
+- Progression: 🏆 Day One Player · 🐛 Bug Hunter · ⚔️ Veteran · 🧙 Adventurer · 👋 New Player
+- Notifications: 🔔 Patch Notes · Events · Giveaways · Looking For Group · Beta News · New Campaigns
+- 🎥 Creator
 
-## What only YOU can do (each is a one-time OAuth "Authorize" click)
+## Your 5-minute cleanup list (quick manual bits)
 
-Bots install through Discord's authorization screen tied to your account — that's a
-permission grant I won't click for you. Order of value:
+1. **Delete 4 mistake channels** (created as text during automation, all empty):
+   under "Voice Channels" right-click → Delete Channel on **#party-finder,
+   #dungeon-1, #dungeon-2** (the # text ones — NOT the 🔊 voice ones) and ONE of the
+   two duplicate **🔊 Dungeon 3** voice channels.
+2. **Drag** the 6 old channels into their categories (list above).
+3. **Give yourself 👑 Founder**: right-click your name → Roles.
+4. **Role permissions** (Server Settings → Roles → click role → Permissions):
+   - 👑 Founder + 🛡 Owner: Administrator ON
+   - ⚙️ Lead Dev / 💻 Developer: Manage Channels, Manage Messages
+   - 🛠 Moderator: Manage Messages, Kick, Timeout Members
+   - Everything else: leave default (they're identity/ping roles).
+5. **Lock the private wings** (channel → Edit Channel → Permissions → Private Channel toggle):
+   - Each **dm-*** channel → allow 🎲 Dungeon Master, 🎲 Official DM, ✅ Verified DM + staff
+   - Each **supporter** channel → allow the 5 supporter roles + staff
+   - **#alpha-testing/#closed-beta/#ptr-builds/#experimental-builds** → allow matching 🧪 role + staff (leave #open-beta public)
+   - **#rules, #announcements, #roadmap, #patch-notes, #known-issues, #dm-announcements** → @everyone: Send Messages OFF (read-only)
 
-1. **Carl-bot** — carl.gg → *Invite* → pick "Realms of Fate". Gives you:
-   - **Reaction roles** (Dashboard → Reaction Roles): post a message in #roles,
-     members react 🎲=Player, 🐉=DM, 🔔=Updates to self-assign roles.
-   - **Automod** (Dashboard → Automod): block invite links + mass mentions, that's
-     enough for a small server.
-   - **Logging**: set a private #mod-log channel.
-2. **Sesh** — sesh.fyi → *Add to Discord*. Session scheduling with RSVPs and
-   time-zone conversion — perfect for game nights. Covers what PollBot/Apollo would do.
-3. **Ticket Tool** — tickettool.xyz → *Invite*. Panel in #technical-support; members
-   click 🎫 to open a private help thread.
-4. **Arcane or MEE6** (leveling) — arcane.bot. XP per message, level-up announcements,
-   auto-role at level 5/10/20. Skip until you have ~20 active members; leveling in an
-   empty server feels dead.
-5. **ServerStats** — only worth it past ~50 members.
+## Bots — one-time "Authorize" clicks only you can do
 
-Skip Sapphire for now — Carl-bot covers the same ground; two automod bots fight each other.
+1. **Carl-bot** (carl.gg) — reaction roles (post one message in #introductions: 🎲=Dungeon Master ping, 🧪=tester tiers, 🔔=notification roles), automod, logging. Covers PollBot too.
+2. **Sesh** (sesh.fyi) — session scheduling with RSVPs + timezones.
+3. **Ticket Tool** (tickettool.xyz) — 🎫 panel in #technical-support.
+4. **Arcane/MEE6** — leveling; add when ~20 active members.
+5. Skip ServerStats + Sapphire for now (overkill / overlaps Carl-bot).
 
-**Roles** (Server Settings → Roles → Create Role) — suggested minimal set:
-- 🛡️ **Game Master** (you) — Administrator
-- ⚔️ **Moderator** — Manage Messages, Kick, Timeout
-- 🎲 **Player**, 🐉 **DM**, 🔔 **Updates** — no permissions, just pingable + colored;
-  hand these to Carl-bot reaction roles.
-- Class roles (🗡 Fighter, ✨ Wizard…) are fun flair once the server is active — add
-  them as a second reaction-role message later.
+Class roles (🗡 Fighter … 🔮 Chronomancer), RP roles, factions, regions, platforms:
+create these as a **Carl-bot reaction-role message** rather than 60 manual roles —
+members self-assign and it stays tidy. Full lists live in your blueprint message.
 
-**Read-only channels**: for #rules, #announcements, #roadmap, #patch-notes,
-#known-issues: channel → Edit Channel → Permissions → @everyone → deny **Send Messages**.
-(Two clicks each; wants your judgment on which stay open.)
+**Community features** (weekly events, insights): Server Settings → Enable Community
+(you must accept Discord's guidelines yourself).
 
-**Community features** (weekly events, monthly contests, Server Insights) unlock via
-Server Settings → Enable Community — requires you to accept Discord's community
-guidelines, so that toggle is yours.
+## Auto-role wiring (once Carl-bot is in)
 
-## Game ↔ Discord integrations (I can build these in-app — say the word)
+Join → 👋 New Player (Carl-bot autorole) · verify/react → 🧙 Adventurer ·
+buys DM Pro → you assign ✅ Verified DM · confirmed bug → 🐛 Bug Hunter ·
+level milestones → Arcane auto-roles.
 
-- **Bug reports → #bug-reports** via a Discord webhook: create one in
-  #bug-reports → Edit Channel → Integrations → Webhooks → New Webhook → Copy URL,
-  then add it as `DISCORD_BUG_WEBHOOK` in Render env. I'll add an in-game
-  "Report bug" button that posts straight to the channel.
-- **Live status → #announcements**: server posts "🟢 back online after update"
-  through the same webhook mechanism (`DISCORD_STATUS_WEBHOOK`).
-- **Auto patch notes → #patch-notes**: each deployed feature posts its one-liner.
-- **LFG bridge**: "Find a party" button in the game linking to #looking-for-group
-  (already exists — the in-game Discord button covers this).
+## Game ↔ Discord integrations (I build these in-app on request)
 
-## Long-term (revisit at 100+ members)
-
-Community events calendar (Sesh), monthly build contests in #character-builds,
-featured fan-art role, AI helper bot answering rules questions from the SRD, and a
-public roadmap vote pinned in #feature-voting.
+Webhook per channel (Edit Channel → Integrations → Webhooks → Copy URL → paste into
+Render env): `DISCORD_BUG_WEBHOOK` → in-game bug reports post to #bug-reports;
+`DISCORD_STATUS_WEBHOOK` → "🟢 update live" posts to #announcements;
+`DISCORD_PATCH_WEBHOOK` → auto patch notes to #patch-notes.
