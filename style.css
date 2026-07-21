@@ -678,6 +678,18 @@ body:not(.is-gm) .gm-only { display: none !important; }
 }
 #panel.maxi #panel-resize { display: none; }
 
+/* #196 — NPC memory list (Journal tab) */
+.npc-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.npc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-bottom: 12px; }
+.npc-empty { color: var(--ink-dim, #8b8378); font-style: italic; font-size: 0.85rem; padding: 8px 2px; }
+.npc-row { display: flex; gap: 8px; align-items: flex-start; background: rgba(217,177,84,0.05); border: 1px solid var(--line-gold, rgba(217,177,84,0.25)); border-radius: 8px; padding: 8px 10px; }
+.npc-info { flex: 1; min-width: 0; }
+.npc-name { font-family: "Cinzel", serif; font-weight: 700; color: var(--gold-bright, #e9c96a); font-size: 0.95rem; }
+.npc-desc { color: var(--ink, #d8cdb8); font-size: 0.82rem; line-height: 1.35; margin-top: 2px; }
+.npc-notes { color: var(--ink-dim, #9a9184); font-size: 0.78rem; margin-top: 4px; }
+.npc-acts { display: flex; gap: 4px; flex: 0 0 auto; }
+.npc-acts button { padding: 2px 7px; font-size: 12px; }
+
 /* #193 — party code modal */
 .pc-game { text-align: center; color: var(--ink, #e8dcc0); margin: 10px 0 4px; font-size: 0.95rem; }
 .pc-code {

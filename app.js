@@ -214,6 +214,47 @@ if ($('panel-max')) $('panel-max').onclick = () => {
   $('panel-max').title = on ? 'Back to normal size' : 'Full-screen panel (great for DMs) — click again to shrink back';
 };
 
+/* ---- #196 NPC memory — the AI DM remembers everyone the party meets ---- */
+let NPCS = [];
+function renderNpcs() {
+  const box = $('npc-list'); if (!box) return;
+  if (!NPCS.length) { box.innerHTML = '<div class="npc-empty">No one yet — meet someone! (DM: 🎭 Improv NPC adds them automatically.)</div>'; return; }
+  box.innerHTML = '';
+  NPCS.slice().reverse().forEach((n) => {
+    const row = document.createElement('div');
+    row.className = 'npc-row';
+    const info = document.createElement('div'); info.className = 'npc-info';
+    const nm = document.createElement('div'); nm.className = 'npc-name'; nm.textContent = n.name;
+    const ds = document.createElement('div'); ds.className = 'npc-desc'; ds.textContent = (n.desc || '').slice(0, 220);
+    info.appendChild(nm); info.appendChild(ds);
+    if (n.notes) { const nt = document.createElement('div'); nt.className = 'npc-notes'; nt.textContent = '📝 ' + n.notes; info.appendChild(nt); }
+    row.appendChild(info);
+    if (me.isGm) {
+      const acts = document.createElement('div'); acts.className = 'npc-acts';
+      const ed = document.createElement('button'); ed.className = 'ghost'; ed.textContent = '✏️'; ed.title = 'Edit notes (what happened with them, secrets revealed…)';
+      ed.onclick = () => {
+        const notes = window.prompt('Notes about ' + n.name + ' (the AI DM reads these):', n.notes || '');
+        if (notes === null) return;
+        socket.emit('npc:update', { id: n.id, notes });
+      };
+      const del = document.createElement('button'); del.className = 'ghost'; del.textContent = '✖'; del.title = 'Forget this person';
+      del.onclick = () => { if (window.confirm('Forget ' + n.name + '? The AI DM will no longer remember them.')) socket.emit('npc:del', { id: n.id }); };
+      acts.appendChild(ed); acts.appendChild(del);
+      row.appendChild(acts);
+    }
+    box.appendChild(row);
+  });
+}
+socket.on('npc:state', (list) => { NPCS = Array.isArray(list) ? list : []; renderNpcs(); });
+socket.on('state', (s) => { if (s && Array.isArray(s.npcs)) { NPCS = s.npcs; renderNpcs(); } });
+if ($('npc-add')) $('npc-add').onclick = () => {
+  const name = window.prompt('NPC name:'); if (!name || !name.trim()) return;
+  const desc = window.prompt('Who are they? (looks, role, personality — the AI DM uses this):') || '';
+  socket.emit('npc:add', { name: name.trim(), desc: desc.trim(), notes: '' }, (res) => {
+    if (!res || !res.ok) alert(res && res.error ? res.error : 'Could not add.');
+  });
+};
+
 /* ---- #195 In-game bug reports → Discord #bug-reports ---- */
 if ($('bug-btn')) $('bug-btn').onclick = () => {
   const t = window.prompt('🐛 What went wrong?\n\nTell us what you did and what happened — this goes straight to the dev Discord. Confirmed bugs earn the Bug Hunter role!');

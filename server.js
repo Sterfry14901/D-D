@@ -247,6 +247,7 @@ function saveRooms() {
         world: room.world || null,       // #179: the DM's built world survives restarts
         trial: room.trial || null,       // #180: trial days used survive restarts
         partyCode: room.partyCode || null, // #193: party invite code survives restarts
+        npcs: (room.npcs || []).slice(-100), // #196: NPC memory survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -319,6 +320,7 @@ function loadRooms() {
         world: room.world || buildStarterWorld(),   // #179: restore the built world
         trial: room.trial || null,                  // #180: restore trial usage
         partyCode: room.partyCode || null,          // #193: restore party invite code
+        npcs: room.npcs || [],                      // #196: restore NPC memory
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -358,6 +360,7 @@ function getRoom(id) {
       sheets: {},              // socketId -> full sheet summary (DM read-only oversight)
       shop: { open: false, name: 'Market', items: [] },  // DM shop: players buy items with coins
       world: buildStarterWorld(),  // travelable world: cities, vendors, routes
+      npcs: [],                // #196 NPC memory: [{id,name,desc,notes,ts}] — AI DM stays consistent
     });
   }
   return rooms.get(id);
@@ -616,7 +619,34 @@ function buildDMContext(room) {
     });
   const bf = battlefieldSummary(room);
   if (bf) msgs.unshift({ role: 'user', content: bf });
+  // #196 NPC memory — remind the DM who the party already knows so it stays consistent.
+  const npcs = (room.npcs || []).slice(-12);
+  if (npcs.length) {
+    const lines = npcs.map((n) => `- ${n.name}: ${(n.desc || '').replace(/\s+/g, ' ').slice(0, 160)}${n.notes ? ' | Notes: ' + String(n.notes).slice(0, 100) : ''}`);
+    msgs.unshift({ role: 'user', content: 'NPCS THE PARTY ALREADY KNOWS (stay consistent with these people — same names, personalities, secrets; reference them when it fits):\n' + lines.join('\n') });
+  }
   return msgs;
+}
+// #196 helpers
+function broadcastNpcs(roomId) {
+  const room = rooms.get(roomId);
+  if (room) io.to(roomId).emit('npc:state', room.npcs || []);
+}
+function rememberNpc(room, roomId, name, desc, notes) {
+  room.npcs = room.npcs || [];
+  const nm = String(name || '').trim().slice(0, 60);
+  if (!nm) return null;
+  const existing = room.npcs.find((n) => n.name.toLowerCase() === nm.toLowerCase());
+  if (existing) {
+    if (desc) existing.desc = String(desc).slice(0, 500);
+    if (notes !== undefined) existing.notes = String(notes || '').slice(0, 300);
+    existing.ts = Date.now();
+  } else {
+    room.npcs.push({ id: 'n_' + rid(), name: nm, desc: String(desc || '').slice(0, 500), notes: String(notes || '').slice(0, 300), ts: Date.now() });
+    if (room.npcs.length > 100) room.npcs.shift();
+  }
+  markDirty(); broadcastNpcs(roomId);
+  return existing || room.npcs[room.npcs.length - 1];
 }
 
 function pushSystem(roomId, text) {
@@ -790,6 +820,7 @@ io.on('connection', (socket) => {
       proUrl: DM_PRO_URL,
       roomId: joinedRoom,               // #193: real room (party codes can redirect)
       partyCode: gm ? (room.partyCode || null) : null,
+      npcs: room.npcs || [],            // #196: NPC memory
     });
     broadcastPlayers(joinedRoom);
     broadcastParty(joinedRoom);
@@ -836,6 +867,37 @@ io.on('connection', (socket) => {
       }],
     });
     done(ok ? { ok: true } : { ok: false, error: 'no-webhook' });
+  });
+
+  // ---- #196 NPC memory: DM curates the cast, the AI stays consistent ----
+  socket.on('npc:add', ({ name, desc, notes } = {}, ack) => {
+    const done = (r) => { if (typeof ack === 'function') ack(r); };
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) return done({ ok: false, error: 'GM only' });
+    const n = rememberNpc(room, joinedRoom, name, desc, notes);
+    done(n ? { ok: true, id: n.id } : { ok: false, error: 'name required' });
+  });
+  socket.on('npc:update', ({ id, name, desc, notes } = {}, ack) => {
+    const done = (r) => { if (typeof ack === 'function') ack(r); };
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) return done({ ok: false, error: 'GM only' });
+    const n = (room.npcs || []).find((x) => x.id === id);
+    if (!n) return done({ ok: false, error: 'not found' });
+    if (name) n.name = String(name).trim().slice(0, 60);
+    if (desc !== undefined) n.desc = String(desc || '').slice(0, 500);
+    if (notes !== undefined) n.notes = String(notes || '').slice(0, 300);
+    n.ts = Date.now();
+    markDirty(); broadcastNpcs(joinedRoom);
+    done({ ok: true });
+  });
+  socket.on('npc:del', ({ id } = {}, ack) => {
+    const done = (r) => { if (typeof ack === 'function') ack(r); };
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) return done({ ok: false, error: 'GM only' });
+    const before = (room.npcs || []).length;
+    room.npcs = (room.npcs || []).filter((x) => x.id !== id);
+    markDirty(); broadcastNpcs(joinedRoom);
+    done({ ok: room.npcs.length < before });
   });
 
   // ---- #185 Custom world map image + city pin positions ----
@@ -1856,6 +1918,7 @@ io.on('connection', (socket) => {
       drawings: (room.drawings || []).slice(-500),
       shop: room.shop || { open: false, name: 'Market', items: [] },
       world: room.world || null,
+      npcs: room.npcs || [],              // #196
       chat: room.chat.slice(-200),
       savedAt: Date.now(), room: joinedRoom,
     });
@@ -1879,6 +1942,7 @@ io.on('connection', (socket) => {
     if (data.quests) room.quests = { main: String(data.quests.main || ''), sides: Array.isArray(data.quests.sides) ? data.quests.sides : [], list: Array.isArray(data.quests.list) ? data.quests.list.map(sanitizeQuest) : (room.quests && room.quests.list) || [] };
     if (Array.isArray(data.drawings)) room.drawings = data.drawings.slice(-500);
     if (data.shop && typeof data.shop === 'object') room.shop = { open: !!data.shop.open, name: String(data.shop.name || 'Market').slice(0, 40), items: Array.isArray(data.shop.items) ? data.shop.items.slice(0, 200) : [] };
+    if (Array.isArray(data.npcs)) { room.npcs = data.npcs.slice(0, 100).map((n) => ({ id: String(n.id || 'n_' + rid()), name: String(n.name || '').slice(0, 60), desc: String(n.desc || '').slice(0, 500), notes: String(n.notes || '').slice(0, 300), ts: Number(n.ts) || Date.now() })).filter((n) => n.name); broadcastNpcs(joinedRoom); }  // #196
     if (data.world && data.world.cities && data.world.party) room.world = data.world;
     if (Array.isArray(data.chat) && data.chat.length) room.chat = data.chat.slice(-200);
     markDirty();
@@ -2041,6 +2105,15 @@ io.on('connection', (socket) => {
     room.chat.push(dmMsg);
     io.to(joinedRoom).emit('dm:thinking', false);
     io.to(joinedRoom).emit('chat', dmMsg);
+    // #196: auto-remember improvised NPCs so the AI never forgets them
+    if ((kind || 'npc') === 'npc' && reply && !/^⚠️/.test(reply)) {
+      const first = String(reply).trim().replace(/^\*+/, '');
+      const m = first.match(/^([A-Z][\w'’-]+(?: [A-Z][\w'’-]+){0,3})/);
+      if (m) {
+        rememberNpc(room, joinedRoom, m[1], reply, '');
+        pushSystem(joinedRoom, `🧠 The DM will remember ${m[1]} (see Journal → People you've met).`);
+      }
+    }
   });
 
   // ---- WebRTC voice signaling ----
