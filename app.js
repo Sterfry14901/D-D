@@ -5130,3 +5130,21 @@ function wmPickImage() {
     join();
   });
 })();
+
+/* #187 Demo → real campaign conversion banner */
+socket.on('state', (s) => {          // extra listener: show upgrade path inside demo tables
+  if (!me.room || !me.room.startsWith('demo_')) return;
+  if (document.getElementById('demo-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'demo-banner';
+  bar.innerHTML = `🎲 <b>Demo table</b> — everything here is real. Love it?
+    <button id="demo-upgrade">✨ Start your own campaign</button>
+    <button id="demo-x" title="Dismiss">✕</button>`;
+  document.body.appendChild(bar);
+  document.getElementById('demo-x').onclick = () => bar.remove();
+  document.getElementById('demo-upgrade').onclick = () => {
+    const nm = (prompt('Name your campaign room (share this with your players):', 'our-campaign') || '').trim();
+    if (!nm) return;
+    location.href = '/?room=' + encodeURIComponent(nm.replace(/\s+/g, '-').toLowerCase());
+  };
+});

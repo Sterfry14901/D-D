@@ -1337,3 +1337,9 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* #186 instant demo button */
 .demo-btn { margin-top: 10px; width: 100%; background: linear-gradient(180deg, #2e7d32, #1d5a22); border: 0; color: #eaffea; border-radius: 9px; padding: 10px; cursor: pointer; font-size: 14px; font-weight: 700; }
 .demo-btn:hover { filter: brightness(1.12); }
+
+/* #187 demo banner */
+#demo-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 2900; background: #1d3a22; border: 1px solid #2e7d32; border-top: 0; color: #d9f2dc; border-radius: 0 0 10px 10px; padding: 7px 14px; font-size: 13px; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+#demo-banner button { border: 0; border-radius: 7px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+#demo-banner #demo-upgrade { background: #d4a017; color: #171207; font-weight: 700; }
+#demo-banner #demo-x { background: none; color: #7fa886; }
