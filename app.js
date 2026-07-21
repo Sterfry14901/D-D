@@ -41,7 +41,8 @@ function join() {
   me.room = $('join-room').value.trim() || 'default';
   me.color = $('join-color').value;
   const gmPassword = $('join-gm').value;
-  socket.emit('join', { roomId: me.room, name: me.name, color: me.color, gmPassword });
+  const license = localStorage.getItem('dmLicenseKey') || undefined;   // #178 DM Pro
+  socket.emit('join', { roomId: me.room, name: me.name, color: me.color, gmPassword, license });
   $('join-screen').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('room-label').textContent = `Table: ${me.room}`;
@@ -4784,3 +4785,73 @@ let _psTimer = null;
 function sendPartyStatusDebounced() { if (_psTimer) return; _psTimer = setTimeout(() => { _psTimer = null; sendPartyStatus(); }, 600); }
 function initials(name) { return name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase(); }
 function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+/* ===================== #178 DM Pro — DMs pay, players free ===================== */
+/* Server modes: 'off' (default, everyone can GM) or 'required' (GM role needs a
+   valid license). The key lives in localStorage and rides along on every join.
+   Players are never gated on anything. */
+let proInfo = { mode: 'off', url: '' };
+
+function openLicenseModal(reason) {
+  const m = $('lic-modal'); if (!m) return;
+  m.style.display = 'flex';
+  const key = localStorage.getItem('dmLicenseKey') || '';
+  if ($('lic-key')) $('lic-key').value = key;
+  const buy = $('lic-buy');
+  if (buy) {
+    if (proInfo.url) { buy.href = proInfo.url; buy.style.display = ''; }
+    else buy.style.display = 'none';
+  }
+  const msg = $('lic-msg');
+  if (msg) {
+    msg.className = 'lic-msg';
+    msg.textContent = reason === 'required'
+      ? 'This table requires DM Pro to run games as the Dungeon Master. Players always play free.'
+      : (key ? 'Enter or update your DM Pro license key.' : 'Enter your DM Pro license key to unlock the DM seat.');
+  }
+}
+function closeLicenseModal() { const m = $('lic-modal'); if (m) m.style.display = 'none'; }
+
+(function wireLicense() {
+  const act = $('lic-activate'), close = $('lic-close'), open = $('lic-open');
+  if (act) act.addEventListener('click', () => {
+    const key = ($('lic-key') && $('lic-key').value || '').trim();
+    if (!key) { const g = $('lic-msg'); if (g) { g.className = 'lic-msg bad'; g.textContent = 'Paste your license key first.'; } return; }
+    const g = $('lic-msg'); if (g) { g.className = 'lic-msg'; g.textContent = 'Checking your key…'; }
+    socket.emit('license:activate', { key });
+  });
+  if (close) close.addEventListener('click', closeLicenseModal);
+  if (open) open.addEventListener('click', () => openLicenseModal());
+})();
+
+socket.on('license:required', (d) => {
+  if (d && d.url) proInfo.url = d.url;
+  openLicenseModal('required');
+});
+socket.on('license:status', (d) => {
+  const g = $('lic-msg');
+  if (d && d.ok) {
+    const key = ($('lic-key') && $('lic-key').value || '').trim();
+    if (key) localStorage.setItem('dmLicenseKey', key);
+    if (g) { g.className = 'lic-msg good'; g.textContent = '✅ License valid (' + (d.plan || 'pro') + '). You are DM Pro.'; }
+    const open = $('lic-open'); if (open) { open.textContent = '🔑 DM Pro ✓'; open.classList.add('lic-ok'); }
+  } else if (g) {
+    g.className = 'lic-msg bad';
+    const why = d && d.reason;
+    g.textContent = why === 'too-many' ? 'Too many attempts — reload and try again.'
+      : why === 'network' ? 'Could not reach the license server. Try again in a minute.'
+      : why === 'no-store' ? 'This server has no store configured yet — ask the site owner.'
+      : 'That key is not valid. Check for typos, or grab DM Pro below.';
+  }
+});
+socket.on('license:promoted', () => {
+  const g = $('lic-msg');
+  if (g) { g.className = 'lic-msg good'; g.textContent = '🎉 Activated! You are now the DM — reloading the table…'; }
+  setTimeout(() => location.reload(), 1400);
+});
+socket.on('state', (s) => {   // second listener: just capture Pro info
+  if (s && s.licenseMode) proInfo.mode = s.licenseMode;
+  if (s && s.proUrl) proInfo.url = s.proUrl;
+  const open = $('lic-open');
+  if (open && localStorage.getItem('dmLicenseKey')) { open.textContent = '🔑 DM Pro ✓'; open.classList.add('lic-ok'); }
+});

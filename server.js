@@ -593,19 +593,73 @@ function pushSystem(roomId, text) {
   io.to(roomId).emit('chat', msg);
 }
 
+/* ============ #178 DM Pro licensing — DMs pay, players always free ============
+   Modes (env DM_PRO_MODE): 'off' (default; anyone can GM) or 'required'
+   (taking the GM role needs a valid license). Keys are verified against:
+     1. DM_LICENSE_KEYS  — comma-separated always-valid keys (owner/comps)
+     2. Gumroad          — GUMROAD_PRODUCT_ID via the public license-verify API
+   Results are cached 24h so Gumroad hiccups never lock out a working DM.
+   The server never stores payment data; players are never gated on anything. */
+const DM_PRO_MODE = (process.env.DM_PRO_MODE || 'off').trim().toLowerCase();
+const DM_PRO_URL = (process.env.DM_PRO_URL || '').trim();
+const DM_LICENSE_KEYS = new Set(String(process.env.DM_LICENSE_KEYS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean));
+const GUMROAD_PRODUCT_ID = (process.env.GUMROAD_PRODUCT_ID || '').trim();
+const licenseCache = new Map();               // key -> { ok, plan, at }
+const LICENSE_TTL = 24 * 60 * 60 * 1000;
+
+async function verifyLicense(rawKey) {
+  const key = String(rawKey || '').trim();
+  if (!key || key.length > 200) return { ok: false, reason: 'empty' };
+  if (DM_LICENSE_KEYS.has(key)) return { ok: true, plan: 'owner' };
+  const cached = licenseCache.get(key);
+  if (cached && Date.now() - cached.at < LICENSE_TTL) return cached;
+  if (!GUMROAD_PRODUCT_ID) return { ok: false, reason: 'no-store' };
+  try {
+    const r = await fetch('https://api.gumroad.com/v2/licenses/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        product_id: GUMROAD_PRODUCT_ID, license_key: key, increment_uses_count: 'false',
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    const p = d && d.purchase;
+    const bad = !d || d.success !== true || !p || p.refunded || p.chargebacked ||
+      p.subscription_ended_at || p.subscription_failed_at;
+    const res = bad
+      ? { ok: false, reason: 'invalid', at: Date.now() }
+      : { ok: true, plan: p.recurrence ? 'subscription' : 'lifetime', at: Date.now() };
+    licenseCache.set(key, res);
+    return res;
+  } catch {
+    if (cached) return cached;                // Gumroad down: trust last known state
+    return { ok: false, reason: 'network' };
+  }
+}
+const gmNeedsLicense = () => DM_PRO_MODE === 'required';
+
 io.on('connection', (socket) => {
   let joinedRoom = null;
 
-  socket.on('join', ({ roomId, name, color, gmPassword }) => {
+  socket.on('join', async ({ roomId, name, color, gmPassword, license }) => {
     joinedRoom = roomId || 'default';
     socket.join(joinedRoom);
     const room = getRoom(joinedRoom);
 
-    // GM role resolution via password
+    // GM role resolution via password (+ DM Pro license when required)
     let gm = false;
-    if (gmPassword && gmPassword.trim()) {
-      if (!room.gmPassword) { room.gmPassword = gmPassword.trim(); gm = true; }
-      else if (room.gmPassword === gmPassword.trim()) { gm = true; }
+    const pw = (gmPassword || '').trim();
+    if (pw && (!room.gmPassword || room.gmPassword === pw)) {
+      let allowed = true;
+      if (gmNeedsLicense()) {
+        const lic = await verifyLicense(license);
+        allowed = lic.ok;
+        socket.data = socket.data || {};
+        if (allowed) socket.data.license = String(license || '').trim();
+        else { socket.data.pendingGmPw = pw; socket.emit('license:required', { url: DM_PRO_URL }); }
+      }
+      if (allowed) { if (!room.gmPassword) room.gmPassword = pw; gm = true; }
     }
     room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
 
@@ -632,12 +686,41 @@ io.on('connection', (socket) => {
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
+      licenseMode: DM_PRO_MODE,
+      proUrl: DM_PRO_URL,
     });
     broadcastPlayers(joinedRoom);
     broadcastParty(joinedRoom);
     if (gm) io.to(socket.id).emit('sheets:update', Object.values(room.sheets || {}));  // DM sees everyone's sheets on join
     socket.to(joinedRoom).emit('peer-joined', { peerId: socket.id, name: room.players[socket.id].name });
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
+  });
+
+  // ---- #178 DM Pro license ----
+  socket.on('license:activate', async ({ key } = {}) => {
+    socket.data = socket.data || {};
+    socket.data.licTries = (socket.data.licTries || 0) + 1;
+    if (socket.data.licTries > 12) { socket.emit('license:status', { ok: false, reason: 'too-many' }); return; }
+    const lic = await verifyLicense(key);
+    if (!lic.ok) { socket.emit('license:status', { ok: false, reason: lic.reason || 'invalid' }); return; }
+    socket.data.license = String(key || '').trim();
+    socket.emit('license:status', { ok: true, plan: lic.plan || 'pro' });
+    // Blocked at join but knew the room's GM password? Promote them now.
+    const room = joinedRoom && rooms.get(joinedRoom);
+    const pend = socket.data.pendingGmPw;
+    if (room && pend && (!room.gmPassword || room.gmPassword === pend) && room.players[socket.id]) {
+      if (!room.gmPassword) room.gmPassword = pend;
+      room.players[socket.id].isGm = true;
+      delete socket.data.pendingGmPw;
+      socket.emit('license:promoted', {});
+      broadcastPlayers(joinedRoom);
+      io.to(socket.id).emit('sheets:update', Object.values(room.sheets || {}));
+      pushSystem(joinedRoom, `${room.players[socket.id].name} is now the GM (DM Pro).`);
+    }
+  });
+  socket.on('license:check', async ({ key } = {}) => {
+    const lic = await verifyLicense(key);
+    socket.emit('license:status', { ok: !!lic.ok, plan: lic.plan || null, reason: lic.ok ? null : (lic.reason || 'invalid') });
   });
 
   // ---- Tokens ----

@@ -50,7 +50,8 @@
         </label>
       </div>
       <button id="join-btn">Enter the Table</button>
-      <p class="hint">Share the room code with friends. The first person to enter a GM password becomes the Dungeon Master; others use the same password to also GM.</p>
+      <button id="lic-open" class="lic-open" type="button" title="DM Pro license — players always play free">🔑 DM Pro</button>
+      <p class="hint">Share the room code with friends. The first person to enter a GM password becomes the Dungeon Master; others use the same password to also GM. Players always play free.</p>
     </div>
   </div>
 
@@ -619,6 +620,23 @@
     <div class="ps-modal-card">
       <div class="ps-modal-head"><h2 id="shop-title">🏪 Market</h2><button id="shop-close" class="ps-close" title="Close">✕</button></div>
       <div id="shop-body" class="ps-body" style="display:block"></div>
+    </div>
+  </div>
+
+  <!-- #178 DM Pro license modal -->
+  <div id="lic-modal" class="overlay" style="display:none">
+    <div class="lic-card">
+      <div class="tr-head"><h2>🔑 DM Pro</h2><button id="lic-close" class="ps-close" title="Close">✕</button></div>
+      <p class="lic-sub">Running games as the Dungeon Master is a DM Pro feature. <b>Players always play free.</b></p>
+      <div id="lic-msg" class="lic-msg"></div>
+      <label class="lic-label">License key
+        <input id="lic-key" type="text" maxlength="120" placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="lic-actions">
+        <button id="lic-activate">Activate</button>
+        <a id="lic-buy" href="#" target="_blank" rel="noopener" style="display:none">Get DM Pro →</a>
+      </div>
+      <p class="lic-fine">One key unlocks the DM seat on any table you run. Your key is checked securely on the server and saved only in your own browser.</p>
     </div>
   </div>
 
