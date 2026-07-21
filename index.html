@@ -680,6 +680,9 @@
         <input id="tk-icon-color" type="color" value="#e8ddcf" title="Tint color" />
       </div>
       <div id="tk-icongal" class="icon-gal"></div>
+      <label>🖼 Public-domain art — real illustrations <span style="opacity:.6;font-size:11px">(Wikimedia · public domain)</span></label>
+      <input id="tk-pd-q" type="text" placeholder="Search art… (goblin, wolf, dragon, knight, bear)" />
+      <div id="tk-pdgal" class="icon-gal pd-gal"></div>
       <label>Quick emoji / plain</label>
       <div id="tk-art" class="art-picker">
         <button class="art-opt" data-e="" title="Plain (color)">🎨</button>
@@ -742,6 +745,7 @@
   <audio id="remote-audio-container"></audio>
   <script src="/socket.io/socket.io.js"></script>
   <script src="bestiary.js"></script>
+  <script src="art.js"></script>
   <script src="app.js"></script>
   <script src="rules.js"></script>
   <script src="spells.js"></script>

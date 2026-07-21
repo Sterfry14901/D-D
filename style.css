@@ -1261,3 +1261,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .world-journey select{flex:1;padding:8px;border-radius:7px;border:1px solid #2c3444;background:#1c2130;color:#e9e3ff;font-size:13px}
 .world-journey button{padding:8px 14px;border-radius:7px;border:1px solid #6d5ac4;background:#3a2f66;color:#e9e3ff;cursor:pointer;font-weight:700}
 .world-journey button:hover{filter:brightness(1.15)}
+
+/* ===== public-domain art ===== */
+.pd-gal{max-height:180px;overflow-y:auto}
+.pd-opt img{background:#f4efe6;object-fit:contain}
+.world-art{width:100%;max-height:180px;object-fit:contain;background:#f4efe6;border-radius:8px;margin-bottom:9px;border:1px solid #2c3444}

@@ -656,6 +656,7 @@ function renderWorld() {
   }
   box.innerHTML = `
     <div class="world-here">
+      ${window.pdPlaceFor ? `<img class="world-art" src="${pdArt(pdPlaceFor(here), 320)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ''}
       <div class="world-city">📍 ${escapeHtml(here.name)} <span class="world-kind">${here.kind || ''}</span></div>
       ${worldState.clock ? `<div class="world-clock">🕐 Day ${worldState.clock.day}, ${String(worldState.clock.hour).padStart(2, '0')}:00</div>` : ''}
       <div class="world-desc">${escapeHtml(here.desc || '')}</div>
@@ -2551,6 +2552,32 @@ function renderIconGallery() {
   const q = $('tk-icon-q'); if (!q) return;
   q.addEventListener('input', renderIconGallery);
   renderIconGallery();
+})();
+
+// Public-domain illustration gallery (from art.js)
+function renderPdGallery() {
+  const g = $('tk-pdgal'); if (!g || !window.PD_ART) return;
+  const q = (($('tk-pd-q') && $('tk-pd-q').value) || '').trim().toLowerCase();
+  const list = q ? PD_ART.filter((a) => a.q.includes(q)) : PD_ART;
+  g.innerHTML = '';
+  list.slice(0, 120).forEach((a) => {
+    const b = document.createElement('button');
+    b.className = 'icon-opt pd-opt'; b.title = a.q.split(' ').slice(0, 3).join(' ');
+    b.innerHTML = `<img src="${pdArt(a.f, 90)}" alt="" loading="lazy" onerror="this.closest('button').remove()" />`;
+    b.onclick = () => {
+      editImg = pdArt(a.f, 240); editEmoji = '';
+      document.querySelectorAll('.img-opt, .art-opt[data-e], .icon-opt').forEach((x) => x.classList.remove('on'));
+      b.classList.add('on');
+      flashHint('🖼 Public-domain art set — Save the token to apply');
+    };
+    g.appendChild(b);
+  });
+  if (!list.length) g.innerHTML = '<div style="font-size:12px;opacity:.6;padding:6px">No art matches — try “wolf”, “knight”, “dragon”.</div>';
+}
+(function () {
+  const q = $('tk-pd-q'); if (!q) return;
+  q.addEventListener('input', renderPdGallery);
+  renderPdGallery();
 })();
 
 // Art palette: pick an emoji preset (clears custom image)
