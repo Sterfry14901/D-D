@@ -4962,3 +4962,100 @@ window.MON_COMBAT = {
   'stirge':        { ac: 14, w: 'Blood Drain',   b: 5, d: '1d4+3' },
   'shadow':        { ac: 12, w: 'Strength Drain',b: 4, d: '2d6+2' },
 };
+
+/* ===================== #184 Visual world map — parchment overworld ===================== */
+function wmCityPos(id) {
+  const fixed = { havenbrook: [22, 60], portcael: [74, 24], ironhold: [60, 78] };
+  if (fixed[id]) return fixed[id];
+  let h = 0; for (const c of String(id)) h = ((h * 31 + c.charCodeAt(0)) >>> 0);
+  return [14 + (h % 70), 16 + ((h >> 7) % 56)];
+}
+function wmEmoji(kind) {
+  const k = String(kind || '').toLowerCase();
+  if (/capital|city/.test(k)) return '🏰';
+  if (/port|harbor|harbour|coast/.test(k)) return '⚓';
+  if (/hold|mine|mountain|forge/.test(k)) return '⛰️';
+  if (/village|hamlet|farm/.test(k)) return '🏡';
+  if (/keep|fort|citadel/.test(k)) return '🛡️';
+  if (/temple|shrine|holy/.test(k)) return '⛪';
+  if (/tower|spire/.test(k)) return '🗼';
+  if (/forest|grove|wood/.test(k)) return '🌲';
+  return '🏘️';
+}
+function injectWorldMap() {
+  const box = $('world-body');
+  if (!box || !worldState || !worldState.cities) return;
+  const cities = Object.values(worldState.cities);
+  if (cities.length < 2) return;
+  // resolve positions with simple collision nudging
+  const pos = {}; const placed = [];
+  cities.forEach((c) => {
+    let [x, y] = wmCityPos(c.id);
+    for (let t = 0; t < 12; t++) {
+      const clash = placed.find((p) => Math.abs(p[0] - x) < 13 && Math.abs(p[1] - y) < 11);
+      if (!clash) break;
+      x = 14 + ((x + 23) % 70); y = 16 + ((y + 17) % 56);
+    }
+    placed.push([x, y]); pos[c.id] = [x, y];
+  });
+  // dedupe links
+  const seen = new Set(); const links = [];
+  cities.forEach((c) => (c.links || []).forEach((l) => {
+    if (!pos[l.to]) return;
+    const key = [c.id, l.to].sort().join('~');
+    if (seen.has(key)) return; seen.add(key);
+    links.push({ a: c.id, b: l.to, boat: !!(l.modes && l.modes.boat && !l.modes.walk) });
+  }));
+  const at = worldState.party.at;
+  const voteTo = worldState.vote && worldState.vote.to;
+  const svgLinks = links.map((l) => {
+    const [x1, y1] = pos[l.a], [x2, y2] = pos[l.b];
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="wm-road${l.boat ? ' wm-sea' : ''}"/>`;
+  }).join('');
+  const svgCities = cities.map((c) => {
+    const [x, y] = pos[c.id];
+    const hereCls = c.id === at ? ' wm-here' : '';
+    const voteCls = c.id === voteTo ? ' wm-vote' : '';
+    return `<g class="wm-city${hereCls}${voteCls}" data-wmcity="${c.id}" transform="translate(${x},${y})">
+      ${c.id === at ? '<circle r="6.5" class="wm-pulse"/>' : ''}
+      <circle r="4.6" class="wm-dot"/>
+      <text y="1.9" text-anchor="middle" class="wm-ico">${wmEmoji(c.kind)}</text>
+      <text y="9.6" text-anchor="middle" class="wm-name">${escapeHtml(c.name)}</text>
+    </g>`;
+  }).join('');
+  const wrap = document.createElement('div');
+  wrap.className = 'wmap';
+  wrap.innerHTML = `
+    <svg viewBox="0 0 100 76" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="wm-rough"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0.24  0 0 0 0 0.18  0 0 0 0 0.10  0 0 0 0.05 0"/><feComposite operator="over" in2="SourceGraphic"/></filter>
+        <radialGradient id="wm-parch" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#e8d9b0"/><stop offset="80%" stop-color="#d3bd8a"/><stop offset="100%" stop-color="#b89b62"/></radialGradient>
+      </defs>
+      <rect x="0" y="0" width="100" height="76" rx="2.5" fill="url(#wm-parch)" filter="url(#wm-rough)"/>
+      <text x="50" y="7.4" text-anchor="middle" class="wm-title">✦ ${escapeHtml((worldState.name || 'The Realm'))} ✦</text>
+      ${svgLinks}${svgCities}
+    </svg>
+    <div class="wm-hint">${me.isGm ? '🧭 Click a city to lead the party there' : '🧭 Click a city to propose it to the party'}</div>`;
+  const old = box.parentElement.querySelector('.wmap');
+  if (old) old.remove();
+  box.insertAdjacentElement('afterbegin', wrap);
+  wrap.querySelectorAll('[data-wmcity]').forEach((g) => {
+    g.addEventListener('click', () => {
+      const to = g.dataset.wmcity;
+      if (to === worldState.party.at) return;
+      if (me.isGm) socket.emit('world:travelTo', { to });
+      else {
+        const here = worldState.cities[worldState.party.at];
+        const link = (here.links || []).find((l) => l.to === to);
+        const mode = link ? Object.keys(link.modes || { walk: 1 })[0] : 'walk';
+        socket.emit('world:propose', { to, mode });
+        flashHint('🗳️ Proposed to the party — everyone votes!');
+      }
+    });
+  });
+}
+// hook: draw the map every time the world panel re-renders
+(function () {
+  const orig = renderWorld;
+  renderWorld = function () { orig(); try { injectWorldMap(); } catch (e) {} };
+})();

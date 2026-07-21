@@ -1310,3 +1310,20 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* #183 painted join screen */
 #join-screen.join-hero { background-size: cover !important; background-position: center 30%; }
 #join-art-credit { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: #9aa2b1; text-shadow: 0 1px 3px #000; opacity: .85; z-index: 5; }
+
+/* #184 visual world map */
+.wmap { margin: 6px 8px 10px; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); border: 1px solid #4a3d24; }
+.wmap svg { display: block; width: 100%; height: auto; }
+.wm-title { font-size: 4.2px; fill: #5b4322; font-weight: 700; letter-spacing: .5px; }
+.wm-road { stroke: #7a5c33; stroke-width: .7; stroke-dasharray: 1.6 1.2; opacity: .8; }
+.wm-sea { stroke: #3d6a8a; stroke-dasharray: .5 1.4; stroke-linecap: round; }
+.wm-city { cursor: pointer; }
+.wm-dot { fill: #f3e7c8; stroke: #6b512c; stroke-width: .55; }
+.wm-city:hover .wm-dot { fill: #ffe9a8; stroke: #d4a017; }
+.wm-ico { font-size: 4.6px; }
+.wm-name { font-size: 3px; fill: #4b3a1e; font-weight: 700; paint-order: stroke; stroke: #e8d9b0; stroke-width: .55; }
+.wm-here .wm-dot { stroke: #b3212e; stroke-width: .8; }
+.wm-vote .wm-dot { stroke: #2e7d32; stroke-width: .9; }
+.wm-pulse { fill: none; stroke: #b3212e; stroke-width: .6; opacity: .8; animation: wmPulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes wmPulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
+.wm-hint { background: #221c11; color: #cbb98a; font-size: 12px; padding: 6px 10px; text-align: center; }
