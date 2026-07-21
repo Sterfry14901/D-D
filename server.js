@@ -245,6 +245,7 @@ function saveRooms() {
         round: room.round || 1,
         shop: room.shop || { open: false, name: 'Market', items: [] },
         world: room.world || null,       // #179: the DM's built world survives restarts
+        trial: room.trial || null,       // #180: trial days used survive restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -288,6 +289,7 @@ function loadRooms() {
         sheets: {},
         shop: room.shop || { open: false, name: 'Market', items: [] },
         world: room.world || buildStarterWorld(),   // #179: restore the built world
+        trial: room.trial || null,                  // #180: restore trial usage
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -642,6 +644,22 @@ async function verifyLicense(rawKey) {
 }
 const gmNeedsLicense = () => DM_PRO_MODE === 'required';
 
+/* #180 Free trial: an unlicensed DM may run each room for DM_PRO_TRIAL distinct
+   calendar days (default 3) before the paywall. Tied to the room so restarting
+   the trial means abandoning the campaign — honest friction, no accounts needed. */
+const DM_PRO_TRIAL = Math.max(0, Math.min(30, Number(process.env.DM_PRO_TRIAL ?? 3) || 0));
+function trialCheck(room) {                 // -> { allowed, left, used }
+  if (!DM_PRO_TRIAL) return { allowed: false, left: 0, used: 0 };
+  room.trial = room.trial || { days: [] };
+  const today = new Date().toISOString().slice(0, 10);
+  if (!room.trial.days.includes(today)) {
+    if (room.trial.days.length >= DM_PRO_TRIAL) return { allowed: false, left: 0, used: room.trial.days.length };
+    room.trial.days.push(today);
+    markDirty();
+  }
+  return { allowed: true, left: DM_PRO_TRIAL - room.trial.days.length, used: room.trial.days.length };
+}
+
 io.on('connection', (socket) => {
   let joinedRoom = null;
 
@@ -660,7 +678,16 @@ io.on('connection', (socket) => {
         allowed = lic.ok;
         socket.data = socket.data || {};
         if (allowed) socket.data.license = String(license || '').trim();
-        else { socket.data.pendingGmPw = pw; socket.emit('license:required', { url: DM_PRO_URL }); }
+        else {
+          const tr = trialCheck(room);                        // #180 free trial
+          if (tr.allowed) {
+            allowed = true;
+            socket.emit('license:trial', { used: tr.used, total: DM_PRO_TRIAL, left: tr.left, url: DM_PRO_URL });
+          } else {
+            socket.data.pendingGmPw = pw;
+            socket.emit('license:required', { url: DM_PRO_URL, reason: DM_PRO_TRIAL ? 'trial-over' : 'required' });
+          }
+        }
       }
       if (allowed) { if (!room.gmPassword) room.gmPassword = pw; gm = true; }
     }

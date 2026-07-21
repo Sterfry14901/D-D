@@ -1299,3 +1299,10 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .lic-open { margin-top: 10px; width: 100%; background: transparent; border: 1px dashed #4a4f5d; color: #b9a35e; border-radius: 9px; padding: 8px; cursor: pointer; font-size: 13px; }
 .lic-open:hover { border-color: #d4a017; color: #f0c657; }
 .lic-open.lic-ok { border-style: solid; border-color: #3f7a4b; color: #7bd88f; }
+
+/* #180 free-trial banner */
+.trial-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3000; background: #23262f; border: 1px solid #d4a01755; color: #e8ecf4; border-radius: 10px; padding: 9px 14px; font-size: 13px; display: flex; gap: 10px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,.5); max-width: 92vw; }
+.trial-bar a { color: #f0c657; font-weight: 700; text-decoration: none; }
+.trial-bar a:hover { text-decoration: underline; }
+.trial-bar .trial-key { background: transparent; border: 1px solid #4a4f5d; color: #cfd6e4; border-radius: 7px; padding: 3px 9px; cursor: pointer; font-size: 12px; }
+.trial-bar .trial-x { background: none; border: 0; color: #79808f; cursor: pointer; font-size: 13px; }

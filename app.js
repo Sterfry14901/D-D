@@ -4805,7 +4805,9 @@ function openLicenseModal(reason) {
   const msg = $('lic-msg');
   if (msg) {
     msg.className = 'lic-msg';
-    msg.textContent = reason === 'required'
+    msg.textContent = reason === 'trial-over'
+      ? 'Your free DM trial for this table is used up — grab DM Pro to keep running the game. Players always play free.'
+      : reason === 'required'
       ? 'This table requires DM Pro to run games as the Dungeon Master. Players always play free.'
       : (key ? 'Enter or update your DM Pro license key.' : 'Enter your DM Pro license key to unlock the DM seat.');
   }
@@ -4826,7 +4828,7 @@ function closeLicenseModal() { const m = $('lic-modal'); if (m) m.style.display 
 
 socket.on('license:required', (d) => {
   if (d && d.url) proInfo.url = d.url;
-  openLicenseModal('required');
+  openLicenseModal((d && d.reason) === 'trial-over' ? 'trial-over' : 'required');
 });
 socket.on('license:status', (d) => {
   const g = $('lic-msg');
@@ -4854,4 +4856,19 @@ socket.on('state', (s) => {   // second listener: just capture Pro info
   if (s && s.proUrl) proInfo.url = s.proUrl;
   const open = $('lic-open');
   if (open && localStorage.getItem('dmLicenseKey')) { open.textContent = '🔑 DM Pro ✓'; open.classList.add('lic-ok'); }
+});
+
+/* #180 Free trial banner — unlicensed DM running on trial days */
+socket.on('license:trial', (d) => {
+  if (d && d.url) proInfo.url = d.url;
+  const total = (d && d.total) || 3, used = (d && d.used) || 1, left = (d && d.left) || 0;
+  const bar = document.createElement('div');
+  bar.className = 'trial-bar';
+  bar.innerHTML = `🎲 <b>Free DM trial:</b> session day ${used} of ${total}` +
+    (left > 0 ? ` — ${left} left after today.` : ' — this is your last free day!') +
+    (proInfo.url ? ` <a href="${proInfo.url}" target="_blank" rel="noopener">Get DM Pro →</a>` : '') +
+    ` <button class="trial-key">I have a key</button><button class="trial-x" title="Dismiss">✕</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('.trial-x').onclick = () => bar.remove();
+  bar.querySelector('.trial-key').onclick = () => { bar.remove(); openLicenseModal(); };
 });

@@ -38,6 +38,7 @@ In your Render dashboard → your service → **Environment**, add:
 | `GUMROAD_PRODUCT_ID` | your product ID | Lets the server verify keys with Gumroad. |
 | `DM_PRO_URL` | your product page URL | The "Get DM Pro →" button in the popup. |
 | `DM_LICENSE_KEYS` | `MY-OWN-KEY,FRIEND-KEY` | Optional: comma-separated keys that are always valid — give yourself one, comp your friends. |
+| `DM_PRO_TRIAL` | `3` (default) | Free trial: an unlicensed DM can run each table for this many separate days before the paywall. Set `0` for no trial. Tied to the room, so resetting the trial means abandoning the campaign. |
 
 Save — Render restarts automatically and the gate is live.
 
@@ -48,14 +49,16 @@ Save — Render restarts automatically and the gate is live.
    → "✅ License valid" → you're promoted to GM instantly.
 3. Join from another window with **no** GM password → plays free, sees no popup.
 
-## Pricing ideas
+## Pricing (subscription-first)
 
-- **Lifetime**: one-time $20–30 (simple, great for launch)
-- **Subscription**: $5/mo Gumroad membership (steady income; canceled subs are
-  auto-detected and the key stops working)
-- Both can coexist — make two Gumroad products and put both IDs' keys in play by
-  keeping lifetime as the Gumroad product and handing subscription users env keys,
-  or ask me to add multi-product support.
+- **Main product: subscription** — a Gumroad *membership* at **$7–9/mo** per DM seat.
+  Canceled or failed subscriptions are auto-detected and the key stops working.
+  ~13–23 subscribers covers a $100/mo goal after Gumroad's cut.
+- **No cheap lifetime.** If you offer lifetime at all, price it as a premium anchor
+  (e.g. **$1,000 "forever" tier**) — it makes the monthly price look tiny and the rare
+  buyer is pure upside. Otherwise skip lifetime entirely.
+- Optional launch lever: a **first-month discount code** on the subscription
+  (Gumroad supports discount codes) instead of discounting the base price.
 
 ## Refunds & abuse
 
