@@ -214,6 +214,22 @@ if ($('panel-max')) $('panel-max').onclick = () => {
   $('panel-max').title = on ? 'Back to normal size' : 'Full-screen panel (great for DMs) — click again to shrink back';
 };
 
+/* ---- #195 In-game bug reports → Discord #bug-reports ---- */
+if ($('bug-btn')) $('bug-btn').onclick = () => {
+  const t = window.prompt('🐛 What went wrong?\n\nTell us what you did and what happened — this goes straight to the dev Discord. Confirmed bugs earn the Bug Hunter role!');
+  if (!t || !t.trim()) return;
+  socket.emit('bug:report', { text: t.trim() }, (res) => {
+    if (res && res.ok) { alert('🐛 Sent! Thank you, adventurer — your report just landed in our Discord.'); return; }
+    if (res && res.error === 'no-webhook') {
+      if (window.confirm('Direct reporting isn\'t wired up on this server yet — open our Discord so you can post it in #bug-reports?')) {
+        window.open('https://discord.gg/qymT99jZrN', '_blank');
+      }
+      return;
+    }
+    alert(res && res.error ? res.error : 'Could not send — please try again in a minute.');
+  });
+};
+
 // Copy an invite link to this table.
 if ($('invite-btn')) $('invite-btn').onclick = async () => {
   const url = location.origin + location.pathname + '?room=' + encodeURIComponent(me.room || 'default');

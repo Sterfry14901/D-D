@@ -253,6 +253,33 @@ function saveRooms() {
   } catch (e) { console.error('saveRooms failed:', e.message); }
 }
 
+// ---- #195 Discord integrations: webhooks for bugs / status / patch notes ----
+const DISCORD_BUG_WEBHOOK = process.env.DISCORD_BUG_WEBHOOK || '';
+const DISCORD_STATUS_WEBHOOK = process.env.DISCORD_STATUS_WEBHOOK || '';
+const DISCORD_PATCH_WEBHOOK = process.env.DISCORD_PATCH_WEBHOOK || '';
+async function postDiscord(url, payload) {
+  if (!url) return false;
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    return res.ok;
+  } catch (e) { console.error('Discord webhook failed:', e.message); return false; }
+}
+// On boot: tell the Discord we're back online, and post the patch note once per note.
+setTimeout(async () => {
+  await postDiscord(DISCORD_STATUS_WEBHOOK, { content: '🟢 **Realms of Fate** updated and back online — https://d-d-cfqn.onrender.com' });
+  const note = (process.env.DEPLOY_NOTE || '').trim();
+  if (note && DISCORD_PATCH_WEBHOOK) {
+    try {
+      const nf = DATA_FILE + '.note';
+      const last = fs.existsSync(nf) ? fs.readFileSync(nf, 'utf8') : '';
+      if (note !== last) {
+        await postDiscord(DISCORD_PATCH_WEBHOOK, { content: '📜 **Patch notes** — ' + note.slice(0, 1800) });
+        fs.writeFileSync(nf, note);
+      }
+    } catch (e) { /* non-fatal */ }
+  }
+}, 6000);
+
 // Debounced save — coalesces bursts of changes into one write.
 function markDirty() {
   if (saveTimer) return;
@@ -784,6 +811,31 @@ io.on('connection', (socket) => {
       markDirty();
     }
     done({ ok: true, code: room.partyCode, room: joinedRoom });
+  });
+
+  // ---- #195 In-game bug reports → Discord #bug-reports ----
+  socket.on('bug:report', async ({ text }, ack) => {
+    const done = (r) => { if (typeof ack === 'function') ack(r); };
+    const t = String(text || '').trim().slice(0, 900);
+    if (!t) return done({ ok: false, error: 'empty' });
+    socket.data = socket.data || {};
+    const now = Date.now();
+    if (socket.data.lastBug && now - socket.data.lastBug < 60000) return done({ ok: false, error: 'Slow down — one report per minute.' });
+    socket.data.lastBug = now;
+    const room = joinedRoom && rooms.get(joinedRoom);
+    const who = room && room.players[socket.id] ? room.players[socket.id].name : 'Anonymous';
+    if (!DISCORD_BUG_WEBHOOK) return done({ ok: false, error: 'no-webhook' });
+    const ok = await postDiscord(DISCORD_BUG_WEBHOOK, {
+      embeds: [{
+        title: '🐛 In-game bug report', color: 0xe74c3c, description: t,
+        fields: [
+          { name: 'Player', value: String(who).slice(0, 60), inline: true },
+          { name: 'Room', value: String(joinedRoom || '—').slice(0, 60), inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    });
+    done(ok ? { ok: true } : { ok: false, error: 'no-webhook' });
   });
 
   // ---- #185 Custom world map image + city pin positions ----
