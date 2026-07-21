@@ -1547,11 +1547,13 @@ function buildMonsters() {
 }
 function spawnMonster(m) {
   if (!me.isGm) return;
+  const c = (window.MON_COMBAT || {})[String(m.n || '').toLowerCase()];   // #182 SRD combat stats
   socket.emit('token:add', {
     x: gridSize * (2 + Math.floor(Math.random() * 6)),
     y: gridSize * (1 + Math.floor(Math.random() * 3)),
     color: '#7a2318', label: m.n, size: m.size || 1,
     statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp, cr: m.cr,
+    ...(c ? { ac: c.ac, atk: [{ name: c.w, bonus: c.b, dmg: c.d }] } : {}),
   });
 }
 buildMonsters();
@@ -4888,12 +4890,19 @@ function startAttackFlow(attacker) {
   if (pick === null) return;
   const tgt = others[Math.max(1, Math.min(others.length, parseInt(pick) || 1)) - 1];
   if (!tgt) return;
-  // Prefill from your character sheet's first attack when swinging your linked token.
+  // #182 Prefill: the token's own stat-block attack → SRD monster table → your sheet → default.
   let defB = '+4', defD = '1d8+2';
   try {
-    if (typeof linkedToken !== 'undefined' && linkedToken === attacker.id && cs && Array.isArray(cs.attacks) && cs.attacks[0]) {
+    const own = Array.isArray(attacker.atk) && attacker.atk[0];
+    const srd = (window.MON_COMBAT || {})[String(attacker.label || attacker.name || '').toLowerCase()];
+    if (own) { defB = String(own.bonus ?? defB); defD = String(own.dmg || defD); }
+    else if (srd) { defB = '+' + srd.b; defD = srd.d; }
+    else if (typeof linkedToken !== 'undefined' && linkedToken === attacker.id && cs && Array.isArray(cs.attacks) && cs.attacks[0]) {
       defB = String(cs.attacks[0].bonus ?? defB); defD = String(cs.attacks[0].dmg || defD);
     }
+    // GM convenience: teach the target its SRD AC if it doesn't have one yet.
+    const tsrd = (window.MON_COMBAT || {})[String(tgt.label || tgt.name || '').toLowerCase()];
+    if (me.isGm && tsrd && !(Number(tgt.ac) > 0)) socket.emit('token:update', { id: tgt.id, ac: tsrd.ac });
   } catch {}
   const bonus = prompt(`Attack bonus vs ${tgt.label || 'target'} (e.g. +5):`, defB);
   if (bonus === null) return;
@@ -4908,3 +4917,48 @@ function startAttackFlow(attacker) {
     dmg: String(dmg).trim(), adv,
   });
 }
+
+/* #182 SRD 5.2.1 combat stats for the quick-add bestiary — AC + signature attack.
+   Used to prefill the ⚔️ Attack flow and teach spawned monsters their AC. */
+window.MON_COMBAT = {
+  'goblin':        { ac: 15, w: 'Scimitar',      b: 4, d: '1d6+2' },
+  'giant rat':     { ac: 12, w: 'Bite',          b: 4, d: '1d4+2' },
+  'cultist':       { ac: 12, w: 'Scimitar',      b: 3, d: '1d6+1' },
+  'bandit':        { ac: 12, w: 'Scimitar',      b: 3, d: '1d6+1' },
+  'guard':         { ac: 16, w: 'Spear',         b: 3, d: '1d6+1' },
+  'acolyte':       { ac: 10, w: 'Club',          b: 2, d: '1d4'   },
+  'skeleton':      { ac: 13, w: 'Shortsword',    b: 4, d: '1d6+2' },
+  'zombie':        { ac: 8,  w: 'Slam',          b: 3, d: '1d6+1' },
+  'wolf':          { ac: 13, w: 'Bite',          b: 4, d: '2d4+2' },
+  'dire wolf':     { ac: 14, w: 'Bite',          b: 5, d: '2d6+3' },
+  'orc':           { ac: 13, w: 'Greataxe',      b: 5, d: '1d12+3' },
+  'kobold':        { ac: 12, w: 'Dagger',        b: 4, d: '1d4+2' },
+  'bugbear':       { ac: 16, w: 'Morningstar',   b: 4, d: '2d8+2' },
+  'hobgoblin':     { ac: 18, w: 'Longsword',     b: 3, d: '1d8+1' },
+  'gnoll':         { ac: 15, w: 'Spear',         b: 4, d: '1d6+2' },
+  'ogre':          { ac: 11, w: 'Greatclub',     b: 6, d: '2d8+4' },
+  'troll':         { ac: 15, w: 'Claw',          b: 7, d: '2d6+4' },
+  'ghoul':         { ac: 12, w: 'Claws',         b: 4, d: '2d4+2' },
+  'ghast':         { ac: 13, w: 'Claws',         b: 5, d: '2d6+3' },
+  'giant spider':  { ac: 14, w: 'Bite',          b: 5, d: '1d8+3' },
+  'black bear':    { ac: 11, w: 'Claws',         b: 4, d: '2d4+2' },
+  'brown bear':    { ac: 11, w: 'Claws',         b: 6, d: '2d6+4' },
+  'harpy':         { ac: 11, w: 'Club',          b: 3, d: '2d4+1' },
+  'wight':         { ac: 14, w: 'Longsword',     b: 4, d: '1d8+2' },
+  'specter':       { ac: 12, w: 'Life Drain',    b: 4, d: '3d6'   },
+  'mummy':         { ac: 11, w: 'Rotting Fist',  b: 5, d: '2d6+3' },
+  'werewolf':      { ac: 12, w: 'Bite',          b: 4, d: '1d8+2' },
+  'minotaur':      { ac: 14, w: 'Greataxe',      b: 6, d: '2d12+4' },
+  'owlbear':       { ac: 13, w: 'Claws',         b: 7, d: '2d8+5' },
+  'basilisk':      { ac: 15, w: 'Bite',          b: 5, d: '2d6+3' },
+  'manticore':     { ac: 14, w: 'Claw',          b: 5, d: '1d6+3' },
+  'ettin':         { ac: 12, w: 'Battleaxe',     b: 7, d: '2d8+5' },
+  'hill giant':    { ac: 13, w: 'Greatclub',     b: 8, d: '3d8+5' },
+  'stone giant':   { ac: 17, w: 'Greatclub',     b: 9, d: '3d8+6' },
+  'frost giant':   { ac: 15, w: 'Greataxe',      b: 9, d: '3d12+6' },
+  'young red dragon': { ac: 18, w: 'Bite',       b: 10, d: '2d10+6' },
+  'imp':           { ac: 13, w: 'Sting',         b: 5, d: '1d4+3' },
+  'giant snake':   { ac: 12, w: 'Bite',          b: 4, d: '1d8+2' },
+  'stirge':        { ac: 14, w: 'Blood Drain',   b: 5, d: '1d4+3' },
+  'shadow':        { ac: 12, w: 'Strength Drain',b: 4, d: '2d6+2' },
+};
