@@ -246,6 +246,7 @@ function saveRooms() {
         shop: room.shop || { open: false, name: 'Market', items: [] },
         world: room.world || null,       // #179: the DM's built world survives restarts
         trial: room.trial || null,       // #180: trial days used survive restarts
+        partyCode: room.partyCode || null, // #193: party invite code survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -290,6 +291,7 @@ function loadRooms() {
         shop: room.shop || { open: false, name: 'Market', items: [] },
         world: room.world || buildStarterWorld(),   // #179: restore the built world
         trial: room.trial || null,                  // #180: restore trial usage
+        partyCode: room.partyCode || null,          // #193: restore party invite code
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -696,6 +698,14 @@ io.on('connection', (socket) => {
   let joinedRoom = null;
 
   socket.on('join', async ({ roomId, name, color, gmPassword, license }) => {
+    // #193 Party code: a player typed an RF-XXXXX code into the GM password box →
+    // teleport them into the game that owns that code (as a player, never as GM).
+    const codeTry = (gmPassword || '').trim().toUpperCase();
+    if (/^RF-[A-Z0-9]{5}$/.test(codeTry)) {
+      let target = null;
+      for (const [rid, r] of rooms) { if (r && r.partyCode === codeTry) { target = rid; break; } }
+      if (target) { roomId = target; gmPassword = ''; }
+    }
     joinedRoom = roomId || 'default';
     socket.join(joinedRoom);
     const room = getRoom(joinedRoom);
@@ -751,12 +761,29 @@ io.on('connection', (socket) => {
       gmClaimed: !!room.gmPassword,
       licenseMode: DM_PRO_MODE,
       proUrl: DM_PRO_URL,
+      roomId: joinedRoom,               // #193: real room (party codes can redirect)
+      partyCode: gm ? (room.partyCode || null) : null,
     });
     broadcastPlayers(joinedRoom);
     broadcastParty(joinedRoom);
     if (gm) io.to(socket.id).emit('sheets:update', Object.values(room.sheets || {}));  // DM sees everyone's sheets on join
     socket.to(joinedRoom).emit('peer-joined', { peerId: socket.id, name: room.players[socket.id].name });
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
+  });
+
+  // ---- #193 Party code: GM mints a shareable code for this game ----
+  socket.on('invite:make', (ack) => {
+    const done = (r) => { if (typeof ack === 'function') ack(r); };
+    if (!joinedRoom) return done({ ok: false, error: 'not in a room' });
+    const room = getRoom(joinedRoom);
+    const p = room.players[socket.id];
+    if (!p || !p.isGm) return done({ ok: false, error: 'GM only' });
+    if (!room.partyCode) {
+      const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L lookalikes
+      room.partyCode = 'RF-' + Array.from({ length: 5 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+      markDirty();
+    }
+    done({ ok: true, code: room.partyCode, room: joinedRoom });
   });
 
   // ---- #185 Custom world map image + city pin positions ----

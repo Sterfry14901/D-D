@@ -185,6 +185,35 @@ function applyOrigin() {
   socket.emit('chat', { text: `🧝 ${me.name} enters as a level 1 ${bits || 'adventurer'}.${tail}` });
 }
 
+/* ---- #193 Party code: GM mints a code; players type it in the GM PASSWORD box
+   on the join screen and get teleported into this exact game (as players). ---- */
+socket.on('state', (s) => {
+  if (s && s.roomId && s.roomId !== me.room) {
+    me.room = s.roomId;                                  // a party code redirected us
+    const h = $('room-label'); if (h) h.textContent = s.roomId;
+  }
+});
+if ($('party-btn')) $('party-btn').onclick = () => {
+  socket.emit('invite:make', (res) => {
+    if (!res || !res.ok) { alert(res && res.error ? res.error : 'Only the DM can make a party code.'); return; }
+    $('pc-room').textContent = res.room;
+    $('pc-code').textContent = res.code;
+    $('pc-modal').style.display = 'flex';
+    const link = location.origin + location.pathname + '?room=' + encodeURIComponent(res.room);
+    $('pc-copy').onclick = async () => { try { await navigator.clipboard.writeText(res.code); $('pc-copy').textContent = '✅ Copied!'; setTimeout(() => $('pc-copy').textContent = '📋 Copy code', 1500); } catch { window.prompt('Copy the code:', res.code); } };
+    $('pc-copylink').onclick = async () => { try { await navigator.clipboard.writeText(link); $('pc-copylink').textContent = '✅ Copied!'; setTimeout(() => $('pc-copylink').textContent = '🔗 Copy join link', 1500); } catch { window.prompt('Copy the link:', link); } };
+  });
+};
+if ($('pc-close')) $('pc-close').onclick = () => { $('pc-modal').style.display = 'none'; };
+
+/* ---- #193 Full-screen side panel (DMs love it, everyone gets it) ---- */
+if ($('panel-max')) $('panel-max').onclick = () => {
+  const p = $('panel');
+  const on = p.classList.toggle('maxi');
+  $('panel-max').textContent = on ? '🗗' : '⛶';
+  $('panel-max').title = on ? 'Back to normal size' : 'Full-screen panel (great for DMs) — click again to shrink back';
+};
+
 // Copy an invite link to this table.
 if ($('invite-btn')) $('invite-btn').onclick = async () => {
   const url = location.origin + location.pathname + '?room=' + encodeURIComponent(me.room || 'default');

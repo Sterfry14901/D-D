@@ -45,8 +45,8 @@
         <label style="flex:1">Token color
           <input id="join-color" type="color" value="#c0392b" />
         </label>
-        <label style="flex:2">GM password <span class="opt">(optional)</span>
-          <input id="join-gm" type="password" placeholder="Leave blank to play" maxlength="40" />
+        <label style="flex:2">GM password / party code <span class="opt">(optional)</span>
+          <input id="join-gm" type="password" autocomplete="off" placeholder="Blank to play · RF-code joins a friend's game" maxlength="40" />
         </label>
       </div>
       <button id="join-btn">Enter the Table</button>
@@ -73,6 +73,7 @@
         </div>
         <button id="ai-badge" class="ghost ai-badge hidden" title="Which AI brain the Dungeon Master is using — click to configure (DM only)">🧠 DM AI…</button>
         <button id="invite-btn" class="ghost" title="Copy an invite link to this table">🔗 Invite</button>
+        <button id="party-btn" class="ghost gm-only" title="Get a party code — players type it in to land in YOUR game">🎟️ Party code</button>
         <button id="help-btn" class="ghost" title="Help, hotkeys & chat commands (press ?)">❓ Help</button>
         <button id="voice-btn" class="ghost" title="Join voice chat">🎙️ Voice: Off</button>
         <button id="mute-btn" class="ghost hidden" title="Mute / unmute your microphone">🔊 Mic</button>
@@ -191,19 +192,20 @@
       <aside id="panel">
         <div id="panel-resize" title="Drag to resize"></div>
         <nav class="tabs">
-          <button class="tab active" data-tab="chat">Chat &amp; DM</button>
-          <button class="tab" data-tab="combat">Combat</button>
-          <button class="tab" data-tab="dice">Dice</button>
-          <button class="tab" data-tab="sheet">Sheet</button>
-          <button class="tab" data-tab="players">Party</button>
-          <button class="tab" data-tab="world">World</button>
-          <button class="tab" data-tab="quests">Quests</button>
-          <button class="tab" data-tab="journal">Journal</button>
-          <button class="tab" data-tab="rules">Rules</button>
-          <button class="tab" data-tab="spells">Spells</button>
-          <button class="tab" data-tab="books">Books</button>
-          <button class="tab gm-only" data-tab="items" title="DM only — players get items when they find or receive them">Items</button>
-          <button class="tab" data-tab="chars">Classes</button>
+          <button class="tab active" data-tab="chat" data-tip="Chat &amp; AI DM">Chat &amp; DM</button>
+          <button class="tab" data-tab="combat" data-tip="Combat">Combat</button>
+          <button class="tab" data-tab="dice" data-tip="Dice">Dice</button>
+          <button class="tab" data-tab="sheet" data-tip="Character sheet">Sheet</button>
+          <button class="tab" data-tab="players" data-tip="Party">Party</button>
+          <button class="tab" data-tab="world" data-tip="World map &amp; travel">World</button>
+          <button class="tab" data-tab="quests" data-tip="Quests">Quests</button>
+          <button class="tab" data-tab="journal" data-tip="Journal">Journal</button>
+          <button class="tab" data-tab="rules" data-tip="Rules &amp; monsters">Rules</button>
+          <button class="tab" data-tab="spells" data-tip="Spells">Spells</button>
+          <button class="tab" data-tab="books" data-tip="Books">Books</button>
+          <button class="tab gm-only" data-tab="items" data-tip="Magic items (DM)" title="DM only — players get items when they find or receive them">Items</button>
+          <button class="tab" data-tab="chars" data-tip="Classes &amp; species">Classes</button>
+          <button id="panel-max" class="panel-max" title="Full-screen panel (great for DMs) — click again to shrink back">⛶</button>
         </nav>
 
         <!-- Chat + AI DM -->
@@ -670,6 +672,21 @@
         <a id="lic-buy" href="#" target="_blank" rel="noopener" style="display:none">Get DM Pro →</a>
       </div>
       <p class="lic-fine">One key unlocks the DM seat on any table you run. Your key is checked securely on the server and saved only in your own browser.</p>
+    </div>
+  </div>
+
+  <div id="pc-modal" class="overlay" style="display:none">
+    <div class="lic-card">
+      <div class="tr-head"><h2>🎟️ Party code</h2><button id="pc-close" class="ps-close" title="Close">✕</button></div>
+      <p class="lic-sub">Give this to your players. On the join screen they type it into the
+      <b>GM PASSWORD</b> box — and they'll land in <b>your</b> game automatically. It never makes anyone a GM.</p>
+      <div class="pc-game">Game: <b id="pc-room">—</b></div>
+      <div id="pc-code" class="pc-code">—</div>
+      <div class="lic-actions">
+        <button id="pc-copy">📋 Copy code</button>
+        <button id="pc-copylink" class="ghost">🔗 Copy join link</button>
+      </div>
+      <p class="lic-fine">The code is permanent for this game and survives restarts. The join link takes them straight in — the code is for friends who already have the site open.</p>
     </div>
   </div>
 
