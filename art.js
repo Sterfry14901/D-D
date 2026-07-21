@@ -119,3 +119,54 @@
     return 'Half - Timbered (PSF).png';
   };
 })();
+
+/* ===== #183 Classic public-domain fantasy paintings (Wikimedia Commons) =====
+   Masters of fairy-tale art — Vasnetsov, Kittelsen, Bauer, Rackham, Wyeth,
+   Doré, Bilibin, Pyle. All works are public domain. Filenames verified
+   against the Commons API. */
+(function () {
+  window.PD_HERO = [
+    { f: '1898 Vasnetsov Bogatyrs anagoria.JPG', by: 'Viktor Vasnetsov — Bogatyrs (1898)' },
+    { f: 'Victor Vasnetsov - Knight at the Crossroads - Google Art Project.jpg', by: 'Vasnetsov — Knight at the Crossroads (1882)' },
+    { f: 'Moscou, galerie Tretiakov Ivan-Tsarevitch at the Grey Wolf (Vasnetsov).jpg', by: 'Vasnetsov — Ivan Tsarevich on the Grey Wolf (1889)' },
+    { f: 'Theodor Kittelsen - Far, far away Soria Moria Palace shimmered like Gold - Google Art Project.jpg', by: 'Kittelsen — Soria Moria Palace (1900)' },
+    { f: 'John Bauer - The Princess and the Trolls - Google Art Project.jpg', by: 'John Bauer — The Princess and the Trolls (1913)' },
+    { f: 'Boys King Arthur - N. C. Wyeth - p16.jpg', by: 'N.C. Wyeth — The Boy’s King Arthur (1922)' },
+    { f: 'Paradise Lost 12.jpg', by: 'Gustave Doré — Paradise Lost' },
+    { f: 'Ivan Bilibin 001.jpg', by: 'Ivan Bilibin (1899)' },
+  ];
+  // Upgrade city headers: paintings first, engravings as character
+  window.PD_PLACE = [
+    { k: 'capital city', f: 'Theodor Kittelsen - Far, far away Soria Moria Palace shimmered like Gold - Google Art Project.jpg' },
+    { k: 'keep fort castle citadel', f: 'Idylls of the King 3.jpg' },
+    { k: 'port harbor harbour dock coast', f: '"Marooned" illustration by Howard Pyle - 6706098 f1024.jpg' },
+    { k: 'hold mountain dwarf forge iron', f: 'Dore woodcut Divine Comedy 01.jpg' },
+    { k: 'forest grove wood glade', f: 'John Bauer 1915.jpg' },
+    { k: 'village hamlet farm brook', f: 'John Bauer - The Princess and the Trolls - Google Art Project.jpg' },
+    { k: 'tower spire mage', f: 'Arthur Rackham 1909 Undine (7 of 15).jpg' },
+    { k: 'temple shrine cathedral holy', f: 'Cathedral (PSF).jpg' },
+    { k: 'town', f: 'Boys King Arthur - N. C. Wyeth - p306.jpg' },
+  ];
+  // Cinematic join screen: a random masterpiece behind the login card.
+  function heroize() {
+    const js = document.getElementById('join-screen');
+    if (!js || !window.PD_HERO || !window.pdArt) return;
+    const pick = window.PD_HERO[Math.floor(Math.random() * window.PD_HERO.length)];
+    const img = new Image();
+    img.onload = () => {
+      js.classList.add('join-hero');
+      js.style.backgroundImage =
+        'linear-gradient(rgba(10,12,18,.82), rgba(10,12,18,.88)), url("' + window.pdArt(pick.f, 1600).replace(/"/g, '%22') + '")';
+      let cr = document.getElementById('join-art-credit');
+      if (!cr) {
+        cr = document.createElement('div');
+        cr.id = 'join-art-credit';
+        js.appendChild(cr);
+      }
+      cr.textContent = '🎨 ' + pick.by + ' · public domain';
+    };
+    img.src = window.pdArt(pick.f, 1600);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', heroize);
+  else heroize();
+})();

@@ -1306,3 +1306,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .trial-bar a:hover { text-decoration: underline; }
 .trial-bar .trial-key { background: transparent; border: 1px solid #4a4f5d; color: #cfd6e4; border-radius: 7px; padding: 3px 9px; cursor: pointer; font-size: 12px; }
 .trial-bar .trial-x { background: none; border: 0; color: #79808f; cursor: pointer; font-size: 13px; }
+
+/* #183 painted join screen */
+#join-screen.join-hero { background-size: cover !important; background-position: center 30%; }
+#join-art-credit { position: fixed; bottom: 10px; right: 14px; font-size: 11px; color: #9aa2b1; text-shadow: 0 1px 3px #000; opacity: .85; z-index: 5; }
