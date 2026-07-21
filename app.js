@@ -5119,3 +5119,14 @@ function wmPickImage() {
   const orig = renderWorld;
   renderWorld = function () { orig(); try { injectWorldMap(); } catch (e) {} };
 })();
+
+/* #186 Instant demo — one click, ready-made adventure, you're the DM */
+(function () {
+  const b = $('demo-btn'); if (!b) return;
+  b.addEventListener('click', () => {
+    if (!$('join-name').value.trim()) $('join-name').value = 'Demo DM';
+    $('join-room').value = 'demo_' + Math.random().toString(36).slice(2, 8);
+    $('join-gm').value = 'demo';
+    join();
+  });
+})();

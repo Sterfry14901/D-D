@@ -1333,3 +1333,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .wm-tool:hover { border-color: #d4a017; color: #f0c657; }
 .wm-tool.on { background: #d4a017; color: #171207; font-weight: 700; }
 .wm-title-img { fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.65); stroke-width: .8; }
+
+/* #186 instant demo button */
+.demo-btn { margin-top: 10px; width: 100%; background: linear-gradient(180deg, #2e7d32, #1d5a22); border: 0; color: #eaffea; border-radius: 9px; padding: 10px; cursor: pointer; font-size: 14px; font-weight: 700; }
+.demo-btn:hover { filter: brightness(1.12); }

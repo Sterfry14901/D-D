@@ -644,6 +644,38 @@ async function verifyLicense(rawKey) {
 }
 const gmNeedsLicense = () => DM_PRO_MODE === 'required';
 
+/* #186 Instant demo — rooms named demo_* come pre-loaded with a small adventure
+   so first-time visitors see a living table in one click instead of an empty grid. */
+function seedDemoRoom(roomId, room) {
+  if (room._demoSeeded || Object.keys(room.tokens).length) return;
+  room._demoSeeded = true;
+  const g = room.gridSize || 70;
+  room.tokens = {
+    demo_hero:  { id: 'demo_hero', x: g * 2, y: g * 3, label: 'Aria', name: 'Aria the Ranger', color: '#2e7d32', emoji: '🏹', hp: 24, maxhp: 24, ac: 15, size: 1, statuses: [] },
+    demo_gob1:  { id: 'demo_gob1', x: g * 6, y: g * 2, label: 'Goblin', name: 'Goblin', color: '#7a2318', emoji: '👺', hp: 7, maxhp: 7, ac: 15, size: 1, statuses: [], atk: [{ name: 'Scimitar', bonus: 4, dmg: '1d6+2' }], chest: ['12 gp', 'Rusty scimitar'] },
+    demo_gob2:  { id: 'demo_gob2', x: g * 7, y: g * 4, label: 'Goblin', name: 'Goblin', color: '#7a2318', emoji: '👺', hp: 7, maxhp: 7, ac: 15, size: 1, statuses: [], atk: [{ name: 'Scimitar', bonus: 4, dmg: '1d6+2' }] },
+    demo_wolf:  { id: 'demo_wolf', x: g * 5, y: g * 5, label: 'Wolf', name: 'Wolf', color: '#4a4a55', emoji: '🐺', hp: 11, maxhp: 11, ac: 13, size: 1, statuses: [], atk: [{ name: 'Bite', bonus: 4, dmg: '2d4+2' }] },
+  };
+  room.quests = room.quests || { main: '', sides: [] };
+  room.quests.list = [sanitizeQuest({
+    title: 'Clear the Old Road', kind: 'main', giver: 'Reeve Aldric of Havenbrook',
+    objectives: [
+      { text: 'Drive off the goblin ambushers', type: 'kill', target: 'Goblin', count: 2 },
+      { text: 'Report back to the Reeve', type: 'custom' },
+    ],
+    rewards: { xp: 150, gp: 25, items: ['Potion of Healing'] },
+  })];
+  room.shop = { open: true, name: 'The Gilded Griffin', items: [
+    { id: 'ds1', name: 'Potion of Healing', price: 50, stock: 3, weight: 0.5 },
+    { id: 'ds2', name: 'Rope (50 ft)', price: 1, stock: 5, weight: 10 },
+    { id: 'ds3', name: 'Torch', price: 1, stock: 10, weight: 1 },
+    { id: 'ds4', name: 'Longsword', price: 15, stock: 2, weight: 3 },
+    { id: 'ds5', name: 'Shield', price: 10, stock: 2, weight: 6 },
+  ] };
+  room.notes = 'WELCOME TO THE DEMO!\n\nYou are the Dungeon Master. Try these:\n• Right-click a Goblin → ⚔️ Attack → target Aria (the server rolls everything)\n• Open the 📜 Quest board — dropping both goblins completes the objective automatically\n• Open the 🌍 World tab — click a city on the map to travel; encounters can happen on the road\n• Open the 🏪 shop — players buy with their own gold\n\nHave fun — everything here is yours to break.';
+  room.chat.push({ id: 'm_demo1', author: 'System', role: 'system', text: '🎲 Welcome, Dungeon Master! Two goblins and a wolf ambush the road ahead. Check the 📓 notes for a 60-second tour.', ts: Date.now() });
+}
+
 /* #180 Free trial: an unlicensed DM may run each room for DM_PRO_TRIAL distinct
    calendar days (default 3) before the paywall. Tied to the room so restarting
    the trial means abandoning the campaign — honest friction, no accounts needed. */
@@ -667,6 +699,7 @@ io.on('connection', (socket) => {
     joinedRoom = roomId || 'default';
     socket.join(joinedRoom);
     const room = getRoom(joinedRoom);
+    if (joinedRoom.startsWith('demo_')) seedDemoRoom(joinedRoom, room);   // #186 instant demo
 
     // GM role resolution via password (+ DM Pro license when required)
     let gm = false;
