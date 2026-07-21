@@ -810,17 +810,62 @@ function renderQuestView() {
     box.innerHTML = '<div class="quest-empty">No quests yet. ' + (me.isGm ? 'Tap “📜 Pick a Quest” to choose an adventure, add a custom one, or “AI: suggest quests.”' : 'The DM hasn’t posted the party’s goals yet.') + '</div>';
     return;
   }
+  const card = (x, main) => {
+    // Rich quests (with objectives) get progress checklists + rewards + turn-in.
+    if (x.objectives && x.objectives.length) {
+      const total = x.objectives.length, doneN = x.objectives.filter((o) => o.done).length;
+      const ready = !x.done && doneN === total;
+      const objs = x.objectives.map((o, i) => {
+        const auto = o.type === 'visit';
+        const prog = o.type === 'kill' && (o.count || 1) > 1 ? ` <em>${o.progress || 0}/${o.count}</em>` : '';
+        const toggle = (!x.done && !auto) ? ` data-qobj="${x.id}:${i}"` : '';
+        return `<div class="q-obj ${o.done ? 'done' : ''}"${toggle}>${o.done ? '✅' : auto ? '🧭' : '▫️'} ${QESC(o.text)}${prog}</div>`;
+      }).join('');
+      const rw = x.rewards || {};
+      const rwBits = [];
+      if (rw.xp) rwBits.push(`⭐ ${rw.xp} XP`); if (rw.gp) rwBits.push(`💰 ${rw.gp} gp`);
+      if (rw.items && rw.items.length) rwBits.push(`🎁 ${rw.items.map(QESC).join(', ')}`);
+      return `<div class="quest-main-card q-rich ${x.done ? 'done' : ''}">
+        <div class="quest-main-txt">${x.done ? '🏆 ' : main ? '⭐ ' : '🗺️ '}${QESC(x.title)}${x.giver ? ` <span class="q-giver">— ${QESC(x.giver)}</span>` : ''}</div>
+        <div class="q-bar"><i style="width:${Math.round((doneN / total) * 100)}%"></i></div>
+        ${objs}
+        ${rwBits.length ? `<div class="q-rewards">${rwBits.join(' · ')}</div>` : ''}
+        ${me.isGm && ready ? `<button class="q-turnin" data-qturnin="${x.id}">🏆 Turn in — pay rewards</button>` : ''}
+        ${!me.isGm && ready ? '<div class="q-ready">Ready to turn in — see the DM!</div>' : ''}
+      </div>`;
+    }
+    return main
+      ? `<div class="quest-main-card ${x.done ? 'done' : ''}"><div class="quest-main-txt">${x.done ? '✅ ' : ''}${QESC(x.title)}</div></div>`
+      : `<div class="quest-side-card ${x.done ? 'done' : ''}">${x.done ? '✅' : '▫️'} ${QESC(x.title)}</div>`;
+  };
   let h = '';
   if (mains.length) {
     h += '<div class="quest-cap">⭐ Main Quests</div>';
-    h += mains.map((x) => `<div class="quest-main-card ${x.done ? 'done' : ''}"><div class="quest-main-txt">${x.done ? '✅ ' : ''}${QESC(x.title)}</div></div>`).join('');
+    h += mains.map((x) => card(x, true)).join('');
   }
   if (sides.length) {
     h += '<div class="quest-cap" style="margin-top:10px">🗺️ Side Quests</div>';
-    h += sides.map((x) => `<div class="quest-side-card ${x.done ? 'done' : ''}">${x.done ? '✅' : '▫️'} ${QESC(x.title)}</div>`).join('');
+    h += sides.map((x) => card(x, false)).join('');
   }
   box.innerHTML = h;
+  // objective toggles (anyone at the table can check off manual objectives)
+  box.querySelectorAll('[data-qobj]').forEach((el) => {
+    el.onclick = () => {
+      const [questId, idx] = el.dataset.qobj.split(':');
+      const q = (quests.list || []).find((x) => x.id === questId);
+      const o = q && q.objectives && q.objectives[Number(idx)];
+      if (o) socket.emit('quest:objective', { questId, idx: Number(idx), done: !o.done });
+    };
+  });
+  box.querySelectorAll('[data-qturnin]').forEach((b) => { b.onclick = () => socket.emit('quest:turnIn', { questId: b.dataset.qturnin }); });
 }
+// quest rewards land on my sheet (xp + gold through the normal economy)
+socket.on('quest:reward', ({ title, xp, gp } = {}) => {
+  if (xp) cs.xp = (Number(cs.xp) || 0) + Number(xp);
+  if (gp) cs.gp = (Number(cs.gp) || 0) + Number(gp);
+  csPopulate(); saveCS();
+  try { if (window.flashHint) flashHint('🏆 "' + (title || 'Quest') + '" — +' + (xp || 0) + ' XP, +' + (gp || 0) + ' gp'); } catch {}
+});
 function renderQuestListEditor() {
   const box = $('quest-list'); if (!box) return;
   if (!(quests.list || []).length) { box.innerHTML = '<div style="font-size:12px;opacity:.6;padding:2px 0">No quests on the board yet.</div>'; return; }
@@ -877,6 +922,37 @@ function openQuestPicker() {
 }
 function initQuests() {
   if ($('quest-pick')) $('quest-pick').onclick = openQuestPicker;
+  // Quest composer: build a rich quest (objectives + rewards) step by step.
+  if ($('quest-compose')) $('quest-compose').onclick = () => {
+    const title = prompt('Quest title:'); if (!title || !title.trim()) return;
+    const kind = confirm('Is this a MAIN quest? (Cancel = side quest)') ? 'main' : 'side';
+    const giver = prompt('Who gives this quest? (optional)') || '';
+    const objectives = [];
+    for (let i = 1; i <= 5; i++) {
+      const text = prompt(`Objective ${i} (leave empty to finish):`); if (!text || !text.trim()) break;
+      let type = 'custom', target, count;
+      const t = (prompt('Type — "visit <cityId>", "kill <name> [xN]", or empty for checkbox:', '') || '').trim();
+      if (/^visit\s+/i.test(t)) { type = 'visit'; target = t.replace(/^visit\s+/i, '').trim(); }
+      else if (/^kill\s+/i.test(t)) {
+        type = 'kill';
+        const m = t.replace(/^kill\s+/i, '').match(/^(.*?)(?:\s*x\s*(\d+))?$/i);
+        target = (m[1] || '').trim(); count = m[2] ? Number(m[2]) : 1;
+      }
+      objectives.push({ text: text.trim(), type, target, count });
+    }
+    const xp = Number(prompt('XP reward (each player):', '100')) || 0;
+    const gp = Number(prompt('Gold reward (each player):', '10')) || 0;
+    const itemsRaw = prompt('Item rewards, comma-separated (optional):', '') || '';
+    const items = itemsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    socket.emit('quest:offer', { title: title.trim(), kind, giver: giver.trim(), objectives, rewards: { xp, gp, items } });
+    flashHint('🎯 Quest posted to the board');
+  };
+  if ($('quest-ai-one')) $('quest-ai-one').onclick = () => {
+    const theme = prompt('Theme for the AI quest (empty = based on where the party is):', '');
+    if (theme === null) return;
+    socket.emit('quest:aiOffer', { theme });
+    flashHint('✨ The AI is writing a quest…');
+  };
   if ($('quest-new-add')) $('quest-new-add').onclick = () => { const inp = $('quest-new-in'); questAdd(inp.value, $('quest-new-kind').value); inp.value = ''; };
   if ($('quest-new-in')) $('quest-new-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('quest-new-add').click(); } });
   if ($('quest-list')) $('quest-list').addEventListener('click', (e) => {

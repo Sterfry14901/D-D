@@ -338,6 +338,80 @@ function broadcastParty(roomId) {
   if (room) io.to(roomId).emit('party:list', Object.values(room.partyStatus));
 }
 function isGm(room, socketId) { return !!room.players[socketId]?.isGm; }
+// ---- Quest engine helpers ----
+function sanitizeQuest(it) {
+  if (!it) return null;
+  const q = {
+    id: String(it.id || ('q_' + rid())).slice(0, 40),
+    title: String(it.title || '').slice(0, 300),
+    kind: it.kind === 'side' ? 'side' : 'main',
+    done: !!it.done,
+  };
+  if (it.giver) q.giver = String(it.giver).slice(0, 60);
+  if (Array.isArray(it.objectives)) {
+    q.objectives = it.objectives.slice(0, 6).map((o) => ({
+      text: String((o && o.text) || '').slice(0, 200),
+      type: ['visit', 'kill', 'custom'].includes(o && o.type) ? o.type : 'custom',
+      target: o && o.target ? String(o.target).slice(0, 60) : undefined,
+      count: o && o.count ? Math.max(1, Math.min(99, Math.floor(Number(o.count)) || 1)) : undefined,
+      progress: o && o.progress ? Math.max(0, Math.floor(Number(o.progress)) || 0) : 0,
+      done: !!(o && o.done),
+    })).filter((o) => o.text);
+  }
+  if (it.rewards) {
+    q.rewards = {
+      xp: Math.max(0, Math.floor(Number(it.rewards.xp) || 0)),
+      gp: Math.max(0, Math.floor(Number(it.rewards.gp) || 0)),
+      items: Array.isArray(it.rewards.items) ? it.rewards.items.slice(0, 6).map((s) => String(s).slice(0, 60)).filter(Boolean) : [],
+    };
+  }
+  return q;
+}
+function questAnnounceIfReady(roomId, quest) {
+  if (!quest.objectives || !quest.objectives.length) return;
+  if (quest.objectives.every((o) => o.done)) pushSystem(roomId, `📜 All objectives complete for "${quest.title}" — ready to turn in!`);
+}
+// Auto-complete "visit" objectives when the party arrives somewhere.
+function questCheckVisit(roomId, cityId) {
+  const room = rooms.get(roomId); if (!room || !room.quests || !room.quests.list) return;
+  let changed = false;
+  for (const quest of room.quests.list) {
+    if (quest.done || !quest.objectives) continue;
+    for (const o of quest.objectives) {
+      if (o.done || o.type !== 'visit' || !o.target) continue;
+      if (String(o.target).toLowerCase() === String(cityId).toLowerCase()) {
+        o.done = true; changed = true;
+        pushSystem(roomId, `📜 Objective complete: ${o.text} ("${quest.title}")`);
+        questAnnounceIfReady(roomId, quest);
+      }
+    }
+  }
+  if (changed) { io.to(roomId).emit('quest:update', room.quests); markDirty(); }
+}
+// Advance "kill" objectives when a matching creature drops to 0 HP.
+function questCheckKill(roomId, tokenName) {
+  const room = rooms.get(roomId); if (!room || !room.quests || !room.quests.list || !tokenName) return;
+  const nm = String(tokenName).toLowerCase();
+  let changed = false;
+  for (const quest of room.quests.list) {
+    if (quest.done || !quest.objectives) continue;
+    for (const o of quest.objectives) {
+      if (o.done || o.type !== 'kill' || !o.target) continue;
+      if (nm.includes(String(o.target).toLowerCase())) {
+        o.progress = (o.progress || 0) + 1; changed = true;
+        const need = o.count || 1;
+        if (o.progress >= need) {
+          o.done = true;
+          pushSystem(roomId, `📜 Objective complete: ${o.text} ("${quest.title}")`);
+          questAnnounceIfReady(roomId, quest);
+        } else {
+          pushSystem(roomId, `📜 ${o.text} — ${o.progress}/${need} ("${quest.title}")`);
+        }
+      }
+    }
+  }
+  if (changed) { io.to(roomId).emit('quest:update', room.quests); markDirty(); }
+}
 function broadcastShop(roomId) {
   const room = rooms.get(roomId); if (!room) return;
   if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
@@ -591,10 +665,16 @@ io.on('connection', (socket) => {
   socket.on('token:update', (token) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
     if (!canControlToken(room, socket.id, room.tokens[token.id])) return;   // only your own token
+    const prevHp = Number(room.tokens[token.id].hp) || 0;
     const { owner, ownerId, ...safe } = token;   // players can't reassign ownership
     room.tokens[token.id] = { ...room.tokens[token.id], ...safe };
     emitTokenPerSocket(room, 'token:update', room.tokens[token.id]);
     markDirty();
+    // quest hook: creature just dropped → advance matching kill objectives
+    const t = room.tokens[token.id];
+    if (prevHp > 0 && (Number(t.hp) || 0) <= 0 && (Number(t.maxhp) || 0) > 0) {
+      questCheckKill(joinedRoom, t.name || t.label);
+    }
   });
   socket.on('token:remove', (id) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[id]) return;
@@ -1011,6 +1091,7 @@ io.on('connection', (socket) => {
     }
     const hours = link.modes[mode];
     w.party.at = to; w.vote = null;
+    questCheckVisit(joinedRoom, to);
     // advance the in-world clock
     w.clock = w.clock || { day: 1, hour: 8 };
     w.clock.hour += hours; while (w.clock.hour >= 24) { w.clock.hour -= 24; w.clock.day += 1; }
@@ -1098,6 +1179,7 @@ io.on('connection', (socket) => {
     const route = findRoute(w, from, to, w.party.transport);
     if (!route) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `⚠️ No route to ${dest.name} with your current transport — acquire horses/a wagon/a ship, or build a linking road.`, ts: Date.now() }); return; }
     w.party.at = to; w.vote = null;
+    questCheckVisit(joinedRoom, to);
     w.clock = w.clock || { day: 1, hour: 8 };
     w.clock.hour += route.hours; while (w.clock.hour >= 24) { w.clock.hour -= 24; w.clock.day += 1; }
     // roll an encounter per leg, but announce at most two so chat isn't flooded
@@ -1330,6 +1412,73 @@ io.on('connection', (socket) => {
   });
 
   // ---- Quest log (DM only sets; everyone sees) ----
+  // ---- QUEST ENGINE: quests with objectives + rewards that pay through the economy ----
+  socket.on('quest:offer', (q) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const quest = sanitizeQuest(q); if (!quest || !quest.title) return;
+    room.quests = room.quests || { main: '', sides: [], list: [] };
+    room.quests.list = room.quests.list || [];
+    if (room.quests.list.length >= 40) return;
+    room.quests.list.push(quest);
+    io.to(joinedRoom).emit('quest:update', room.quests);
+    markDirty();
+    const objs = (quest.objectives || []).length;
+    pushSystem(joinedRoom, `📜 New ${quest.kind} quest: "${quest.title}"${quest.giver ? ` — from ${quest.giver}` : ''}${objs ? ` (${objs} objective${objs > 1 ? 's' : ''})` : ''}.`);
+  });
+  socket.on('quest:objective', ({ questId, idx, done } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.quests || !room.quests.list) return;
+    const quest = room.quests.list.find((x) => x.id === questId); if (!quest || !quest.objectives) return;
+    const o = quest.objectives[Math.floor(Number(idx))]; if (!o) return;
+    if (o.type === 'visit') return;  // visit objectives complete only by actually traveling there
+    o.done = !!done;
+    io.to(joinedRoom).emit('quest:update', room.quests);
+    markDirty();
+    if (o.done) questAnnounceIfReady(joinedRoom, quest);
+  });
+  socket.on('quest:turnIn', ({ questId } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.quests || !room.quests.list) return;
+    const quest = room.quests.list.find((x) => x.id === questId); if (!quest || quest.done) return;
+    quest.done = true;
+    io.to(joinedRoom).emit('quest:update', room.quests);
+    markDirty();
+    const rw = quest.rewards || {};
+    const xp = Math.max(0, Math.floor(Number(rw.xp) || 0));
+    const gp = Math.max(0, Math.floor(Number(rw.gp) || 0));
+    // pay every player (not the GM); items are announced for the DM to hand out
+    for (const sid of Object.keys(room.players)) {
+      if (!room.players[sid].isGm && (xp || gp)) io.to(sid).emit('quest:reward', { title: quest.title, xp, gp });
+    }
+    const bits = [];
+    if (xp) bits.push(`${xp} XP each`); if (gp) bits.push(`${gp} gp each`);
+    if (Array.isArray(rw.items) && rw.items.length) bits.push(`items: ${rw.items.join(', ')} (DM hands out)`);
+    pushSystem(joinedRoom, `🏆 Quest complete: "${quest.title}"!${bits.length ? ' Rewards — ' + bits.join(' · ') + '.' : ''}`);
+  });
+  // AI writes a quest in strict format; DM triggers, quest posts directly to the board.
+  socket.on('quest:aiOffer', async ({ theme } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const w = room.world; const here = w && w.cities[w.party.at];
+    const th = theme && String(theme).trim() ? String(theme).trim().slice(0, 60) : (here ? `an adventure starting in ${here.name}` : 'a fantasy adventure');
+    io.to(joinedRoom).emit('dm:thinking', true);
+    const reply = await callOpenAIDM([{ role: 'user', content:
+      `Write one D&D quest themed as "${th}". Reply in EXACTLY this format, nothing else:\nTITLE: <short title>\nKIND: <main or side>\nGIVER: <who offers it>\nOBJ: <objective 1>\nOBJ: <objective 2>\nOBJ: <objective 3 (optional)>\nXP: <number>\nGP: <number>` }]);
+    io.to(joinedRoom).emit('dm:thinking', false);
+    if (/^⚠️/.test(reply)) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: reply, ts: Date.now() }); return; }
+    const grab = (k) => { const m = reply.match(new RegExp('^\\s*' + k + ':\\s*(.+)$', 'im')); return m ? m[1].replace(/[*_`#]/g, '').trim() : ''; };
+    const title = grab('TITLE').slice(0, 120);
+    if (!title) { io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: '⚠️ Could not parse the AI quest. Try again.', ts: Date.now() }); return; }
+    const objectives = [...reply.matchAll(/^\s*OBJ:\s*(.+)$/gim)].map((m) => ({ text: m[1].replace(/[*_`#]/g, '').trim().slice(0, 200), type: 'custom', done: false })).filter((o) => o.text).slice(0, 4);
+    const quest = sanitizeQuest({
+      title, kind: /side/i.test(grab('KIND')) ? 'side' : 'main', giver: grab('GIVER').slice(0, 60),
+      objectives, rewards: { xp: Number(grab('XP').replace(/[^0-9]/g, '')) || 100, gp: Number(grab('GP').replace(/[^0-9]/g, '')) || 10 },
+    });
+    room.quests = room.quests || { main: '', sides: [], list: [] };
+    room.quests.list = room.quests.list || [];
+    room.quests.list.push(quest);
+    io.to(joinedRoom).emit('quest:update', room.quests);
+    markDirty();
+    pushSystem(joinedRoom, `📜 New ${quest.kind} quest: "${quest.title}"${quest.giver ? ` — from ${quest.giver}` : ''} (${quest.objectives.length} objectives, ${quest.rewards.xp} XP + ${quest.rewards.gp} gp).`);
+  });
+
   socket.on('quest:set', (q) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
     const main = String((q && q.main) || '').slice(0, 500);
@@ -1341,12 +1490,7 @@ io.on('connection', (socket) => {
       : [];
     // NEW: full multi-quest board — many main + side quests can run at once.
     const list = Array.isArray(q && q.list)
-      ? q.list.slice(0, 40).map((it) => ({
-          id: String((it && it.id) || ('q_' + rid())).slice(0, 40),
-          title: String((it && it.title) || '').slice(0, 300),
-          kind: (it && it.kind === 'side') ? 'side' : 'main',
-          done: !!(it && it.done),
-        })).filter((it) => it.title)
+      ? q.list.slice(0, 40).map((it) => sanitizeQuest(it)).filter((it) => it && it.title)
       : [];
     room.quests = { main, sides, list };
     io.to(joinedRoom).emit('quest:update', room.quests);
