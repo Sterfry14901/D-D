@@ -4965,11 +4965,14 @@ window.MON_COMBAT = {
 
 /* ===================== #184 Visual world map — parchment overworld ===================== */
 function wmCityPos(id) {
+  const c = worldState && worldState.cities && worldState.cities[id];
+  if (c && Number(c.x) > 0 && Number(c.y) > 0) return [Number(c.x), Number(c.y)];   // #185 DM-pinned
   const fixed = { havenbrook: [22, 60], portcael: [74, 24], ironhold: [60, 78] };
   if (fixed[id]) return fixed[id];
-  let h = 0; for (const c of String(id)) h = ((h * 31 + c.charCodeAt(0)) >>> 0);
+  let h = 0; for (const ch of String(id)) h = ((h * 31 + ch.charCodeAt(0)) >>> 0);
   return [14 + (h % 70), 16 + ((h >> 7) % 56)];
 }
+let wmPinMode = null;   // #185: city id currently being repositioned by the DM
 function wmEmoji(kind) {
   const k = String(kind || '').toLowerCase();
   if (/capital|city/.test(k)) return '🏰';
@@ -5031,17 +5034,27 @@ function injectWorldMap() {
         <filter id="wm-rough"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0.24  0 0 0 0 0.18  0 0 0 0 0.10  0 0 0 0.05 0"/><feComposite operator="over" in2="SourceGraphic"/></filter>
         <radialGradient id="wm-parch" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#e8d9b0"/><stop offset="80%" stop-color="#d3bd8a"/><stop offset="100%" stop-color="#b89b62"/></radialGradient>
       </defs>
-      <rect x="0" y="0" width="100" height="76" rx="2.5" fill="url(#wm-parch)" filter="url(#wm-rough)"/>
-      <text x="50" y="7.4" text-anchor="middle" class="wm-title">✦ ${escapeHtml((worldState.name || 'The Realm'))} ✦</text>
+      ${worldState.mapImage
+        ? `<image href="${worldState.mapImage}" x="0" y="0" width="100" height="76" preserveAspectRatio="xMidYMid slice"/><rect x="0" y="0" width="100" height="76" fill="rgba(10,10,14,.14)"/>`
+        : `<rect x="0" y="0" width="100" height="76" rx="2.5" fill="url(#wm-parch)" filter="url(#wm-rough)"/>`}
+      <text x="50" y="7.4" text-anchor="middle" class="wm-title${worldState.mapImage ? ' wm-title-img' : ''}">✦ ${escapeHtml((worldState.name || 'The Realm'))} ✦</text>
       ${svgLinks}${svgCities}
     </svg>
-    <div class="wm-hint">${me.isGm ? '🧭 Click a city to lead the party there' : '🧭 Click a city to propose it to the party'}</div>`;
+    <div class="wm-hint">${me.isGm
+      ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📍 Move pins</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
+      : '🧭 Click a city to propose it to the party'}</div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
   box.insertAdjacentElement('afterbegin', wrap);
   wrap.querySelectorAll('[data-wmcity]').forEach((g) => {
-    g.addEventListener('click', () => {
+    g.addEventListener('click', (ev) => {
       const to = g.dataset.wmcity;
+      if (wmPinMode !== null && me.isGm) {                       // #185 pin mode: select city to move
+        ev.stopPropagation();
+        wmPinMode = to;
+        flashHint('📍 Now click the spot on the map where ' + (worldState.cities[to] ? worldState.cities[to].name : 'it') + ' belongs');
+        return;
+      }
       if (to === worldState.party.at) return;
       if (me.isGm) socket.emit('world:travelTo', { to });
       else {
@@ -5053,6 +5066,53 @@ function injectWorldMap() {
       }
     });
   });
+  // #185 DM tools: upload any map (Azgaar, Worldographer, hextml, bought packs), place pins
+  const svg = wrap.querySelector('svg');
+  if (me.isGm && svg) {
+    svg.addEventListener('click', (ev) => {
+      if (typeof wmPinMode !== 'string' || !wmPinMode) return;
+      const r = svg.getBoundingClientRect();
+      const x = ((ev.clientX - r.left) / r.width) * 100;
+      const y = ((ev.clientY - r.top) / r.height) * 76;
+      socket.emit('world:cityPos', { id: wmPinMode, x, y });
+      wmPinMode = '';
+      flashHint('📍 Pin placed — click another city to move it, or 📍 again to finish');
+    });
+    const up = wrap.querySelector('#wm-upload');
+    if (up) up.addEventListener('click', (ev) => { ev.stopPropagation(); wmPickImage(); });
+    const pins = wrap.querySelector('#wm-pins');
+    if (pins) pins.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      wmPinMode = wmPinMode === null ? '' : null;
+      pins.classList.toggle('on', wmPinMode !== null);
+      flashHint(wmPinMode !== null ? '📍 Pin mode ON — click a city, then click its new spot' : '📍 Pin mode off');
+    });
+    const clr = wrap.querySelector('#wm-clearimg');
+    if (clr) clr.addEventListener('click', (ev) => { ev.stopPropagation(); socket.emit('world:mapImage', { img: null }); });
+  }
+}
+// #185 pick + compress a map image from any tool, then share it with the table
+function wmPickImage() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1600;
+      const sc = Math.min(1, maxW / img.width);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      let q = 0.82, data = cv.toDataURL('image/jpeg', q);
+      while (data.length > 2800000 && q > 0.4) { q -= 0.12; data = cv.toDataURL('image/jpeg', q); }
+      if (data.length > 2900000) { alert('That map is too large even after compressing — try a smaller export.'); return; }
+      socket.emit('world:mapImage', { img: data });
+      flashHint('🗺️ World map uploaded — now use 📍 Move pins to place your cities on it');
+    };
+    img.src = URL.createObjectURL(f);
+  };
+  inp.click();
 }
 // hook: draw the map every time the world panel re-renders
 (function () {

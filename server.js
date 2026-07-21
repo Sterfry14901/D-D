@@ -726,6 +726,28 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
   });
 
+  // ---- #185 Custom world map image + city pin positions ----
+  // Works with any map tool (Azgaar, Worldographer, hextml, bought map packs):
+  // the DM exports a PNG/JPG, uploads it here, and pins the cities on it.
+  socket.on('world:mapImage', ({ img } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    if (img === null || img === '') { room.world.mapImage = null; }
+    else if (typeof img === 'string' && /^data:image\/(png|jpe?g|webp);base64,/.test(img) && img.length < 3000000) {
+      room.world.mapImage = img;
+    } else return;
+    broadcastWorld(joinedRoom);
+    markDirty();
+    pushSystem(joinedRoom, room.world.mapImage ? '🗺️ The DM unfurled a new map of the realm.' : '🗺️ The DM returned to the old parchment map.');
+  });
+  socket.on('world:cityPos', ({ id, x, y } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const c = room.world.cities[id]; if (!c) return;
+    c.x = Math.max(2, Math.min(98, Number(x) || 0));
+    c.y = Math.max(4, Math.min(72, Number(y) || 0));
+    broadcastWorld(joinedRoom);
+    markDirty();
+  });
+
   // ---- #181 Combat assistant: server-resolved attacks ----
   // combat:attack { attackerId, targetId, bonus, dmg, adv } -> rolls to-hit vs the
   // target's AC, applies damage on a hit (temp HP first), announces everything,
