@@ -218,6 +218,7 @@ if ($('panel-max')) $('panel-max').onclick = () => {
 (function wireGuide() {
   const m = $('guide-modal'); if (!m) return;
   const showTab = (which) => {
+    if (which === 'dm' && !me.isGm) which = 'player';   // players never see behind the screen
     $('gt-player').classList.toggle('on', which === 'player');
     $('gt-dm').classList.toggle('on', which === 'dm');
     $('guide-player').style.display = which === 'player' ? '' : 'none';
