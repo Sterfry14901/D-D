@@ -2410,6 +2410,7 @@ function showTokenCtx(t, px, py) {
     }, 'danger');
   }
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
+  row('⚔️', 'Attack…', () => { closeTokenCtx(); startAttackFlow(t); });
   if (me.isGm) {
     const hasLoot = Array.isArray(t.chest) && t.chest.length;
     row('💰', hasLoot ? `Loot inside (${t.chest.length}) — edit…` : 'Stock loot…', () => {
@@ -4872,3 +4873,38 @@ socket.on('license:trial', (d) => {
   bar.querySelector('.trial-x').onclick = () => bar.remove();
   bar.querySelector('.trial-key').onclick = () => { bar.remove(); openLicenseModal(); };
 });
+
+/* ===================== #181 Combat assistant — pick target, server rolls ===================== */
+function startAttackFlow(attacker) {
+  const others = Object.values(tokenEls).map((el) => el._token).filter((x) => x && x.id !== attacker.id);
+  if (!others.length) { alert('No other tokens on the map to attack.'); return; }
+  // Prefer targets with HP bars (monsters/PCs) at the top of the pick list.
+  others.sort((a, b) => ((Number(b.maxhp) || 0) > 0 ? 1 : 0) - ((Number(a.maxhp) || 0) > 0 ? 1 : 0));
+  const menu = others.slice(0, 15).map((x, i) => {
+    const hp = (Number(x.maxhp) || 0) > 0 ? ` (${x.hp}/${x.maxhp} HP${x.ac ? ', AC ' + x.ac : ''})` : '';
+    return `${i + 1}. ${x.label || x.name || 'token'}${hp}`;
+  }).join('\n');
+  const pick = prompt(`⚔️ ${attacker.label || 'Attacker'} attacks who?\n\n${menu}\n\nEnter a number:`, '1');
+  if (pick === null) return;
+  const tgt = others[Math.max(1, Math.min(others.length, parseInt(pick) || 1)) - 1];
+  if (!tgt) return;
+  // Prefill from your character sheet's first attack when swinging your linked token.
+  let defB = '+4', defD = '1d8+2';
+  try {
+    if (typeof linkedToken !== 'undefined' && linkedToken === attacker.id && cs && Array.isArray(cs.attacks) && cs.attacks[0]) {
+      defB = String(cs.attacks[0].bonus ?? defB); defD = String(cs.attacks[0].dmg || defD);
+    }
+  } catch {}
+  const bonus = prompt(`Attack bonus vs ${tgt.label || 'target'} (e.g. +5):`, defB);
+  if (bonus === null) return;
+  const dmg = prompt('Damage on hit (e.g. 2d6+3, 1d8, or a flat 5):', defD);
+  if (dmg === null) return;
+  const advRaw = prompt('Roll type — n = normal, a = advantage, d = disadvantage:', 'n');
+  if (advRaw === null) return;
+  const adv = /^a/i.test(advRaw) ? 'adv' : /^d/i.test(advRaw) ? 'dis' : 'normal';
+  socket.emit('combat:attack', {
+    attackerId: attacker.id, targetId: tgt.id,
+    bonus: parseInt(String(bonus).replace(/[^\-\d]/g, '')) || 0,
+    dmg: String(dmg).trim(), adv,
+  });
+}

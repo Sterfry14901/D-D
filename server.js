@@ -726,6 +726,66 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, `${room.players[socket.id].name} joined the table${gm ? ' as GM' : ''}.`);
   });
 
+  // ---- #181 Combat assistant: server-resolved attacks ----
+  // combat:attack { attackerId, targetId, bonus, dmg, adv } -> rolls to-hit vs the
+  // target's AC, applies damage on a hit (temp HP first), announces everything,
+  // and feeds the same downed/quest hooks as a manual HP change. Server-rolled,
+  // so nobody can fudge the dice.
+  socket.on('combat:attack', ({ attackerId, targetId, bonus, dmg, adv } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const atk = room.tokens[attackerId], tgt = room.tokens[targetId];
+    if (!atk || !tgt || attackerId === targetId) return;
+    if (!canControlToken(room, socket.id, atk)) return;          // you may only swing your own tokens
+    const b = Math.max(-5, Math.min(20, Number(bonus) || 0));
+    const mode = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : 'normal';
+    const d20 = () => 1 + Math.floor(Math.random() * 20);
+    const r1 = d20(), r2 = d20();
+    const nat = mode === 'adv' ? Math.max(r1, r2) : mode === 'dis' ? Math.min(r1, r2) : r1;
+    const rollTxt = mode === 'normal' ? `d20(${nat})` : `d20(${r1},${r2} ${mode === 'adv' ? 'adv' : 'dis'}→${nat})`;
+    const total = nat + b;
+    const acKnown = Number(tgt.ac) > 0;
+    const ac = acKnown ? Number(tgt.ac) : 10;
+    const aName = atk.label || atk.name || 'Attacker';
+    const tName = tgt.label || tgt.name || 'Target';
+    const crit = nat === 20, fumble = nat === 1;
+    const hit = !fumble && (crit || total >= ac);
+    const acTxt = `AC ${ac}${acKnown ? '' : ' (assumed)'}`;
+    if (!hit) {
+      pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${fumble ? 'NAT 1, MISS!' : 'miss.'}`);
+      return;
+    }
+    // Parse damage like "2d6+3", "1d8", "d6+1", or a flat "5". Crits double the dice.
+    const spec = String(dmg || '').trim().toLowerCase().replace(/\s+/g, '');
+    let dmgTotal = 0, dmgTxt = spec || '0';
+    const m = spec.match(/^(\d*)d(\d+)([+-]\d+)?$/);
+    if (m) {
+      let n = Math.max(1, Math.min(20, Number(m[1]) || 1));
+      const sides = Math.max(2, Math.min(100, Number(m[2])));
+      const flat = Number(m[3]) || 0;
+      if (crit) n *= 2;
+      const rolls = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * sides));
+      dmgTotal = rolls.reduce((a, x) => a + x, 0) + flat;
+      dmgTxt = `${n}d${sides}${flat ? (flat > 0 ? '+' + flat : flat) : ''} [${rolls.join(',')}]`;
+    } else {
+      dmgTotal = Math.max(0, Math.min(999, Math.floor(Number(spec)) || 0));
+      if (crit) dmgTotal *= 2;
+      dmgTxt = String(dmgTotal);
+    }
+    // Apply: temp HP soaks first, then real HP (never below 0).
+    const prevHp = Number(tgt.hp) || 0;
+    const temp = Number(tgt.temphp) || 0;
+    const absorbed = Math.min(temp, dmgTotal);
+    tgt.temphp = temp - absorbed;
+    tgt.hp = Math.max(0, prevHp - (dmgTotal - absorbed));
+    emitTokenPerSocket(room, 'token:update', tgt);
+    markDirty();
+    const hpTxt = (Number(tgt.maxhp) || 0) > 0 ? ` ${tName}: ${tgt.hp}/${tgt.maxhp} HP${tgt.hp <= 0 ? ' — DOWN!' : ''}` : '';
+    pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${crit ? '💥 CRIT!' : 'HIT!'} ${dmgTotal} damage (${dmgTxt}).${absorbed ? ` (${absorbed} soaked by temp HP.)` : ''}${hpTxt}`);
+    if (prevHp > 0 && tgt.hp <= 0 && (Number(tgt.maxhp) || 0) > 0) {
+      questCheckKill(joinedRoom, tgt.name || tgt.label);          // kill objectives advance
+    }
+  });
+
   // ---- #178 DM Pro license ----
   socket.on('license:activate', async ({ key } = {}) => {
     socket.data = socket.data || {};
