@@ -75,6 +75,7 @@
         <button id="invite-btn" class="ghost" title="Copy an invite link to this table">🔗 Invite</button>
         <button id="party-btn" class="ghost gm-only" title="Get a party code — players type it in to land in YOUR game">🎟️ Party code</button>
         <button id="bug-btn" class="ghost" title="Report a bug — it goes straight to our Discord">🐛</button>
+        <button id="guide-btn" class="ghost" title="How to play — Player guide &amp; DM master guide">📖 Guide</button>
         <button id="help-btn" class="ghost" title="Help, hotkeys & chat commands (press ?)">❓ Help</button>
         <button id="voice-btn" class="ghost" title="Join voice chat">🎙️ Voice: Off</button>
         <button id="mute-btn" class="ghost hidden" title="Mute / unmute your microphone">🔊 Mic</button>
@@ -235,6 +236,15 @@
 
         <!-- Initiative / Combat -->
         <div class="tabpane" id="tab-combat">
+          <div class="pa-bar">
+            <div class="pa-title">🎯 Your actions</div>
+            <div class="pa-btns">
+              <button id="pa-attack" class="pa-big pa-red">⚔️ Attack!</button>
+              <button id="pa-heal" class="pa-big pa-green">❤️ Heal / Damage me</button>
+            </div>
+            <div id="pa-atks" class="pa-atks"></div>
+            <div class="sheet-hint">One tap — uses your character's token on the map. Right-click any token for more options.</div>
+          </div>
           <div class="init-add">
             <input id="init-name" type="text" placeholder="Combatant" />
             <input id="init-roll" type="number" placeholder="Init" style="width:4.5em" />
@@ -679,6 +689,140 @@
         <a id="lic-buy" href="#" target="_blank" rel="noopener" style="display:none">Get DM Pro →</a>
       </div>
       <p class="lic-fine">One key unlocks the DM seat on any table you run. Your key is checked securely on the server and saved only in your own browser.</p>
+    </div>
+  </div>
+
+  <div id="guide-modal" class="overlay" style="display:none">
+    <div class="guide-card">
+      <div class="tr-head"><h2>📖 How to play</h2><button id="guide-close" class="ps-close" title="Close">✕</button></div>
+      <div class="guide-tabs">
+        <button id="gt-player" class="on">🧙 Player guide</button>
+        <button id="gt-dm">👑 DM master guide</button>
+      </div>
+
+      <div id="guide-player" class="guide-body">
+        <p class="g-lead">Welcome, adventurer! Everything you need, from joining to slaying. Click any section to open it.</p>
+        <details open><summary>🚪 Joining a game</summary>
+          <ul>
+            <li><b>Got a party code?</b> (looks like <code>RF-XXXXX</code>) — type it into the <b>GM password box</b> on the join screen and you'll land in your friend's game automatically.</li>
+            <li>Otherwise, type the same <b>Table / room code</b> as your friends — same code = same table.</li>
+            <li>Pick a class, species &amp; background and the game builds a rules-correct level-1 character for you — attacks, spells, skills, gear, everything.</li>
+            <li>Leave the GM password <b>blank</b> — players always play free.</li>
+          </ul>
+        </details>
+        <details><summary>⚔️ Fighting (the fun part)</summary>
+          <ul>
+            <li>Open the <b>Combat tab (⚔️)</b> and smash the big <b>⚔️ Attack!</b> button — pick a target, hit Roll. The server rolls a real d20 against their real Armor Class. Nobody can fudge it.</li>
+            <li>Your weapon attacks appear as one-tap buttons under it — tap your sword, pick the goblin, done.</li>
+            <li><b>Advantage / Disadvantage</b> buttons roll 2d20 and keep the best/worst, just like the book. A natural 20 <b>doubles your damage dice</b>. 💥</li>
+            <li>You can also <b>right-click any token</b> → ⚔️ Attack… or ❤️ Heal / Damage…</li>
+            <li>On the <b>Sheet tab (📋)</b>: cast spells (slots tracked for you), roll death saves when downed, take Short/Long rests, and hit <b>Level Up</b> when the DM awards XP.</li>
+          </ul>
+        </details>
+        <details><summary>🎲 Dice &amp; rolls</summary>
+          <ul>
+            <li><b>Dice tab (🎲)</b>: tap any die, or use the presets.</li>
+            <li>Type <code>/roll 2d6+3</code> in chat for anything custom. Save your favorites as <b>macros</b>.</li>
+            <li>Click skills, saves and attacks on your sheet — they roll themselves with your real bonuses.</li>
+          </ul>
+        </details>
+        <details><summary>🎒 Loot, gold &amp; shopping</summary>
+          <ul>
+            <li>Items come from the world: <b>buy</b> them at shops (Party tab shows the shop when the DM opens one), <b>loot</b> chests (📦 double-click) and fallen monsters (double-click a downed foe), <b>find</b> them in quests, or <b>trade</b> with other players.</li>
+            <li>Your sheet tracks weight — carry too much and you're slowed. Equip weapons and armor with the toggles (two hands, one suit of armor — the game enforces it).</li>
+            <li>Trade items or coins: Party tab → click a player → 🤝 Trade.</li>
+          </ul>
+        </details>
+        <details><summary>🗺️ The world</summary>
+          <ul>
+            <li><b>World tab (🗺️)</b>: see the map, travel between cities on foot, horse, wagon or boat. Travel takes in-game time and can trigger road encounters — 100 different ones.</li>
+            <li>In a city you can visit its vendors and buy what they stock.</li>
+            <li><b>Quests tab (❗)</b>: your objectives tick off automatically as you travel and fight — rewards (XP + gold) pay straight onto your sheet.</li>
+          </ul>
+        </details>
+        <details><summary>💬 Talking &amp; tools</summary>
+          <ul>
+            <li><b>Say</b> talks to the table; <b>DM ▸</b> asks the AI Dungeon Master to respond. 🎙 Talk lets you speak instead of type.</li>
+            <li><code>/whisper name message</code> sends a private message (<code>/reply</code> answers the last one).</li>
+            <li>The 🎤 voice button connects live voice chat with your table.</li>
+            <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
+            <li>Found something broken? Hit <b>🐛</b> up top — it goes straight to the devs.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div id="guide-dm" class="guide-body" style="display:none">
+        <p class="g-lead">The DM master guide — run your first session in 10 minutes, then go deep. Every tool, in the order you'll need it.</p>
+        <details open><summary>🚀 Session zero: set up your table (2 min)</summary>
+          <ul>
+            <li>Join with a room code of your choosing and set a <b>GM password</b> — first password claims the DM seat. (New tables get <b>3 free DM session-days</b>; after that it's DM Pro. Players never pay.)</li>
+            <li>Click <b>🎟️ Party code</b> (top bar) — send the code to your players. They type it in the GM password box and land in <i>your</i> game as players.</li>
+            <li>Want a co-DM? Give them your GM password instead.</li>
+            <li>Try the whole game solo first: the green <b>🎲 instant demo</b> button gives you a seeded adventure to poke at.</li>
+          </ul>
+        </details>
+        <details><summary>🧠 Your AI co-DM (free!)</summary>
+          <ul>
+            <li>Click the <b>🧠 DM badge</b> to point the AI at your own free Ollama (5-min setup — ask in Discord #help-and-questions) or leave it on the server default.</li>
+            <li><b>DM ▸</b> makes it narrate. It sees the battlefield, HP, dice results, quests — and every NPC in <b>Journal → People you've met</b> (🎭 Improv NPC adds them automatically, so it <i>never forgets</i> a character).</li>
+            <li>Improv set: <b>🎭 NPC · 🏰 Describe place · 🎣 Plot hook</b> — instant content when players go off-script.</li>
+            <li><b>📖 Recap</b> writes a "Previously on…" from your session log. <b>🔊 voices</b> read the DM aloud.</li>
+            <li>AI can also: suggest quests (Quests tab), stock your shop, and generate loot straight onto a player's sheet.</li>
+          </ul>
+        </details>
+        <details><summary>⚔️ Running combat</summary>
+          <ul>
+            <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
+            <li><b>👥 Add party (roll init)</b> puts everyone in initiative with rolled d20s; <b>Next ▸</b> advances turns (players get a chime), the turn timer nudges slowpokes.</li>
+            <li>Right-click a monster → <b>⚔️ Attack…</b> — its real attack profile prefills (SRD stats built in), advantage buttons, crits double dice, temp HP soaks first. The encounter meter shows Easy→Deadly as you build.</li>
+            <li>Whole-party tools: 💥 Damage / 💚 Heal / 🌙 Full heal everyone at once. AoE templates auto-hit tokens inside (save-for-half supported).</li>
+            <li>Conditions, auras, concentration and death saves are on the right-click menu. Downed players alert you automatically.</li>
+          </ul>
+        </details>
+        <details><summary>🗺️ Maps, fog &amp; atmosphere</summary>
+          <ul>
+            <li><b>Battle maps</b>: pick from the built-in library or upload any image (map packs, Azgaar exports…). Adjust grid size to fit.</li>
+            <li><b>Fog of war</b> hides the unexplored; <b>walls + dynamic lighting</b> give true line-of-sight per token. Brush sizes 1×1 to 5×5.</li>
+            <li><b>World tab</b>: your overworld — upload a world map image (🖼️), pin your cities (📍), and let players travel. Each city has vendors you control.</li>
+            <li>Set the mood: weather overlays (rain/snow/fog/embers) + synced soundscapes (tavern/dungeon/forest…). Show any image to the table with the 🖼 handout board.</li>
+            <li>Hidden tokens (GM layer) are invisible to players until you reveal them — great for ambushes.</li>
+          </ul>
+        </details>
+        <details><summary>❗ Quests &amp; rewards (the engine works for you)</summary>
+          <ul>
+            <li>Create quests with objectives like "reach Silverkeep" or "slay 3 wolves" — they <b>complete themselves</b> as the party travels and fights, and pay XP + gold straight onto every sheet.</li>
+            <li>🧭 AI: suggest quests writes a main + side quests in one click. 🎬 Ready check asks the table, then lets everyone pick the quest together.</li>
+            <li>Award bonus XP any time; milestone-level the whole party with one button.</li>
+          </ul>
+        </details>
+        <details><summary>💰 The economy (anti-cheat by design)</summary>
+          <ul>
+            <li>Players can't invent items — everything flows through <b>you</b>: the shop (open it, stock it by hand or let the AI stock it), 📦 loot chests you place, loot you stock on monsters, quest rewards, 🎁 Give item, and player↔player trades.</li>
+            <li>Prices, buying AND selling work automatically against their coin pouches. DM-only magic items include crafting time/cost.</li>
+          </ul>
+        </details>
+        <details><summary>👁️ DM oversight tools</summary>
+          <ul>
+            <li><b>Party tab</b>: live HP bars + read-only view of every character sheet. Whisper any player privately.</li>
+            <li>Give any token to a player (right-click → give control) — companions, familiars, that goblin they adopted.</li>
+            <li><b>⛶</b> (end of the tab row) makes your panel full-screen — DM mission control. <b>Pop-out sheet</b> puts a sheet on your second monitor.</li>
+          </ul>
+        </details>
+        <details><summary>💾 Never lose a campaign</summary>
+          <ul>
+            <li>Everything autosaves and survives server restarts — maps, tokens, world, shop, quests, NPCs, chat.</li>
+            <li>💾 <b>Download campaign</b> (belt-and-suspenders) saves a file; load it into any room later — even on another server.</li>
+          </ul>
+        </details>
+        <details><summary>🌟 Pro tips</summary>
+          <ul>
+            <li>Prep is optional here: demo room + AI improv + quest engine means you can run a session with literally zero prep. Try it.</li>
+            <li>Let the AI narrate flavor while <i>you</i> make rulings and voice the big NPCs — best of both worlds.</li>
+            <li>Keep the Journal open — players write in it, and "People you've met" becomes your campaign bible automatically.</li>
+            <li>Join the Discord (💬 on the join screen) — #dm-lounge is behind the screen, players can't see it.</li>
+          </ul>
+        </details>
+      </div>
     </div>
   </div>
 

@@ -214,6 +214,65 @@ if ($('panel-max')) $('panel-max').onclick = () => {
   $('panel-max').title = on ? 'Back to normal size' : 'Full-screen panel (great for DMs) — click again to shrink back';
 };
 
+/* ---- #197 In-game guides: 📖 Player guide + DM master guide ---- */
+(function wireGuide() {
+  const m = $('guide-modal'); if (!m) return;
+  const showTab = (which) => {
+    $('gt-player').classList.toggle('on', which === 'player');
+    $('gt-dm').classList.toggle('on', which === 'dm');
+    $('guide-player').style.display = which === 'player' ? '' : 'none';
+    $('guide-dm').style.display = which === 'dm' ? '' : 'none';
+  };
+  if ($('guide-btn')) $('guide-btn').onclick = () => { m.style.display = 'flex'; showTab(me.isGm ? 'dm' : 'player'); };
+  $('gt-player').onclick = () => showTab('player');
+  $('gt-dm').onclick = () => showTab('dm');
+  $('guide-close').onclick = () => { m.style.display = 'none'; };
+  m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+})();
+
+/* ---- #198 Player action bar — one-tap Attack / Heal from the Combat tab ---- */
+function myBattleToken() {
+  const toks = Object.values(tokenEls).map((el) => el._token).filter(Boolean);
+  // prefer the token linked to your sheet, then any token you own
+  if (typeof linkedToken !== 'undefined' && linkedToken) {
+    const lt = toks.find((t) => t.id === linkedToken);
+    if (lt) return lt;
+  }
+  return toks.find((t) => t.ownerId === me.id) || null;
+}
+function renderPaBar() {
+  const box = $('pa-atks'); if (!box) return;
+  box.innerHTML = '';
+  const atks = (typeof cs !== 'undefined' && cs && Array.isArray(cs.attacks)) ? cs.attacks.slice(0, 6) : [];
+  atks.forEach((a) => {
+    if (!a || !a.name) return;
+    const b = document.createElement('button');
+    b.className = 'pa-atk';
+    const bonus = (Number(a.bonus) >= 0 ? '+' : '') + (a.bonus ?? 0);
+    b.textContent = `${a.name} ${bonus} · ${a.dmg || '1d6'}`;
+    b.title = 'Attack with ' + a.name;
+    b.onclick = () => {
+      const tok = myBattleToken();
+      if (!tok) { flashHint('No token of yours on the map yet — ask the DM, or drop one from the Party tab.'); return; }
+      openCombatModal(tok, 'attack');
+      $('cb-bonus').value = String(a.bonus ?? 0);
+      $('cb-dmg').value = String(a.dmg || '1d6');
+    };
+    box.appendChild(b);
+  });
+}
+if ($('pa-attack')) $('pa-attack').onclick = () => {
+  const tok = myBattleToken();
+  if (!tok) { flashHint(me.isGm ? 'Right-click any monster token to attack with it.' : 'No token of yours on the map yet — ask the DM to give you one.'); return; }
+  openCombatModal(tok, 'attack');
+};
+if ($('pa-heal')) $('pa-heal').onclick = () => {
+  const tok = myBattleToken();
+  if (!tok) { flashHint('No token of yours on the map yet.'); return; }
+  openCombatModal(tok, 'heal');
+};
+document.querySelectorAll('.tab[data-tab="combat"]').forEach((t) => t.addEventListener('click', () => setTimeout(renderPaBar, 50)));
+
 /* ---- #196 NPC memory — the AI DM remembers everyone the party meets ---- */
 let NPCS = [];
 function renderNpcs() {

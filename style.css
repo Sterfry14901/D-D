@@ -678,6 +678,58 @@ body:not(.is-gm) .gm-only { display: none !important; }
 }
 #panel.maxi #panel-resize { display: none; }
 
+/* #197 — in-game guides modal */
+.guide-card {
+  background: var(--panel, #171a1e); border: 1px solid var(--gold, #d9b154); border-radius: 12px;
+  width: min(680px, 94vw); max-height: 88vh; display: flex; flex-direction: column;
+  padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.6);
+}
+.guide-tabs { display: flex; gap: 8px; margin: 6px 0 10px; }
+.guide-tabs button {
+  flex: 1; padding: 9px 8px; background: transparent; border: 1px solid var(--line-gold, rgba(217,177,84,0.3));
+  border-radius: 8px; color: var(--ink, #d8cdb8); font-family: "Cinzel", serif; font-weight: 700; cursor: pointer;
+}
+.guide-tabs button.on { background: rgba(217,177,84,0.12); color: var(--gold-bright, #e9c96a); border-color: var(--gold, #d9b154); }
+.guide-body { overflow-y: auto; padding-right: 6px; }
+.guide-body .g-lead { color: var(--ink-dim, #9a9184); font-size: 0.88rem; margin: 2px 0 10px; }
+.guide-body details {
+  border: 1px solid var(--line-gold, rgba(217,177,84,0.22)); border-radius: 8px;
+  margin-bottom: 8px; padding: 0 12px; background: rgba(217,177,84,0.03);
+}
+.guide-body summary {
+  cursor: pointer; padding: 10px 0; font-family: "Cinzel", serif; font-weight: 700;
+  color: var(--gold-bright, #e9c96a); font-size: 0.95rem; list-style: none;
+}
+.guide-body summary::before { content: "▸ "; transition: transform 0.15s; }
+.guide-body details[open] summary::before { content: "▾ "; }
+.guide-body ul { margin: 0 0 12px 2px; padding-left: 18px; }
+.guide-body li { color: var(--ink, #d8cdb8); font-size: 0.86rem; line-height: 1.5; margin-bottom: 6px; }
+.guide-body code { background: rgba(0,0,0,0.35); border: 1px solid rgba(217,177,84,0.25); border-radius: 4px; padding: 1px 5px; font-size: 0.82em; color: var(--gold-bright, #e9c96a); }
+
+/* #198 — player action bar (Combat tab) */
+.pa-bar {
+  background: linear-gradient(180deg, rgba(192,57,43,0.10), rgba(217,177,84,0.05));
+  border: 1px solid var(--line-gold, rgba(217,177,84,0.3)); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 12px;
+}
+.pa-title { font-family: "Cinzel", serif; font-weight: 800; color: var(--gold-bright, #e9c96a); margin-bottom: 8px; }
+.pa-btns { display: flex; gap: 8px; }
+.pa-big {
+  flex: 1; padding: 13px 8px; border: none; border-radius: 9px; cursor: pointer;
+  font-family: "Cinzel", serif; font-weight: 800; font-size: 1rem; color: #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.35); transition: transform 0.08s, filter 0.12s;
+}
+.pa-big:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.pa-big:active { transform: translateY(1px); }
+.pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
+.pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
+.pa-atks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pa-atk {
+  padding: 6px 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--line-gold, rgba(217,177,84,0.35));
+  border-radius: 7px; color: var(--ink, #e2d7c0); font-size: 0.8rem; cursor: pointer;
+}
+.pa-atk:hover { border-color: var(--gold-bright, #e9c96a); color: var(--gold-bright, #e9c96a); }
+
 /* #196 — NPC memory list (Journal tab) */
 .npc-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 .npc-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-bottom: 12px; }
