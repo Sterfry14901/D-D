@@ -242,6 +242,9 @@ function saveRooms() {
         notes: room.notes,
         quests: room.quests || { main: '', sides: [] },
         drawings: (room.drawings || []).slice(-500),
+        round: room.round || 1,
+        shop: room.shop || { open: false, name: 'Market', items: [] },
+        world: room.world || null,       // #179: the DM's built world survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -283,8 +286,8 @@ function loadRooms() {
         round: room.round || 1,
         partyStatus: {},
         sheets: {},
-        shop: { open: false, name: 'Market', items: [] },
-        world: buildStarterWorld(),
+        shop: room.shop || { open: false, name: 'Market', items: [] },
+        world: room.world || buildStarterWorld(),   // #179: restore the built world
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -1594,14 +1597,20 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('draw:clear');
   });
 
-  // ---- Save / Load campaign ----
+  // ---- #179 Save / Load campaign 2.0 — everything, GM-only ----
   socket.on('campaign:get', () => {
-    const room = rooms.get(joinedRoom); if (!room) return;
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;   // GM-only: saves include hidden tokens
     socket.emit('campaign:data', {
+      v: 2,
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
       walls: room.walls, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
-      weather: room.weather,
+      weather: room.weather, ambience: room.ambience || 'off', round: room.round || 1,
+      notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
+      drawings: (room.drawings || []).slice(-500),
+      shop: room.shop || { open: false, name: 'Market', items: [] },
+      world: room.world || null,
+      chat: room.chat.slice(-200),
       savedAt: Date.now(), room: joinedRoom,
     });
   });
@@ -1618,6 +1627,15 @@ io.on('connection', (socket) => {
     room.aoes = data.aoes || [];
     room.handout = data.handout || null;
     room.weather = data.weather || 'clear';
+    room.round = Number(data.round) || 1;
+    if (data.ambience) room.ambience = data.ambience;
+    if (typeof data.notes === 'string') room.notes = data.notes;
+    if (data.quests) room.quests = { main: String(data.quests.main || ''), sides: Array.isArray(data.quests.sides) ? data.quests.sides : [], list: Array.isArray(data.quests.list) ? data.quests.list.map(sanitizeQuest) : (room.quests && room.quests.list) || [] };
+    if (Array.isArray(data.drawings)) room.drawings = data.drawings.slice(-500);
+    if (data.shop && typeof data.shop === 'object') room.shop = { open: !!data.shop.open, name: String(data.shop.name || 'Market').slice(0, 40), items: Array.isArray(data.shop.items) ? data.shop.items.slice(0, 200) : [] };
+    if (data.world && data.world.cities && data.world.party) room.world = data.world;
+    if (Array.isArray(data.chat) && data.chat.length) room.chat = data.chat.slice(-200);
+    markDirty();
     // push full fresh state to everyone
     for (const sid of Object.keys(room.players)) {
       io.to(sid).emit('state', {
@@ -1625,11 +1643,16 @@ io.on('connection', (socket) => {
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
         fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,
+        ambience: room.ambience || 'off',
         notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
+        drawings: room.drawings || [],
+        shop: room.shop || { open: false, name: 'Market', items: [] },
+        world: room.world || buildStarterWorld(),
         youId: sid, isGm: room.players[sid].isGm, gmClaimed: !!room.gmPassword,
+        licenseMode: DM_PRO_MODE, proUrl: DM_PRO_URL,
       });
     }
-    pushSystem(joinedRoom, 'The GM loaded a saved campaign.');
+    pushSystem(joinedRoom, '📂 The GM loaded a saved campaign — map, quests, shop and world restored.');
   });
 
   // ---- Chat / rolls / DM ----
