@@ -2624,6 +2624,32 @@ socket.on('state', (s) => { if (s && Array.isArray(s.timeline)) { CHRON = s.time
 document.addEventListener('DOMContentLoaded', initChronicle);
 if (document.readyState !== 'loading') initChronicle();
 
+/* ============ #237 TURN HELPER — "it's your turn, here's what you can do" ============ */
+function turnHelperShow() {
+  if (localStorage.getItem('dnd-turnhelper') === 'off') return;
+  turnHelperHide();
+  const card = document.createElement('div'); card.id = 'turn-helper';
+  const atkNames = (cs.attacks || []).slice(0, 3).map((a) => a.name).filter(Boolean).join(', ');
+  card.innerHTML = `
+    <div class="th-title">⚔️ YOUR TURN <button class="th-x" title="Hide">✖</button></div>
+    <div class="th-row">🏃 <b>Move</b> up to ${Number(cs.speed) || 30} ft — split it around your action</div>
+    <div class="th-row">🎯 <b>1 Action</b> — Attack${atkNames ? ' (' + escapeHtml(atkNames) + ')' : ''}, Cast, Dash, Disengage, Dodge, Help, Hide, Shove…</div>
+    <div class="th-row">⚡ <b>1 Bonus Action</b> — if a feature or spell grants one</div>
+    <div class="th-row">🛡 <b>1 Reaction</b> — save it for opportunity attacks &amp; shields</div>
+    <div class="th-btns"><button data-th="combat">⚔️ Attack</button><button data-th="spells">✨ Cast</button><button data-th="dice">🎲 Roll</button></div>
+    <div class="th-never">don't show this again</div>`;
+  document.body.appendChild(card);
+  card.querySelector('.th-x').onclick = turnHelperHide;
+  card.querySelector('.th-never').onclick = () => { try { localStorage.setItem('dnd-turnhelper', 'off'); } catch (e) {} flashHint('Turn helper off — re-enable from the 📖 Guide'); turnHelperHide(); };
+  card.querySelectorAll('[data-th]').forEach((b) => { b.onclick = () => { const t = document.querySelector(`.tab[data-tab="${b.dataset.th}"]`); if (t) t.click(); turnHelperHide(); }; });
+  setTimeout(() => { const c = $('turn-helper'); if (c) c.classList.add('th-fade'); }, 25000);
+  setTimeout(turnHelperHide, 30000);
+}
+function turnHelperHide() { const c = $('turn-helper'); if (c) c.remove(); }
+function initTurnHelperPref() { const a = $('th-reenable'); if (a) a.onclick = (e) => { e.preventDefault(); try { localStorage.removeItem('dnd-turnhelper'); } catch (err) {} flashHint('⚔️ Turn helper back on — see you next turn'); }; }
+document.addEventListener('DOMContentLoaded', initTurnHelperPref);
+if (document.readyState !== 'loading') initTurnHelperPref();
+
 /* #234: luck report toggle */
 function initDiceStats() { const b = $('dice-stats-btn'); if (!b) return; b.onclick = () => { const box = $('dice-stats'); if (!box.classList.contains('hidden') && box.textContent) { box.classList.add('hidden'); } else { diceStatsShow(); } }; }
 document.addEventListener('DOMContentLoaded', initDiceStats);
@@ -4169,7 +4195,10 @@ function renderInit(list, turnIndex, round) {
     if (wasInit && active && (active.name === me.name || (cs && cs.name && active.name === cs.name))) {
       turnChime();
       flashHint("⚔️ It's your turn!");
+      try { turnHelperShow(); } catch (e) {}   // #237 what-you-can-do card
     }
+    // #237: hide the helper the moment the turn passes to someone else
+    if (active && !(active.name === me.name || (cs && cs.name && active.name === cs.name))) { try { turnHelperHide(); } catch (e) {} }
   }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
