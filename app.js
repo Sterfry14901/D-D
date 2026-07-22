@@ -311,9 +311,21 @@ function renderNpcs() {
     row.className = 'npc-row' + (n.dead ? ' npc-dead' : '');
     const info = document.createElement('div'); info.className = 'npc-info';
     const nm = document.createElement('div'); nm.className = 'npc-name'; nm.textContent = (n.dead ? '☠️ ' : '') + n.name;
-    const ds = document.createElement('div'); ds.className = 'npc-desc'; ds.textContent = (n.desc || '').slice(0, 220);
+    const ds = document.createElement('div'); ds.className = 'npc-desc';
+    try { linkifyInto(ds, (n.desc || '').slice(0, 220)); } catch (e) { ds.textContent = (n.desc || '').slice(0, 220); }
     info.appendChild(nm); info.appendChild(ds);
-    if (n.notes) { const nt = document.createElement('div'); nt.className = 'npc-notes'; nt.textContent = '📝 ' + n.notes; info.appendChild(nt); }
+    if (n.notes) { const nt = document.createElement('div'); nt.className = 'npc-notes'; try { linkifyInto(nt, '📝 ' + n.notes); } catch (e) { nt.textContent = '📝 ' + n.notes; } info.appendChild(nt); }
+    // #225 backlinks — where has this character shown up in YOUR notes?
+    try {
+      const bl = wlBacklinks(n.name);
+      if (bl.notes || bl.inJournal) {
+        const b = document.createElement('button'); b.className = 'ghost wl-backlink';
+        b.textContent = `🔗 ${bl.notes ? bl.notes + ' note' + (bl.notes > 1 ? 's' : '') : ''}${bl.notes && bl.inJournal ? ' + ' : ''}${bl.inJournal ? 'journal' : ''}`;
+        b.title = 'Show your notes that mention ' + n.name;
+        b.onclick = () => wlShowMentions(n.name);
+        info.appendChild(b);
+      }
+    } catch (e) {}
     row.appendChild(info);
     if (me.isGm) {
       const acts = document.createElement('div'); acts.className = 'npc-acts';
@@ -750,10 +762,24 @@ function nbSetAttach(dataUri) {
   else { pi.src = ''; pv.classList.add('hidden'); }
 }
 function nbRender(list) {
+  window.NB_LIST = list || [];                       // #225: keep for backlink counts
   const el = $('nb-list'); if (!el) return;
-  if (!list || !list.length) { el.innerHTML = '<div class="npc-empty">Your notebook is empty — jot down what happened this session.</div>'; return; }
+  if (!list || !list.length) { el.innerHTML = '<div class="npc-empty">Your notebook is empty — jot down what happened this session.</div>'; try { renderNpcs(); } catch (e) {} return; }
   el.innerHTML = '';
-  [...list].reverse().forEach((n) => {
+  // #225: active link-filter chip (from a clicked #tag or NPC backlink)
+  let shown = [...list];
+  if (nbLink.tag || nbLink.mention) {
+    const chip = document.createElement('div'); chip.className = 'nb-chip-row';
+    const c = document.createElement('span'); c.className = 'nb-chip';
+    c.textContent = nbLink.tag ? '#' + nbLink.tag : '@' + nbLink.mention;
+    const x = document.createElement('button'); x.className = 'ghost'; x.textContent = '✖ show all';
+    x.onclick = () => { nbLink = { tag: null, mention: null }; nbRender(window.NB_LIST); };
+    chip.appendChild(c); chip.appendChild(x); el.appendChild(chip);
+    const re = nbLink.tag ? new RegExp('#' + wlEsc(nbLink.tag) + '\\b', 'i') : new RegExp('@' + wlEsc(nbLink.mention), 'i');
+    shown = shown.filter((n) => n.text && re.test(n.text));
+    if (!shown.length) { const e2 = document.createElement('div'); e2.className = 'npc-empty'; e2.textContent = 'No notes match that link.'; el.appendChild(e2); try { renderNpcs(); } catch (e) {} return; }
+  }
+  [...shown].reverse().forEach((n) => {
     const d = new Date(n.ts || Date.now());
     const row = document.createElement('div'); row.className = 'nb-note';
     const head = document.createElement('div'); head.className = 'nb-note-head';
@@ -761,7 +787,7 @@ function nbRender(list) {
     const del = document.createElement('button'); del.className = 'ghost nb-del'; del.textContent = '🗑'; del.title = 'Delete this note';
     del.onclick = () => { if (confirm('Delete this note?')) socket.emit('note:del', n.id); };
     head.appendChild(del); row.appendChild(head);
-    if (n.text) { const p = document.createElement('div'); p.className = 'nb-note-text'; p.textContent = n.text; row.appendChild(p); }
+    if (n.text) { const p = document.createElement('div'); p.className = 'nb-note-text'; linkifyInto(p, n.text); row.appendChild(p); }   // #225 @NPCs + #tags are live links
     if (n.img) {
       const im = document.createElement('img'); im.className = 'nb-note-img'; im.src = n.img; im.loading = 'lazy';
       im.title = 'Click to zoom'; im.onclick = () => im.classList.toggle('zoom');
@@ -769,6 +795,7 @@ function nbRender(list) {
     }
     el.appendChild(row);
   });
+  try { renderNpcs(); } catch (e) {}   // #225: refresh backlink counts on NPC cards
 }
 socket.on('note:list', nbRender);
 function initNotebook() {
@@ -2089,6 +2116,102 @@ function initHomebrew() {
 }
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
+
+/* ============ #225 LINKED NOTES — @NPCs and #tags turn notes into a campaign wiki ============ */
+window.NB_LIST = window.NB_LIST || [];
+let nbLink = { tag: null, mention: null };   // active notebook filter from a clicked link
+function wlEsc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function wlNpcNames() {
+  // longest names first so "@Tiny the Dire Bear" wins over "@Tiny"
+  return (typeof NPCS !== 'undefined' ? NPCS : []).map((n) => ({ name: n.name.replace(/^[^\w]*\s*/, '') || n.name, npc: n }))
+    .filter((x) => x.name.length > 1).sort((a, b) => b.name.length - a.name.length);
+}
+function linkifyInto(el, text) {
+  // Build DOM safely (no innerHTML with user text). Recognizes @NPC Name and #tags.
+  el.textContent = '';
+  const names = wlNpcNames();
+  let rest = String(text || '');
+  while (rest.length) {
+    const at = rest.search(/[@#]/);
+    if (at < 0) { el.appendChild(document.createTextNode(rest)); break; }
+    if (at > 0) el.appendChild(document.createTextNode(rest.slice(0, at)));
+    rest = rest.slice(at);
+    if (rest[0] === '@') {
+      const after = rest.slice(1);
+      const hit = names.find((x) => after.toLowerCase().startsWith(x.name.toLowerCase()));
+      if (hit) {
+        const s = document.createElement('span');
+        s.className = 'wl-npc' + (hit.npc.dead ? ' wl-dead' : '');
+        s.textContent = '@' + after.slice(0, hit.name.length);
+        s.title = (hit.npc.dead ? '☠️ ' : '') + (hit.npc.desc || 'Jump to this character');
+        s.onclick = () => wlJumpNpc(hit.npc.name);
+        el.appendChild(s);
+        rest = after.slice(hit.name.length);
+        continue;
+      }
+    } else if (rest[0] === '#') {
+      const m = rest.match(/^#([\w-]{2,24})/);
+      if (m) {
+        const s = document.createElement('span');
+        s.className = 'wl-tag'; s.textContent = '#' + m[1]; s.title = 'Show all your notes tagged #' + m[1];
+        s.onclick = () => { nbLink = { tag: m[1].toLowerCase(), mention: null }; nbRender(window.NB_LIST); };
+        el.appendChild(s);
+        rest = rest.slice(m[0].length);
+        continue;
+      }
+    }
+    el.appendChild(document.createTextNode(rest[0]));
+    rest = rest.slice(1);
+  }
+}
+function wlJumpNpc(name) {
+  const jt = document.querySelector('.tab[data-tab="journal"]'); if (jt) jt.click();
+  setTimeout(() => {
+    const row = [...document.querySelectorAll('.npc-row')].find((r) => r.textContent.includes(name));
+    if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.add('npc-flash'); setTimeout(() => row.classList.remove('npc-flash'), 1600); }
+    else flashHint('That character is filtered out — switch the NPC filter to All');
+  }, 120);
+}
+function wlBacklinks(npcName) {
+  const re = new RegExp('@' + wlEsc(npcName), 'i');
+  const notes = (window.NB_LIST || []).filter((e) => e.text && re.test(e.text)).length;
+  const ta = $('journal-text');
+  const inJournal = ta && re.test(ta.value || '') ? 1 : 0;
+  return { notes, inJournal };
+}
+function wlShowMentions(npcName) {
+  nbLink = { tag: null, mention: npcName };
+  nbRender(window.NB_LIST);
+  const el = $('nb-list'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+/* @-autocomplete while typing a note */
+function initWikiSuggest() {
+  const ta = $('nb-text'); if (!ta) return;
+  let box = document.createElement('div'); box.id = 'nb-suggest'; box.className = 'nb-suggest hidden';
+  ta.insertAdjacentElement('afterend', box);
+  ta.addEventListener('input', () => {
+    const upto = ta.value.slice(0, ta.selectionStart);
+    const m = upto.match(/@([\w' -]{0,20})$/);
+    if (!m) { box.classList.add('hidden'); return; }
+    const q = m[1].toLowerCase();
+    const opts = wlNpcNames().filter((x) => x.name.toLowerCase().includes(q)).slice(0, 5);
+    if (!opts.length) { box.classList.add('hidden'); return; }
+    box.innerHTML = '';
+    opts.forEach((o) => {
+      const b = document.createElement('button'); b.className = 'ghost';
+      b.textContent = (o.npc.dead ? '☠️ ' : '') + o.name;
+      b.onclick = () => {
+        ta.value = upto.slice(0, upto.length - m[0].length) + '@' + o.name + ' ' + ta.value.slice(ta.selectionStart);
+        box.classList.add('hidden'); ta.focus();
+      };
+      box.appendChild(b);
+    });
+    box.classList.remove('hidden');
+  });
+  ta.addEventListener('blur', () => setTimeout(() => box.classList.add('hidden'), 250));
+}
+document.addEventListener('DOMContentLoaded', initWikiSuggest);
+if (document.readyState !== 'loading') initWikiSuggest();
 
 /* ============ #223 SECRET DM ROLLS — dice behind the screen ============ */
 function initSecretRolls() {
