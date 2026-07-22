@@ -2421,7 +2421,8 @@ document.addEventListener('DOMContentLoaded', initSession);
 if (document.readyState !== 'loading') initSession();
 
 /* ============ #229 SESSION PLAYLIST — Spotify / YouTube for the whole table ============ */
-let MUSIC = { url: '' };
+let MUSIC = { url: '', combatUrl: '' };
+let musicCombatOn = false; // #231: initiative running → battle mix
 function musicEmbedUrl(url) {
   // Turn a normal share link into an embeddable player URL. Returns '' if we can't embed (link-only fallback).
   try {
@@ -2449,13 +2450,19 @@ function musicEmbedUrl(url) {
 }
 function musicRender() {
   const wrap = $('music-wrap'); if (!wrap) return;
-  const has = !!MUSIC.url;
+  // #231: while initiative is running, the battle mix takes over (falls back to the session playlist)
+  const showUrl = (musicCombatOn && MUSIC.combatUrl) ? MUSIC.combatUrl : MUSIC.url;
+  const has = !!showUrl;
   wrap.classList.toggle('hidden', !has);
   const inp = $('music-in');
   if (inp && document.activeElement !== inp) inp.value = MUSIC.url || '';
+  const cinp = $('music-combat-in');
+  if (cinp && document.activeElement !== cinp) cinp.value = MUSIC.combatUrl || '';
+  const title = wrap.querySelector('.party-title');
+  if (title) title.textContent = (musicCombatOn && MUSIC.combatUrl) ? '⚔️ Battle Mix' : '🎵 Session Playlist';
   if (!has) { $('music-embed').textContent = ''; return; }
-  $('music-open').href = MUSIC.url;
-  const emb = musicEmbedUrl(MUSIC.url);
+  $('music-open').href = showUrl;
+  const emb = musicEmbedUrl(showUrl);
   const box = $('music-embed'); box.textContent = '';
   if (emb) {
     const f = document.createElement('iframe');
@@ -2472,18 +2479,29 @@ function musicRender() {
 }
 function initMusic() {
   const set = $('music-set'); if (!set) return;
+  const MUSIC_RE = /^https:\/\/(open\.spotify\.com|spotify\.link|www\.youtube\.com|youtube\.com|youtu\.be|music\.youtube\.com)\//;
   set.onclick = () => {
     if (!me.isGm) return;
     const url = $('music-in').value.trim();
-    if (!url) { flashHint('Paste a Spotify or YouTube link first'); return; }
-    if (!/^https:\/\/(open\.spotify\.com|spotify\.link|www\.youtube\.com|youtube\.com|youtu\.be|music\.youtube\.com)\//.test(url)) { flashHint('That doesn’t look like a Spotify or YouTube link'); return; }
-    socket.emit('music:set', { url });
-    flashHint('🎵 Playlist set — the whole table can listen from the Journal tab');
+    const combatUrl = ($('music-combat-in') ? $('music-combat-in').value.trim() : '');
+    if (!url && !combatUrl) { flashHint('Paste a Spotify or YouTube link first'); return; }
+    if ((url && !MUSIC_RE.test(url)) || (combatUrl && !MUSIC_RE.test(combatUrl))) { flashHint('That doesn’t look like a Spotify or YouTube link'); return; }
+    socket.emit('music:set', { url, combatUrl });
+    flashHint('🎵 Playlist set — the whole table can listen from the Journal tab' + (combatUrl ? ' (⚔️ battle mix kicks in with initiative)' : ''));
   };
-  $('music-clear').onclick = () => { if (!me.isGm) return; socket.emit('music:set', { url: '' }); $('music-in').value = ''; };
+  $('music-clear').onclick = () => { if (!me.isGm) return; socket.emit('music:set', { url: '', combatUrl: '' }); $('music-in').value = ''; if ($('music-combat-in')) $('music-combat-in').value = ''; };
 }
-socket.on('music:set', (m) => { MUSIC = m || { url: '' }; musicRender(); });
+socket.on('music:set', (m) => { MUSIC = m || { url: '', combatUrl: '' }; musicRender(); });
 socket.on('state', (s) => { if (s && s.music) { MUSIC = s.music; setTimeout(musicRender, 400); } });
+// #231: flip to the battle mix when initiative starts, back when it ends
+socket.on('init:state', ({ list }) => {
+  const on = Array.isArray(list) && list.length > 0;
+  if (on !== musicCombatOn) {
+    musicCombatOn = on;
+    musicRender();
+    if (MUSIC.combatUrl && MUSIC.url) flashHint(on ? '⚔️ Battle mix on' : '🎵 Back to the session playlist');
+  }
+});
 document.addEventListener('DOMContentLoaded', initMusic);
 if (document.readyState !== 'loading') initMusic();
 
