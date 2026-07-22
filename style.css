@@ -1566,3 +1566,6 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .nb-note-text { white-space: pre-wrap; font-size: 13px; line-height: 1.45; }
 .nb-note-img { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 6px; cursor: zoom-in; display: block; }
 .nb-note-img.zoom { max-height: none; cursor: zoom-out; }
+
+/* ===== #222 Next-session banner ===== */
+.sess-banner { background: linear-gradient(90deg,#2a2010,#1c1710); border: 1px solid var(--gold,#c9a227); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }

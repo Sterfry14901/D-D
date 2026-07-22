@@ -529,6 +529,21 @@
         </div>
 
         <div class="tabpane" id="tab-journal">
+          <!-- #222 Next-session banner: DM sets it, everyone sees it on join -->
+          <div id="sess-view" class="sess-banner hidden">📅 <b>Next session:</b> <span id="sess-when"></span><span id="sess-note-view"></span></div>
+          <div class="monster-add gm-only">
+            <div class="mon-title">📅 Next session <span class="gm-tag">DM</span></div>
+            <div class="loot-row">
+              <input id="sess-in-when" class="mon-search" type="text" placeholder="When? (Friday 7pm EST)" style="flex:1;margin:0" maxlength="80" />
+            </div>
+            <div class="loot-row">
+              <input id="sess-in-note" class="mon-search" type="text" placeholder="Note (optional — 'we pick up at the Waystation')" style="flex:1;margin:0" maxlength="200" />
+              <button id="sess-save">💾 Set</button>
+              <button id="sess-announce" title="Post it to chat right now">📣 Announce</button>
+            </div>
+            <div class="journal-hint">Everyone sees this the moment they join — no more "wait, when are we playing?". Use Sesh in the Discord for RSVPs.</div>
+          </div>
+
           <div class="journal-head">
             <span class="party-title">Campaign Journal</span>
             <button id="journal-rec" class="ghost" title="Dictate notes with your voice (Chrome)">🎤 Rec</button>
@@ -865,6 +880,7 @@
             <li><code>/whisper name message</code> sends a private message (<code>/reply</code> answers the last one).</li>
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
+            <li><b>📅 Next session</b>: check the top of the Journal tab — your DM posts when you're playing next, and you'll see a reminder each time you join.</li>
             <li><b>⚔️ Maneuvers</b> (Combat tab, if your DM enables them): martial classes get Superiority Dice — spend one on Trip, Disarm, Riposte, Menace, Push or Precision Strike. The die and the save DC post to chat automatically; dice come back on a rest.</li>
             <li><b>📔 My Notebook</b> (in the Journal tab): your own private session notes — nobody else sees them. Attach a <b>📷 photo</b> of your real notebook pages, <b>paste</b> a screenshot straight into the note box, or draw a quick <b>✏️ sketch</b> (monster doodles, hand-drawn maps). Notes are saved with the campaign, so they're waiting for you next session.</li>
             <li>Found something broken? Hit <b>🐛</b> up top — it goes straight to the devs.</li>
@@ -904,6 +920,7 @@
         <details><summary>⚔️ Running combat</summary>
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
+            <li><b>📅 Next session</b> (Journal tab): type when you're playing next ("Friday 7pm EST") + an optional note — every player sees it in their Journal and gets a reminder when they join. <b>📣 Announce</b> posts it to chat. Pair it with the Sesh bot in the Discord for RSVPs, and scheduling stops being the campaign killer.</li>
             <li><b>🎛 Optional rules</b> (Combat tab): flip <b>⚔️ Martial maneuvers</b> ON and your Fighters, Barbarians, Monks, Rogues, Rangers and Paladins gain Superiority Dice (d8s, short-rest recovery) plus six battle maneuvers — Trip, Disarm, Riposte, Menace, Push, Precision. One tap rolls the die and posts the save DC to chat. A clean fix for the martial/caster gap — and it's your call, per campaign.</li>
             <li><b>🧪 Homebrew Maker</b> (Combat tab): invent your own monster — type a name, pick a CR, type and size, hit <b>⚒ Forge</b>. It gets HP, AC, attack bonus and damage balanced to match official monsters of that CR, plus matching token art, and drops straight onto the map ready for the ⚔️ combat assistant. Your creations are saved for re-dropping (right-click one to delete).</li>
             <li><b>👥 Add party (roll init)</b> puts everyone in initiative with rolled d20s; <b>Next ▸</b> advances turns (players get a chime), the turn timer nudges slowpokes.</li>

@@ -251,6 +251,7 @@ function saveRooms() {
         scenes: (room.scenes || []).slice(0, 20), // #214: prepped scenes survive restarts
         notebook: room.notebook || {},   // #218: private player notebooks survive restarts
         opts: room.opts || { maneuvers: false }, // #220: optional rules survive restarts
+        session: room.session || { when: '', note: '' }, // #222: next session survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -350,6 +351,7 @@ function loadRooms() {
         scenes: room.scenes || [],                  // #214: restore prepped scenes
         notebook: room.notebook || {},              // #218: restore player notebooks
         opts: room.opts || { maneuvers: false },    // #220: restore optional rules
+        session: room.session || { when: '', note: '' }, // #222: restore next session
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -393,6 +395,7 @@ function getRoom(id) {
       scenes: [],              // #214 Scene Prep: up to 20 prepped {map + monster tokens + weather}
       notebook: {},            // #218 Player Notebook: playerName -> [{id,ts,text,img}] (private)
       opts: { maneuvers: false }, // #220 optional rules the DM can switch on
+      session: { when: '', note: '' }, // #222 next-session banner (DM sets, all see)
     });
   }
   return rooms.get(id);
@@ -843,6 +846,7 @@ io.on('connection', (socket) => {
       weather: room.weather,
       ambience: room.ambience || 'off',
       opts: room.opts || {},          // #220 optional rules (martial maneuvers, …)
+      session: room.session || { when: '', note: '' }, // #222 next-session banner
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
@@ -1896,6 +1900,17 @@ io.on('connection', (socket) => {
     room.opts = room.opts || {};
     if (typeof patch.maneuvers === 'boolean') room.opts.maneuvers = patch.maneuvers;
     io.to(joinedRoom).emit('opts:set', room.opts);
+    markDirty();
+  });
+
+  // ---- #222 Next-session banner: DM sets, everyone sees ----
+  socket.on('session:set', (s) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !s) return;
+    room.session = {
+      when: String(s.when || '').slice(0, 80),
+      note: String(s.note || '').slice(0, 200),
+    };
+    io.to(joinedRoom).emit('session:set', room.session);
     markDirty();
   });
 
