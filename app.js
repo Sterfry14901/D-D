@@ -2589,6 +2589,41 @@ socket.on('campaign:reload', () => { flashHint('📥 Campaign restored — reloa
 document.addEventListener('DOMContentLoaded', initBackup);
 if (document.readyState !== 'loading') initBackup();
 
+/* ============ #235 CAMPAIGN CHRONICLE — the story so far ============ */
+let CHRON = [];
+function chronRender() {
+  const box = $('chron-list'); if (!box) return;
+  box.textContent = '';
+  if (!CHRON.length) { const d = document.createElement('div'); d.className = 'npc-empty'; d.textContent = 'Nothing chronicled yet — travel, quests, deaths and level-ups land here automatically.'; box.appendChild(d); return; }
+  let lastDay;
+  CHRON.forEach((e) => {
+    const dayLabel = (e.day === null || e.day === undefined) ? '📖 The adventure' : '🗓 Day ' + e.day;
+    if (dayLabel !== lastDay) {
+      lastDay = dayLabel;
+      const h = document.createElement('div'); h.className = 'chron-day'; h.textContent = dayLabel;
+      box.appendChild(h);
+    }
+    const row = document.createElement('div'); row.className = 'chron-row';
+    row.textContent = e.text + (e.author ? ' — ' + e.author : '');
+    box.appendChild(row);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+function initChronicle() {
+  const add = $('chron-add'); if (!add) return;
+  add.onclick = () => {
+    const t = $('chron-in').value.trim();
+    if (!t) { flashHint('Write the moment first'); return; }
+    socket.emit('timeline:log', { text: t });
+    $('chron-in').value = '';
+  };
+  $('chron-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') add.click(); });
+}
+socket.on('timeline:add', (e) => { if (e) { CHRON.push(e); if (CHRON.length > 200) CHRON = CHRON.slice(-200); chronRender(); } });
+socket.on('state', (s) => { if (s && Array.isArray(s.timeline)) { CHRON = s.timeline; setTimeout(chronRender, 400); } });
+document.addEventListener('DOMContentLoaded', initChronicle);
+if (document.readyState !== 'loading') initChronicle();
+
 /* #234: luck report toggle */
 function initDiceStats() { const b = $('dice-stats-btn'); if (!b) return; b.onclick = () => { const box = $('dice-stats'); if (!box.classList.contains('hidden') && box.textContent) { box.classList.add('hidden'); } else { diceStatsShow(); } }; }
 document.addEventListener('DOMContentLoaded', initDiceStats);
