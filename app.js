@@ -1316,6 +1316,33 @@ function showDmAlert(text) {
   $('dm-alert-fix').onclick = () => { b.classList.remove('show'); openAiConfig(); };
   $('dm-alert-x').onclick = () => b.classList.remove('show');
 }
+/* ============ #214 SCENE PREP — DM saves prepped maps+monsters, reveals in one click ============ */
+let SCENES = [];
+function renderScenes() {
+  const box = $('scene-list'); if (!box) return;
+  box.innerHTML = '';
+  if (!SCENES.length) { box.innerHTML = '<div class="mon-empty">No scenes yet — pick a map, drop your monsters (hide ambushers with the GM layer!), then Save.</div>'; return; }
+  SCENES.forEach((s) => {
+    const d = document.createElement('div'); d.className = 'scene-row';
+    d.innerHTML = `<span class="sc-name">🎬 ${escapeHtml(s.name)}</span><em>${s.hasMap ? '🗺️ map · ' : ''}${s.n} token${s.n === 1 ? '' : 's'}</em><button class="sc-load">▶ Load</button><button class="sc-del" title="Delete">✖</button>`;
+    d.querySelector('.sc-load').onclick = () => {
+      if (confirm(`Load "${s.name}"? The current map & monsters are replaced — player tokens stay put.`)) {
+        socket.emit('scene:load', { id: s.id });
+        $('map-modal').classList.add('hidden');
+      }
+    };
+    d.querySelector('.sc-del').onclick = () => { if (confirm(`Delete scene "${s.name}"?`)) socket.emit('scene:del', { id: s.id }); };
+    box.appendChild(d);
+  });
+}
+socket.on('scene:list', (list) => { SCENES = list || []; renderScenes(); });
+if ($('scene-save')) $('scene-save').onclick = () => {
+  const nm = ($('scene-name').value || '').trim() || 'Scene ' + (SCENES.length + 1);
+  socket.emit('scene:save', { name: nm });
+  $('scene-name').value = '';
+  flashHint('💾 Scene saved — load it anytime from 🗺️ Maps');
+};
+
 /* #213 Table View button (DM): open the map-only second-screen window */
 if ($('tv-btn')) $('tv-btn').onclick = () =>
   window.open(location.origin + '/?room=' + encodeURIComponent(me.room || 'default') + '&view=map', 'rf-tableview', 'noopener');

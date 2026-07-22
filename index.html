@@ -616,6 +616,14 @@
         <button class="map-opt" data-map="maps/greenest.jpg"><img src="maps/greenest.jpg" alt="" loading="lazy" /><span>Town Under Siege</span></button>
         <button class="map-opt blank" data-map=""><span>Blank grid</span></button>
       </div>
+      <label class="gm-only" style="margin-top:10px">🎬 Prepped scenes <span style="opacity:.6;font-size:11px">— save the current map + monsters, spring it on the party in one click (max 20; player tokens are never touched)</span></label>
+      <div class="gm-only scene-tools">
+        <input id="scene-name" type="text" placeholder="Name this scene… (Goblin ambush, Boss room)" maxlength="40" />
+        <button id="scene-save">💾 Save current setup</button>
+      </div>
+      <div id="scene-list" class="gm-only"></div>
+      <div style="display:none">
+      </div>
       <h2 style="margin-top:14px">🎨 Terrain Textures <span style="font-size:12px;opacity:.6;font-weight:normal">— crisp, tileable, drawn in-app</span></h2>
       <div id="tex-grid" class="map-grid"></div>
       <div class="grid-ctrl gm-only">
