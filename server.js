@@ -2047,6 +2047,15 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, `🌟 The DM awards Inspiration to ${target.name} — well played!`);
   });
 
+  // ---- #245 Spectator promotion: a watcher decides to play ----
+  socket.on('presence:play', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id]; if (!p || !p.spectator) return;
+    p.spectator = false;
+    pushSystem(joinedRoom, `🎲 ${p.name} sets down the popcorn and joins the adventure!`);
+    broadcastPlayers(joinedRoom);
+  });
+
   // ---- #224 Hybrid table: toggle 🪑 at-the-table / 🌐 remote after joining ----
   socket.on('presence:set', (p) => {
     const room = rooms.get(joinedRoom); if (!room || !p) return;

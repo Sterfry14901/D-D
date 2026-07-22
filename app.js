@@ -1471,6 +1471,27 @@ socket.on('players', (players) => {
   });
 });
 
+// #245: spectators get a standing invitation to play
+function specPromoRender() {
+  let pill = $('spec-promo');
+  if (!me.spectator) { if (pill) pill.remove(); return; }
+  if (pill) return;
+  pill = document.createElement('button'); pill.id = 'spec-promo';
+  pill.textContent = '🎲 Join the adventure';
+  pill.title = 'Done watching? Roll up a character and play!';
+  pill.onclick = () => {
+    socket.emit('presence:play');
+    me.spectator = false;
+    specPromoRender();
+    const t = document.querySelector('.tab[data-tab="sheet"]'); if (t) t.click();
+    const ob = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Open Full Character Sheet'));
+    if (ob) setTimeout(() => ob.click(), 400);
+    flashHint('🎲 Welcome to the party — build your character on the sheet!');
+  };
+  document.body.appendChild(pill);
+}
+socket.on('players', () => { try { specPromoRender(); } catch (e) {} });
+
 // #244: being muted / kicked
 socket.on('mod:muted', ({ muted }) => { flashHint(muted ? '🔇 The DM has muted your chat.' : '🔊 The DM unmuted you — welcome back.'); });
 socket.on('mod:kicked', () => {
