@@ -4724,7 +4724,11 @@ function buildCS() {
           <button id="cs-atk-addbtn">Add</button>
         </div>
       </div>
-      <div class="cs-sec"><div class="cs-sec-t">Conditions</div><div class="cs-conds">${condChips}</div></div>
+      <div class="cs-sec"><div class="cs-sec-t">Conditions</div><div class="cs-conds">${condChips}</div>
+        <div class="cs-exh" title="${escapeHtml(((window.COND_RULES || {}).Exhaustion || '')).replace(/"/g, '&quot;')}">
+          <span class="cs-exh-l">💀 Exhaustion</span><span id="cs-exh-pips"></span><span id="cs-exh-fx"></span>
+        </div>
+      </div>
       <div class="cs-sec"><div class="cs-sec-t">Defenses</div><textarea data-cs="resistances" placeholder="Resistances, immunities, vulnerabilities…"></textarea></div>
       <div class="cs-sec"><div class="cs-sec-t">Senses</div>
         <div class="cs-senses">
@@ -4990,7 +4994,7 @@ function csRenderRes() {
   const lvl = Number(cs.level) || 1;
   const list = classResources(clsName, lvl, csMod(cs.scores.cha));
   cs.resUsed = cs.resUsed || {};
-  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.65">No limited-use class powers' + (clsName ? ' at this level' : ' — set your class') + '.</div>'; return; }
+  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.65">No limited-use class powers' + (clsName ? ' at this level' : ' — set your class') + '.</div>'; try { csRenderCustom(); } catch (e) {} return; }
   box.innerHTML = list.map((r) => {
     const used = Math.min(cs.resUsed[r.id] || 0, r.max);
     let ctl;
@@ -5064,6 +5068,25 @@ function csRenderCustom() {
     hint.textContent = 'Track anything your table invents — homebrew resources, curses, favor with factions. Saves with your character and rides along on export.';
     box.appendChild(hint);
   }
+  try { csRenderExh(); } catch (e) {}
+}
+
+/* ============ #238 EXHAUSTION — six skulls to the grave ============ */
+const EXH_FX = ['', 'disadv. on ability checks', 'speed halved', 'disadv. on attacks & saves', 'HP max halved', 'speed 0', '💀 DEAD'];
+function csRenderExh() {
+  const pips = $('cs-exh-pips'); if (!pips) return;
+  const lvl = Math.max(0, Math.min(6, Number(cs.exhaustion) || 0));
+  pips.textContent = '';
+  for (let i = 1; i <= 6; i++) {
+    const p = document.createElement('button');
+    p.className = 'cs-pip' + (i <= lvl ? ' on' : '');
+    p.title = 'Level ' + i + ': ' + EXH_FX[i];
+    p.onclick = () => { cs.exhaustion = (i === lvl) ? i - 1 : i; saveCS(); csRenderExh(); };
+    pips.appendChild(p);
+  }
+  const fx = $('cs-exh-fx');
+  fx.textContent = lvl ? ` Lv ${lvl} — ${EXH_FX.slice(1, lvl + 1).join(', ')}` : '';
+  fx.style.color = lvl >= 4 ? '#e06c6c' : '';
 }
 
 /* ============ DRUID WILD SHAPE ============ */
@@ -5676,6 +5699,7 @@ function doRest(type) {
     for (let l = 1; l <= 9; l++) if (cs.slots[l]) cs.slots[l].used = 0;
     cs.resUsed = {};                                          // all class resources recover
     cs.deathSucc = 0; cs.deathFail = 0;
+    if (Number(cs.exhaustion) > 0) { cs.exhaustion = Number(cs.exhaustion) - 1; try { csRenderExh(); } catch (e) {} } // #238 long rest removes one level
     const total = parseInt(cs.hitDiceTotal) || 0;
     if (total > 0) cs.hitDiceUsed = Math.max(0, (Number(cs.hitDiceUsed) || 0) - Math.max(1, Math.floor(total / 2)));
     csPopulate(); csRecompute(); saveCS(); sendPartyStatus();

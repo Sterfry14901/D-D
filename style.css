@@ -1645,3 +1645,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #turn-helper .th-btns { display: flex; gap: 6px; margin-top: 8px; }
 #turn-helper .th-btns button { flex: 1; padding: 4px 0; font-size: 12px; }
 #turn-helper .th-never { text-align: right; font-size: 10px; opacity: .5; cursor: pointer; margin-top: 4px; text-decoration: underline; }
+
+/* ===== #238 Exhaustion ===== */
+.cs-exh { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; flex-wrap: wrap; }
+.cs-exh-l { font-weight: 700; }
+#cs-exh-fx { font-size: 11px; opacity: .8; }
