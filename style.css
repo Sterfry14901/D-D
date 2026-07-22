@@ -1650,3 +1650,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .cs-exh { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; flex-wrap: wrap; }
 .cs-exh-l { font-weight: 700; }
 #cs-exh-fx { font-size: 11px; opacity: .8; }
+
+/* ===== #239 Party inspiration ===== */
+.insp-give { background: none; border: 1px solid #3a4152; border-radius: 6px; margin-left: 6px; padding: 0 5px; cursor: pointer; font-size: 12px; }
+.insp-give:hover { border-color: #c59b45; }

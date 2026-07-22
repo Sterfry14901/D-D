@@ -1445,8 +1445,23 @@ socket.on('players', (players) => {
       li.style.cursor = 'pointer';
       li.onclick = () => { me.atTable = !me.atTable; try { localStorage.setItem('dnd-attable', me.atTable ? '1' : '0'); } catch (e) {} socket.emit('presence:set', { atTable: me.atTable }); flashHint(me.atTable ? '🪑 You\'re at the table' : '🌐 You\'re remote'); };
     }
+    // #239: DM can award Inspiration straight from the player list
+    if (me.isGm && !p.isGm && p.id !== me.id) {
+      const star = document.createElement('button');
+      star.className = 'insp-give'; star.textContent = '🌟';
+      star.title = 'Award Inspiration to ' + p.name + ' — great roleplay, clever plan, heroic moment';
+      star.onclick = (ev) => { ev.stopPropagation(); socket.emit('insp:give', { id: p.id }); };
+      li.appendChild(star);
+    }
     ul.appendChild(li);
   });
+});
+
+// #239: receiving Inspiration lights up your sheet
+socket.on('insp:got', () => {
+  cs.inspiration = true; saveCS();
+  const insp = document.querySelector('[data-insp]'); if (insp) insp.classList.add('on');
+  flashHint('🌟 The DM gave you Inspiration! Spend it from your sheet for advantage on one roll.');
 });
 
 /* ============ CHAT + AI DM ============ */
@@ -5306,7 +5321,12 @@ function csOnClick(e) {
   const rollEl = e.target.closest('[data-roll]');
   if (rollEl) { csRoll(rollEl.dataset.roll, e); return; }
   const insp = e.target.closest('[data-insp]');
-  if (insp) { cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS(); return; }
+  if (insp) {
+    const spending = cs.inspiration === true;   // #239: on→off = spending it, announce to the table
+    cs.inspiration = !cs.inspiration; insp.classList.toggle('on', cs.inspiration); saveCS();
+    if (spending) socket.emit('chat', { text: `🌟 ${cs.name || me.name} spends Inspiration — advantage on the next roll!` });
+    return;
+  }
   const cond = e.target.closest('[data-cond]');
   if (cond) { const c = cond.dataset.cond; if (cs.conditions.includes(c)) cs.conditions = cs.conditions.filter((x) => x !== c); else cs.conditions.push(c); cond.classList.toggle('on'); saveCS(); syncLinkedConditions(); return; }
   const slot = e.target.closest('[data-slot]');

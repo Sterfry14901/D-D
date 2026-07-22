@@ -2024,6 +2024,14 @@ io.on('connection', (socket) => {
     timelineAdd(joinedRoom, '✒️ ' + text, p ? p.name : null);
   });
 
+  // ---- #239 Party Inspiration: DM awards 🌟, the whole table hears about it ----
+  socket.on('insp:give', (m) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
+    const target = room.players[m.id]; if (!target || target.isGm) return;
+    io.to(target.id).emit('insp:got');
+    pushSystem(joinedRoom, `🌟 The DM awards Inspiration to ${target.name} — well played!`);
+  });
+
   // ---- #224 Hybrid table: toggle 🪑 at-the-table / 🌐 remote after joining ----
   socket.on('presence:set', (p) => {
     const room = rooms.get(joinedRoom); if (!room || !p) return;
