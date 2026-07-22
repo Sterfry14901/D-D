@@ -4391,6 +4391,13 @@ function renderInit(list, turnIndex, round) {
     }
     // #237: hide the helper the moment the turn passes to someone else
     if (active && !(active.name === me.name || (cs && cs.name && active.name === cs.name))) { try { turnHelperHide(); } catch (e) {} }
+    // #253: heads-up when you're NEXT in line (and it isn't already your turn)
+    if (wasInit && list.length > 1) {
+      const nxt = list[(turnIndex + 1) % list.length];
+      const meActive = active && (active.name === me.name || (cs && cs.name && active.name === cs.name));
+      const meNext = nxt && (nxt.name === me.name || (cs && cs.name && nxt.name === cs.name));
+      if (meNext && !meActive) flashHint('🎯 You\'re on deck — plan your move!');
+    }
   }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
   updateTurnBanner();
