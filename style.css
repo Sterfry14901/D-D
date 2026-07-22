@@ -971,6 +971,26 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .scene-row .sc-del { background: none; border: none; color: #a55; cursor: pointer; font-size: 0.9rem; }
 .scene-row .sc-del:hover { color: #e07a3a; }
 
+/* #215 DM Map View — big map + slim LEFT rail of DM essentials (?view=dm) */
+body.dmview #topbar, body.dmview #panel, body.dmview #panel-resize, body.dmview #board-hint { display: none !important; }
+#dm-rail { width: 68px; flex: 0 0 68px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: linear-gradient(180deg, #1a110c, #120b08); border-right: 1px solid rgba(217,177,84,0.35);
+  padding: 10px 4px; overflow-y: auto; z-index: 45; }
+#dm-rail.hidden { display: none; }
+#dm-rail .dmr-title { font-family: 'Cinzel', Georgia, serif; color: #d9b154; font-weight: 800; font-size: 0.8rem; }
+#dm-rail > button { width: 52px; height: 44px; font-size: 1.3rem; background: #241713; color: #f2e6c8;
+  border: 1px solid #3a2a20; border-radius: 10px; cursor: pointer; }
+#dm-rail > button:hover { border-color: var(--gold, #d9b154); transform: translateY(-1px); }
+#dm-rail .dmr-sep { width: 70%; height: 1px; background: rgba(217,177,84,0.3); margin: 4px 0; }
+#dm-rail .dmr-scenes-title { color: #b98; font-size: 0.66rem; }
+#dmr-scenes { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+#dmr-scenes .dmr-scene { width: 100%; font-size: 0.62rem; padding: 5px 3px; background: #2c1c12;
+  color: #ffe9c0; border: 1px solid #4a3324; border-radius: 7px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dmr-scenes .dmr-scene:hover { border-color: #d9b154; }
+#dmr-scenes .dmr-empty { color: #776; font-size: 0.6rem; text-align: center; }
+#dm-rail .dmr-hint { color: #776; font-size: 0.56rem; text-align: center; margin-top: auto; line-height: 1.5; }
+
 /* #213 Table View — clean second-screen mode (?view=map): just the board, edge to edge */
 body.tableview #topbar, body.tableview #panel, body.tableview #panel-resize,
 body.tableview #board-hint { display: none !important; }

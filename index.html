@@ -75,6 +75,7 @@
         <button id="invite-btn" class="ghost" title="Copy an invite link to this table">🔗 Invite</button>
         <button id="party-btn" class="ghost gm-only" title="Get a party code — players type it in to land in YOUR game">🎟️ Party code</button>
         <button id="tv-btn" class="ghost gm-only" title="Open a clean map-only window — drag it to a second monitor or the TV facing your players">🖥️ Table view</button>
+        <button id="dmv-btn" class="ghost gm-only" title="Big map with a slim LEFT rail of DM tools — no right panel">🧭 DM map view</button>
         <button id="bug-btn" class="ghost" title="Report a bug — it goes straight to our Discord">🐛</button>
         <button id="guide-btn" class="ghost" title="How to play — Player guide &amp; DM master guide">📖 Guide</button>
         <button id="help-btn" class="ghost" title="Help, hotkeys & chat commands (press ?)">❓ Help</button>
@@ -172,6 +173,18 @@
     </div>
 
     <main id="layout">
+      <!-- #215 DM Map View: slim LEFT rail with map essentials (only in ?view=dm) -->
+      <aside id="dm-rail" class="hidden">
+        <div class="dmr-title">🧭 DM</div>
+        <button id="dmr-maps" title="Maps & prepped scenes">🗺️</button>
+        <button id="dmr-next" title="Next turn (N)">⏭</button>
+        <button id="dmr-d20" title="Roll d20">🎲</button>
+        <button id="dmr-full" title="Back to the full app">⤢</button>
+        <div class="dmr-sep"></div>
+        <div class="dmr-scenes-title">🎬 Scenes</div>
+        <div id="dmr-scenes"></div>
+        <div class="dmr-hint">F fog · R ruler · E AoE · D draw</div>
+      </aside>
       <!-- Battle map -->
       <section id="board-wrap">
         <div id="board">
