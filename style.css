@@ -1614,3 +1614,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .music-wrap { margin: 8px 0; }
 .music-frame { width: 100%; border: 0; border-radius: 12px; }
 .music-open { font-size: 11px; text-decoration: none; padding: 2px 8px; }
+
+/* ===== #224 Hybrid table ===== */
+.join-attable { display: block; margin: 6px 0 2px; font-size: 12px; cursor: pointer; }
+.hybrid-head { font-size: 11px; opacity: .75; list-style: none; margin-bottom: 4px; }
+.seat { cursor: default; }
