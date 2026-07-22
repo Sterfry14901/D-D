@@ -248,6 +248,7 @@ function saveRooms() {
         trial: room.trial || null,       // #180: trial days used survive restarts
         partyCode: room.partyCode || null, // #193: party invite code survives restarts
         npcs: (room.npcs || []).slice(-100), // #196: NPC memory survives restarts
+        scenes: (room.scenes || []).slice(0, 20), // #214: prepped scenes survive restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -344,6 +345,7 @@ function loadRooms() {
         trial: room.trial || null,                  // #180: restore trial usage
         partyCode: room.partyCode || null,          // #193: restore party invite code
         npcs: room.npcs || [],                      // #196: restore NPC memory
+        scenes: room.scenes || [],                  // #214: restore prepped scenes
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -384,6 +386,7 @@ function getRoom(id) {
       shop: { open: false, name: 'Market', items: [] },  // DM shop: players buy items with coins
       world: buildStarterWorld(),  // travelable world: cities, vendors, routes
       npcs: [],                // #196 NPC memory: [{id,name,desc,notes,ts}] — AI DM stays consistent
+      scenes: [],              // #214 Scene Prep: up to 20 prepped {map + monster tokens + weather}
     });
   }
   return rooms.get(id);
@@ -816,6 +819,7 @@ io.on('connection', (socket) => {
     }
     room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
 
+    socket.emit('scene:list', sceneMeta(room));   // #214 prepped scenes arrive with the join
     socket.emit('state', {
       tokens: tokensFor(room, socket.id),
       chat: room.chat.slice(-100),
@@ -1168,6 +1172,56 @@ io.on('connection', (socket) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;  // DM-only battle maps
     room.mapImage = dataUrl;
     io.to(joinedRoom).emit('map:set', dataUrl);
+  });
+
+  // ---- #214 Scene Prep — DM saves up to 20 prepped scenes (map + monsters + weather), reveals in one click ----
+  function gmNamesOf(room) { return new Set(Object.values(room.players || {}).filter((p) => p.isGm).map((p) => p.name)); }
+  function sceneMeta(room) { return (room.scenes || []).map((s) => ({ id: s.id, name: s.name, n: (s.tokens || []).length, hasMap: !!s.map, ts: s.ts })); }
+  socket.on('scene:list', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    socket.emit('scene:list', sceneMeta(room));
+  });
+  socket.on('scene:save', ({ name } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.scenes = room.scenes || [];
+    if (room.scenes.length >= 20) {
+      socket.emit('chat', { id: 'm_' + rid(), author: 'System', role: 'dm', text: '⚠️ Scene shelf is full (20 max) — delete one first.', ts: Date.now() });
+      return;
+    }
+    const gms = gmNamesOf(room);
+    // Snapshot the scenery: everything NOT owned by a real player (monsters, props, hidden ambushers).
+    const tokens = Object.values(room.tokens).filter((t) => !t.owner || gms.has(t.owner)).map((t) => JSON.parse(JSON.stringify(t)));
+    room.scenes.push({ id: 's_' + rid(), name: String(name || 'Scene').slice(0, 40), map: room.mapImage || null, weather: room.weather || null, tokens, ts: Date.now() });
+    markDirty();
+    io.to(joinedRoom).emit('scene:list', sceneMeta(room));
+  });
+  socket.on('scene:load', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const sc = (room.scenes || []).find((s) => s.id === id); if (!sc) return;
+    const gms = gmNamesOf(room);
+    // Clear current scenery — player-owned tokens stay right where they are.
+    for (const tid of Object.keys(room.tokens)) {
+      const t = room.tokens[tid];
+      if (!t.owner || gms.has(t.owner)) { delete room.tokens[tid]; io.to(joinedRoom).emit('token:remove', tid); }
+    }
+    room.mapImage = sc.map || null;
+    io.to(joinedRoom).emit('map:set', room.mapImage);
+    if (sc.weather) { room.weather = sc.weather; io.to(joinedRoom).emit('weather:set', room.weather); }
+    for (const t of (sc.tokens || [])) {
+      const nt = JSON.parse(JSON.stringify(t));
+      nt.id = 't_' + rid(); nt.ownerId = socket.id; nt.owner = room.players[socket.id]?.name || null;
+      room.tokens[nt.id] = nt;
+      emitTokenPerSocket(room, 'token:add', nt);      // hidden ambush monsters stay hidden from players
+    }
+    const msg = { id: 'm_' + rid(), author: 'System', role: 'dm', text: `🎬 Scene change: ${sc.name}`, ts: Date.now() };
+    room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
+    markDirty();
+  });
+  socket.on('scene:del', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.scenes = (room.scenes || []).filter((s) => s.id !== id);
+    markDirty();
+    io.to(joinedRoom).emit('scene:list', sceneMeta(room));
   });
   socket.on('grid:set', (size) => {
     const room = rooms.get(joinedRoom); if (!room) return;

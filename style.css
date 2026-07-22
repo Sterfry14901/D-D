@@ -958,6 +958,19 @@ body:not(.is-gm) .gm-only { display: none !important; }
 #combat-tracker #ct-next:hover { background: #93321f; }
 @media (max-width: 800px) { #combat-tracker { top: auto; bottom: 8px; max-width: 94vw; } }
 
+/* #214 Scene Prep — the DM's shelf of ready-to-go maps + monsters */
+.scene-tools { display: flex; gap: 8px; margin: 6px 0 8px; }
+.scene-tools input { flex: 1; }
+#scene-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.scene-row { display: flex; align-items: center; gap: 8px; background: #241713; border: 1px solid #3a2a20;
+  border-radius: 8px; padding: 6px 10px; }
+.scene-row .sc-name { flex: 1; color: #f2e6c8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scene-row em { color: #b98; font-style: normal; font-size: 0.75rem; white-space: nowrap; }
+.scene-row .sc-load { background: #5a2d14; color: #ffe9c0; border: 1px solid #d9b154; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-weight: 700; }
+.scene-row .sc-load:hover { background: #7a3d1c; }
+.scene-row .sc-del { background: none; border: none; color: #a55; cursor: pointer; font-size: 0.9rem; }
+.scene-row .sc-del:hover { color: #e07a3a; }
+
 /* #213 Table View — clean second-screen mode (?view=map): just the board, edge to edge */
 body.tableview #topbar, body.tableview #panel, body.tableview #panel-resize,
 body.tableview #board-hint { display: none !important; }
