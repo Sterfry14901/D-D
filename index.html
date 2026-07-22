@@ -75,6 +75,7 @@
         <button id="ai-badge" class="ghost ai-badge hidden" title="Which AI brain the Dungeon Master is using — click to configure (DM only)">🧠 DM AI…</button>
         <button id="invite-btn" class="ghost" title="Copy an invite link to this table">🔗 Invite</button>
         <button id="party-btn" class="ghost gm-only" title="Get a party code — players type it in to land in YOUR game">🎟️ Party code</button>
+        <button id="setup-btn" class="ghost gm-only" title="Session Zero — set up your whole campaign in one guided pass">🚀 Setup</button>
         <button id="lay-btn" class="ghost" title="Customize your interface — hide tabs you don't use, save layout presets">🎛</button>
         <button id="tv-btn" class="ghost gm-only" title="Open a clean map-only window — drag it to a second monitor or the TV facing your players">🖥️ Table view</button>
         <button id="dmv-btn" class="ghost gm-only" title="Big map with a slim LEFT rail of DM tools — no right panel">🧭 DM map view</button>
@@ -711,6 +712,46 @@
 
   <!-- Battle map picker -->
   <!-- #226 Layout customizer: pick your tabs, save presets -->
+  <!-- #232 Session Zero wizard: whole-campaign setup in one guided pass (DM only) -->
+  <div id="setup-modal" class="overlay hidden">
+    <div class="join-card setup-card">
+      <h2>🚀 Session Zero — set up your campaign</h2>
+      <div class="journal-hint">Five steps and your table is ready. Do them in any order — green means done.</div>
+      <div class="setup-step" data-step="invite">
+        <span class="setup-check">○</span> <b>1 · Get your players in</b>
+        <div class="setup-body"><button id="su-party">🎟️ Party code</button> <button id="su-invite">🔗 Copy invite link</button></div>
+      </div>
+      <div class="setup-step" data-step="session">
+        <span class="setup-check">○</span> <b>2 · Post the first session time</b>
+        <div class="setup-body loot-row">
+          <input id="su-when" class="mon-search" type="text" placeholder="Friday 7pm EST" maxlength="80" style="flex:1;margin:0" />
+          <input id="su-note" class="mon-search" type="text" placeholder="Note (optional)" maxlength="200" style="flex:1;margin:0" />
+          <button id="su-sess-set">📅 Set</button>
+        </div>
+      </div>
+      <div class="setup-step" data-step="music">
+        <span class="setup-check">○</span> <b>3 · Soundtrack (optional)</b>
+        <div class="setup-body loot-row">
+          <input id="su-music" class="mon-search" type="text" placeholder="Spotify/YouTube playlist link" maxlength="300" style="flex:1;margin:0" />
+          <input id="su-combat" class="mon-search" type="text" placeholder="⚔️ Combat mix (optional)" maxlength="300" style="flex:1;margin:0" />
+          <button id="su-music-set">🎵 Set</button>
+        </div>
+      </div>
+      <div class="setup-step" data-step="map">
+        <span class="setup-check">○</span> <b>4 · Pick your first battle map</b>
+        <div class="setup-body"><button id="su-map">🗺️ Open the map library</button></div>
+      </div>
+      <div class="setup-step" data-step="quest">
+        <span class="setup-check">○</span> <b>5 · Give the party a quest</b>
+        <div class="setup-body"><button id="su-quest">📜 Open the quest board</button></div>
+      </div>
+      <div class="loot-row" style="margin-top:10px">
+        <button id="su-done" style="flex:1">✅ We're ready — let's play</button>
+        <button id="su-close" class="ghost">Later</button>
+      </div>
+    </div>
+  </div>
+
   <div id="lay-modal" class="overlay hidden">
     <div class="join-card">
       <h2>🎛 Your interface, your way</h2>
@@ -971,6 +1012,7 @@
         <details open><summary>🚀 Session zero: set up your table (2 min)</summary>
           <ul>
             <li>Join with a room code of your choosing and set a <b>GM password</b> — first password claims the DM seat. (New tables get <b>3 free DM session-days</b>; after that it's DM Pro. Players never pay.)</li>
+            <li><b>🚀 Setup</b> (top bar): new campaign? The Session Zero wizard walks you through the whole thing in one pass — party code, first session time, playlists, first map, first quest. It pops up automatically on a fresh table; steps turn green as you go.</li>
             <li>Click <b>🎟️ Party code</b> (top bar) — send the code to your players. They type it in the GM password box and land in <i>your</i> game as players.</li>
             <li>Want a co-DM? Give them your GM password instead.</li>
             <li>Try the whole game solo first: the green <b>🎲 instant demo</b> button gives you a seeded adventure to poke at.</li>
