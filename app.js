@@ -2073,6 +2073,42 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #222 NEXT-SESSION BANNER — pain #1: scheduling ============ */
+let SESSION = { when: '', note: '' };
+let sessHinted = false;
+function sessRender() {
+  const v = $('sess-view'); if (!v) return;
+  const has = !!(SESSION.when || SESSION.note);
+  v.classList.toggle('hidden', !has);
+  if (has) {
+    $('sess-when').textContent = SESSION.when || '(time TBD)';
+    $('sess-note-view').textContent = SESSION.note ? ' — ' + SESSION.note : '';
+  }
+  const iw = $('sess-in-when'), inn = $('sess-in-note');
+  if (iw && document.activeElement !== iw) iw.value = SESSION.when || '';
+  if (inn && document.activeElement !== inn) inn.value = SESSION.note || '';
+  if (has && !sessHinted) { sessHinted = true; setTimeout(() => flashHint(`📅 Next session: ${SESSION.when}${SESSION.note ? ' — ' + SESSION.note : ''}`), 2500); }
+}
+function initSession() {
+  const save = $('sess-save'); if (!save) return;
+  save.onclick = () => {
+    if (!me.isGm) return;
+    socket.emit('session:set', { when: $('sess-in-when').value.trim(), note: $('sess-in-note').value.trim() });
+    flashHint('📅 Session set — the party sees it in their Journal and when they join');
+  };
+  $('sess-announce').onclick = () => {
+    if (!me.isGm) return;
+    if (!SESSION.when && !$('sess-in-when').value.trim()) { flashHint('Set a time first'); return; }
+    const when = SESSION.when || $('sess-in-when').value.trim();
+    const note = SESSION.note || $('sess-in-note').value.trim();
+    socket.emit('chat', { text: `📅 NEXT SESSION: ${when}${note ? ' — ' + note : ''}` });
+  };
+}
+socket.on('session:set', (s) => { SESSION = s || { when: '', note: '' }; sessRender(); });
+socket.on('state', (s) => { if (s && s.session) { SESSION = s.session; setTimeout(sessRender, 400); } });
+document.addEventListener('DOMContentLoaded', initSession);
+if (document.readyState !== 'loading') initSession();
+
 /* ============ #221 EXPLORATION & TRAVEL EVENTS — offline tables, one tap ============ */
 const TRV = {
   road: [
