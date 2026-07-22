@@ -1903,6 +1903,24 @@ io.on('connection', (socket) => {
     markDirty();
   });
 
+  // ---- #223 Secret DM rolls: dice behind the screen, result to the DM only ----
+  socket.on('roll:secret', (data) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const raw = String((data && data.formula) || 'd20').toLowerCase().replace(/\s+/g, '').slice(0, 30);
+    const m = raw.match(/^(\d{0,2})d(\d{1,3})([+-]\d{1,3})?$/);
+    if (!m) return socket.emit('roll:secret:result', { error: 'Use NdM+K, e.g. d20, 2d6+3' });
+    const n = Math.min(20, Math.max(1, parseInt(m[1] || '1', 10)));
+    const sides = Math.min(1000, Math.max(2, parseInt(m[2], 10)));
+    const mod = parseInt(m[3] || '0', 10);
+    const faces = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * sides));
+    const result = faces.reduce((a, b) => a + b, 0) + mod;
+    socket.emit('roll:secret:result', { formula: raw, result, detail: `d${sides}[${faces.join(',')}]${mod ? (mod > 0 ? '+' + mod : mod) : ''}` });
+    if (data && data.tease) {
+      const msg = { id: 'm_' + rid(), author: '🎲 Fate', role: 'system', text: 'The DM rolls something behind the screen…', ts: Date.now() };
+      room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
+    }
+  });
+
   // ---- #222 Next-session banner: DM sets, everyone sees ----
   socket.on('session:set', (s) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !s) return;

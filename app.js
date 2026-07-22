@@ -2073,6 +2073,25 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #223 SECRET DM ROLLS — dice behind the screen ============ */
+function initSecretRolls() {
+  const btn = $('sec-roll'); if (!btn) return;
+  btn.onclick = () => {
+    if (!me.isGm) return;
+    socket.emit('roll:secret', { formula: ($('sec-formula').value || 'd20').trim(), tease: !!$('sec-tease').checked });
+  };
+  $('sec-formula').addEventListener('keydown', (e) => { if (e.key === 'Enter') btn.click(); });
+}
+socket.on('roll:secret:result', (r) => {
+  if (!r) return;
+  if (r.error) { flashHint('🤫 ' + r.error); return; }
+  flashHint(`🤫 Secret ${r.formula} → ${r.result}  (${r.detail}) — only you saw this`);
+  // private line in the DM's own chat pane (client-side render only, never sent to the room)
+  try { addChat({ role: 'system', text: `🤫 (secret, DM only) ${r.formula} → ${r.result}  (${r.detail})` }); } catch (e) {}
+});
+document.addEventListener('DOMContentLoaded', initSecretRolls);
+if (document.readyState !== 'loading') initSecretRolls();
+
 /* ============ #222 NEXT-SESSION BANNER — pain #1: scheduling ============ */
 let SESSION = { when: '', note: '' };
 let sessHinted = false;
