@@ -104,6 +104,15 @@
       { t: 'Hiding & Being Unseen', b: 'You can\'t hide from a creature that can see you clearly. An unseen attacker has advantage; being unseen doesn\'t hide the noise of an attack.' },
       { t: 'Object AC & HP (guide)', b: 'Fragile/resilient and size set an object\'s AC (≈11–19) and HP. Objects are immune to poison & psychic; usually fail on massive damage.' },
     ],
+    'DM: Traps & Hazards': [
+      { t: 'Trap Basics', b: 'Spotting a trap is usually Perception (or Investigation of its mechanism); disabling is often thieves\' tools or a clever workaround. Typical DCs run 10 (obvious) to 20 (well hidden). Trap attack bonuses run +3 to +8 and save DCs 10–20, scaling with how dangerous the trap is meant to be.' },
+      { t: 'Trap Damage by Level', b: 'Setback / Dangerous / Deadly per tier — Lv 1–4: 1d10 / 2d10 / 4d10 · Lv 5–10: 2d10 / 4d10 / 10d10 · Lv 11–16: 4d10 / 10d10 / 18d10 · Lv 17–20: 10d10 / 18d10 / 24d10.' },
+      { t: 'Sample Traps', b: 'Falling net (DC 10 STR to escape being restrained) · Hidden pit (falling damage; spiked pits add +2d10 piercing) · Poison darts (+8 atk, 1d4 piercing + DC 15 CON or 2d10 poison) · Rolling sphere (DC 15 DEX save or 10d10 bludgeoning) · Collapsing roof (triggered by a tripwire; heavy bludgeoning in the area).' },
+      { t: 'Poison Basics', b: 'Four delivery types: Contact (touch), Ingested (eaten or drunk), Inhaled (breathed in), Injury (enters through a wound). Most call for a CON save vs. the poison\'s DC. Basic poison (vial, 100 gp): coats one weapon or 3 pieces of ammo for 1 minute; a hit forces a DC 10 CON save or 1d4 poison damage.' },
+      { t: 'Sample Poisons', b: 'Serpent venom (injury, DC 11, 3d6 poison, half on save) · Drow poison (injury, DC 13 or poisoned 1 hr; fail by 5+ also falls unconscious) · Assassin\'s blood (ingested, DC 10, 1d12 poison + poisoned 24 hr) · Purple worm poison (injury, DC 19, 12d6 poison, half on save).' },
+      { t: 'Diseases (samples)', b: 'Sewer plague (from filth-tainted wounds; DC 11 CON after 1d4 days — exhaustion, and rest restores less) · Sight rot (from fouled water; vision blurs, then blinds; cured by a rare herb salve) · Cackle fever (stress triggers fits of mad laughter; DC 13 CON or 5d10 psychic and incapacitated during a fit).' },
+      { t: 'Madness (optional rule)', b: 'Short-term (1d10 minutes), long-term (1d10 × 10 hours), or indefinite (lasts until cured) effects from cosmic horrors, curses, or trauma. Calm emotions can suppress madness; lesser restoration ends short/long-term, and greater restoration or remove curse handles indefinite madness.' },
+    ],
     'Travel & Mounts': [
       { t: 'Travel Pace', b: 'Fast: 400 ft/min, 4 mph, 30 mi/day (\u22125 passive Perception). Normal: 300 ft/min, 3 mph, 24 mi/day. Slow: 200 ft/min, 2 mph, 18 mi/day (can move stealthily).' },
       { t: 'Forced March', b: 'Travel beyond 8 hours a day: at the end of each extra hour, CON save DC 10 + 1 per hour past 8, or gain one level of exhaustion.' },
