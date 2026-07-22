@@ -2073,6 +2073,60 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #220 MARTIAL MANEUVERS — DM-optional rule ============ */
+window.roomOpts = window.roomOpts || {};
+const MV_MARTIAL = ['Fighter', 'Barbarian', 'Monk', 'Rogue', 'Ranger', 'Paladin'];
+const MANEUVERS = [
+  { n: '🦶 Trip Attack', d: 'add the die to your damage; the target makes a STR save or falls prone' },
+  { n: '🗡 Disarming Strike', d: 'add the die to your damage; the target makes a STR save or drops a held item' },
+  { n: '⚔️ Riposte', d: 'when an enemy misses you in melee — use your reaction to attack, add the die to damage' },
+  { n: '😱 Menacing Attack', d: 'add the die to your damage; the target makes a WIS save or is frightened until your next turn' },
+  { n: '🛡 Pushing Attack', d: 'add the die to your damage; a Large or smaller target makes a STR save or is pushed 15 ft' },
+  { n: '🎯 Precision Strike', d: 'add the die to your attack roll — turn a near-miss into a hit' },
+];
+function mvDc() {
+  try { const s = cs.scores || {}; return 8 + csProf() + Math.max(csMod(s.str || 10), csMod(s.dex || 10)); } catch (e) { return 12; }
+}
+function mvSync() {
+  const dmBtn = $('mv-dm');
+  if (dmBtn) dmBtn.textContent = '⚔️ Martial maneuvers: ' + (window.roomOpts.maneuvers ? 'ON ✅' : 'OFF');
+  const wrap = $('mv-wrap'); if (!wrap) return;
+  let mine = false;
+  try { mine = !!(window.roomOpts.maneuvers && MV_MARTIAL.includes(String(cs.cls || '').trim())); } catch (e) {}
+  wrap.classList.toggle('hidden', !mine);
+  if (mine) {
+    const hint = $('mv-hint');
+    if (hint) hint.textContent = `Your maneuver save DC is ${mvDc()}. Dice recover on a rest — see ⚔️ Superiority Dice under your class powers.`;
+    const g = $('mv-grid');
+    if (g && !g.childElementCount) MANEUVERS.forEach((mv) => {
+      const b = document.createElement('button'); b.className = 'mon-btn';
+      b.innerHTML = `<span class="mn">${mv.n}</span>`; b.title = mv.d;
+      b.onclick = () => mvUse(mv);
+      g.appendChild(b);
+    });
+  }
+  try { if (typeof csRenderRes === 'function') csRenderRes(); } catch (e) {}
+}
+function mvUse(mv) {
+  const lvl = Number(cs.level) || 1, max = 2 + Math.floor(lvl / 5);
+  cs.resUsed = cs.resUsed || {};
+  if ((cs.resUsed.supd || 0) >= max) { flashHint('No Superiority Dice left — recover them on a short rest'); return; }
+  cs.resUsed.supd = (cs.resUsed.supd || 0) + 1;
+  try { csRenderRes(); saveCS(); } catch (e) {}
+  const r = 1 + Math.floor(Math.random() * 8);
+  socket.emit('roll', { formula: (me.name ? me.name + ' — ' : '') + mv.n + ' (superiority d8)', result: r, detail: `d8[${r}]` });
+  socket.emit('chat', { text: `${mv.n} — ${mv.d}. (save DC ${mvDc()})` });
+}
+function initManeuvers() {
+  const dmBtn = $('mv-dm'); if (!dmBtn) return;
+  dmBtn.onclick = () => { if (me.isGm) socket.emit('opts:set', { maneuvers: !window.roomOpts.maneuvers }); };
+  setTimeout(mvSync, 1200);   // after sheet + state load
+}
+socket.on('opts:set', (o) => { window.roomOpts = o || {}; mvSync(); });
+socket.on('state', (s) => { if (s && s.opts) { window.roomOpts = s.opts; setTimeout(mvSync, 300); } });
+document.addEventListener('DOMContentLoaded', initManeuvers);
+if (document.readyState !== 'loading') initManeuvers();
+
 /* ============ OPEN5E LIVE MONSTER SEARCH ============ */
 (function () {
   const q = $('o5e-q'), go = $('o5e-go'), grid = $('o5e-grid');
@@ -4180,6 +4234,10 @@ function classResources(clsName, lvl, chaMod) {
       break;
     case 'Sorcerer': if (lvl >= 2) add('sp', '🔮 Sorcery Points', lvl, 'long'); break;
     case 'Wizard': add('ar', '📖 Arcane Recovery', 1, 'long'); break;
+  }
+  // #220 Martial Maneuvers (DM optional rule): martials gain Superiority Dice
+  if (window.roomOpts && window.roomOpts.maneuvers && ['Fighter', 'Barbarian', 'Monk', 'Rogue', 'Ranger', 'Paladin'].includes(clsName)) {
+    add('supd', '⚔️ Superiority Dice', 2 + Math.floor(lvl / 5), 'short');
   }
   return r;
 }
