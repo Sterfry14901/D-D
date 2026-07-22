@@ -399,6 +399,10 @@ function syncLinkedConditions() {
 /* ============ PARTY STATUS (live HP/AC) ============ */
 function sendPartyStatus() {
   if (!me.id && !me.room) return;
+  // #246: any path back above 0 HP after dying (healing potion, Revivify, DM mercy) is a resurrection
+  if (window._pcDead && Number(cs.hp) > 0) { window._pcDead = false; socket.emit('pc:revived'); }
+  // #246: pips manually dragged to 3 failures also count as dying
+  if (!window._pcDead && Number(cs.deathFail) >= 3) { window._pcDead = true; socket.emit('pc:died'); }
   socket.emit('party:status', {
     name: (cs && cs.name) || me.name,
     hp: cs ? Number(cs.hp) || 0 : 0,
@@ -5561,8 +5565,9 @@ function rollSheetDeathSave() {
     msg = `failure`;
   }
   let tail = '';
-  if (d !== 20 && cs.deathSucc >= 3) { tail = ' — 🕊️ stabilized!'; cs.deathSucc = 0; cs.deathFail = 0; }
-  else if (cs.deathFail >= 3) { tail = ' — 💀 has died.'; }
+  if (d !== 20 && cs.deathSucc >= 3) { tail = ' — 🕊️ stabilized!'; cs.deathSucc = 0; cs.deathFail = 0; if (window._pcDead) { window._pcDead = false; socket.emit('pc:revived'); } }
+  else if (cs.deathFail >= 3) { tail = ' — 💀 has died.'; if (!window._pcDead) { window._pcDead = true; socket.emit('pc:died'); } }   // #246 ceremony
+  if (d === 20 && window._pcDead) { window._pcDead = false; socket.emit('pc:revived'); }
   csPopulate(); csRecompute(); saveCS(); sendPartyStatus(); syncLinkedToken();
   socket.emit('chat', { text: `🎲 ${who} death save: ${d} (${msg})${tail}` });
 }
