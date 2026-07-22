@@ -255,6 +255,7 @@ function saveRooms() {
         pool: room.pool || { items: [], gp: 0 },         // #228: loot pool survives restarts
         music: room.music || { url: '' },                // #229: session playlist survives restarts
         timeline: (room.timeline || []).slice(-200),     // #235: campaign chronicle survives restarts
+        sessionCount: room.sessionCount || 0,            // #242: session number survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -358,6 +359,7 @@ function loadRooms() {
         pool: room.pool || { items: [], gp: 0 },         // #228: restore loot pool
         music: room.music || { url: '' },                // #229: restore session playlist
         timeline: room.timeline || [],                   // #235: restore campaign chronicle
+        sessionCount: room.sessionCount || 0,            // #242: restore session number
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -1988,7 +1990,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
-  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline'];
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
   // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
   socket.on('campaign:export', (ack) => {
     const room = rooms.get(joinedRoom);
@@ -2022,6 +2024,18 @@ io.on('connection', (socket) => {
     if (!text) return;
     const p = room.players[socket.id];
     timelineAdd(joinedRoom, '✒️ ' + text, p ? p.name : null);
+  });
+
+  // ---- #242 End Session ritual: 🌙 one button wraps the night ----
+  socket.on('session:end', (ack) => {
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) { if (typeof ack === 'function') ack({ ok: false }); return; }
+    room.sessionCount = (Number(room.sessionCount) || 0) + 1;
+    const n = room.sessionCount;
+    pushSystem(joinedRoom, `🌙 Session ${n} complete — the tale pauses here. See you at the table!`);
+    timelineAdd(joinedRoom, `🌙 Session ${n} ended`, null);
+    markDirty();
+    if (typeof ack === 'function') ack({ ok: true, session: n });
   });
 
   // ---- #239 Party Inspiration: DM awards 🌟, the whole table hears about it ----
