@@ -254,6 +254,7 @@ function saveRooms() {
         session: room.session || { when: '', note: '' }, // #222: next session survives restarts
         pool: room.pool || { items: [], gp: 0 },         // #228: loot pool survives restarts
         music: room.music || { url: '' },                // #229: session playlist survives restarts
+        timeline: (room.timeline || []).slice(-200),     // #235: campaign chronicle survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -356,6 +357,7 @@ function loadRooms() {
         session: room.session || { when: '', note: '' }, // #222: restore next session
         pool: room.pool || { items: [], gp: 0 },         // #228: restore loot pool
         music: room.music || { url: '' },                // #229: restore session playlist
+        timeline: room.timeline || [],                   // #235: restore campaign chronicle
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -402,6 +404,7 @@ function getRoom(id) {
       session: { when: '', note: '' }, // #222 next-session banner (DM sets, all see)
       pool: { items: [], gp: 0 },      // #228 party loot pool
       music: { url: '' },              // #229 session playlist (Spotify/YouTube, DM sets)
+      timeline: [],                    // #235 campaign chronicle (auto + manual entries)
     });
   }
   return rooms.get(id);
@@ -696,6 +699,30 @@ function pushSystem(roomId, text) {
   const msg = { id: 'm_' + rid(), author: 'System', role: 'system', text, ts: Date.now() };
   room.chat.push(msg);
   io.to(roomId).emit('chat', msg);
+  // #235 Campaign Chronicle: significant moments get written into the room's history
+  if (/🧭|🛏️|🏕️|📜|☠️|🎉|⬆️|⚔️ .*(falls|slain)|level|milestone/i.test(String(text || ''))) {
+    timelineAdd(roomId, text, null);
+  }
+}
+
+/* ---- #235 Campaign Chronicle: day-stamped history of the adventure ---- */
+function timelineAdd(roomId, text, author) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  room.timeline = Array.isArray(room.timeline) ? room.timeline : [];
+  const clock = room.world && room.world.clock ? room.world.clock : null;
+  const entry = {
+    id: 't_' + rid(),
+    day: clock ? clock.day : null,
+    hour: clock ? clock.hour : null,
+    text: String(text || '').slice(0, 220),
+    author: author || null,
+    ts: Date.now(),
+  };
+  room.timeline.push(entry);
+  if (room.timeline.length > 200) room.timeline = room.timeline.slice(-200);
+  io.to(roomId).emit('timeline:add', entry);
+  markDirty();
 }
 
 /* ============ #178 DM Pro licensing — DMs pay, players always free ============
@@ -855,6 +882,7 @@ io.on('connection', (socket) => {
       session: room.session || { when: '', note: '' }, // #222 next-session banner
       pool: room.pool || { items: [], gp: 0 },         // #228 party loot pool
       music: room.music || { url: '' },                // #229 session playlist
+      timeline: (room.timeline || []).slice(-200),     // #235 campaign chronicle
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
@@ -1960,7 +1988,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
-  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music'];
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline'];
   // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
   socket.on('campaign:export', (ack) => {
     const room = rooms.get(joinedRoom);
@@ -1985,6 +2013,15 @@ io.on('connection', (socket) => {
     markDirty();
     io.to(joinedRoom).emit('campaign:reload');
     if (typeof ack === 'function') ack({ ok: true });
+  });
+
+  // ---- #235 Campaign Chronicle: anyone can log a moment for the history books ----
+  socket.on('timeline:log', (t) => {
+    const room = rooms.get(joinedRoom); if (!room || !t) return;
+    const text = String(t.text || '').trim().slice(0, 200);
+    if (!text) return;
+    const p = room.players[socket.id];
+    timelineAdd(joinedRoom, '✒️ ' + text, p ? p.name : null);
   });
 
   // ---- #224 Hybrid table: toggle 🪑 at-the-table / 🌐 remote after joining ----

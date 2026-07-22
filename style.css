@@ -1626,3 +1626,10 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .setup-step.setup-done { border-color: #3f7d4e; }
 .setup-step .setup-check { margin-right: 4px; }
 .setup-body { margin-top: 6px; }
+
+/* ===== #235 Campaign Chronicle ===== */
+.chron-wrap { margin: 8px 0; border: 1px solid #2a3140; border-radius: 10px; padding: 6px 10px; }
+.chron-wrap summary { cursor: pointer; }
+.chron-list { max-height: 220px; overflow-y: auto; margin: 6px 0; }
+.chron-day { font-weight: 700; font-size: 12px; margin: 6px 0 2px; opacity: .85; }
+.chron-row { font-size: 12px; padding: 2px 0 2px 10px; border-left: 2px solid #2a3140; margin-left: 4px; }

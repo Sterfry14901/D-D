@@ -590,6 +590,16 @@
             <div class="journal-hint">The whole table gets a built-in player right here in the Journal. Add a combat playlist and the music flips to your battle mix the moment initiative starts — and back when the fight ends.</div>
           </div>
 
+          <!-- #235 Campaign Chronicle: the story so far, day by day -->
+          <details class="chron-wrap">
+            <summary class="party-title">📜 Campaign Chronicle <span class="journal-status">the story so far, written as you play</span></summary>
+            <div id="chron-list" class="chron-list"><div class="npc-empty">Nothing chronicled yet — travel, quests, deaths and level-ups land here automatically.</div></div>
+            <div class="loot-row">
+              <input id="chron-in" class="mon-search" type="text" placeholder="Log a moment for the history books… ('We spared the dragon')" maxlength="200" style="flex:1;margin:0" />
+              <button id="chron-add">✒️ Log it</button>
+            </div>
+          </details>
+
           <div class="journal-head">
             <span class="party-title">Campaign Journal</span>
             <button id="journal-rec" class="ghost" title="Dictate notes with your voice (Chrome)">🎤 Rec</button>
