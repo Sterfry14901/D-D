@@ -130,10 +130,12 @@ input[type=color] { padding: 3px; height: 44px; cursor: pointer; }
 #board.has-map #grid { mix-blend-mode: overlay; opacity: .85; }
 #tokens { position: absolute; inset: 0; }
 #board-hint {
-  position: absolute; left: 14px; bottom: 14px;
+  position: fixed; left: 14px; bottom: 14px; z-index: 40;   /* #212 pinned to the SCREEN — never pans with the board */
   background: rgba(0,0,0,.6); padding: 6px 12px; border-radius: 8px; pointer-events: none;
   border: 1px solid var(--line); font-style: italic; backdrop-filter: blur(2px);
+  transition: opacity 1.2s;
 }
+#board-hint.faded { opacity: 0; }                            /* auto-fades shortly after you join */
 
 /* Tokens */
 .token {
