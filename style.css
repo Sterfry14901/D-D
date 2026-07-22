@@ -1703,3 +1703,12 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* #250 Session countdown chip on the banner */
 .sess-count { background: rgba(90, 150, 90, 0.2); border: 1px solid rgba(120, 190, 120, 0.4); color: #a8dba0; border-radius: 10px; padding: 1px 8px; font-size: 0.85em; margin-left: 6px; white-space: nowrap; }
 .sess-count:empty { display: none; }
+
+/* #251 Hall of the Fallen memorial */
+.fallen-wrap summary { color: #b9a06a; }
+.fallen-list { display: flex; flex-direction: column; gap: 6px; padding: 8px 4px; }
+.fallen-row { border-left: 3px solid #6b5b3e; padding: 4px 10px; background: rgba(30, 22, 14, 0.5); border-radius: 0 8px 8px 0; }
+.fallen-row .fallen-name { font-family: "Cinzel", serif; font-weight: 700; color: #d8c9a3; display: block; }
+.fallen-row .fallen-fate { font-size: 0.85em; color: #9a8c72; font-style: italic; }
+.fallen-back { border-left-color: #7fae6a; }
+.fallen-back .fallen-name { color: #b9d8a3; }
