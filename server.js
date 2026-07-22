@@ -824,7 +824,7 @@ function trialCheck(room) {                 // -> { allowed, left, used }
 io.on('connection', (socket) => {
   let joinedRoom = null;
 
-  socket.on('join', async ({ roomId, name, color, gmPassword, license, atTable }) => {
+  socket.on('join', async ({ roomId, name, color, gmPassword, license, atTable, spectator }) => {
     // #193 Party code: a player typed an RF-XXXXX code into the GM password box →
     // teleport them into the game that owns that code (as a player, never as GM).
     const codeTry = (gmPassword || '').trim().toUpperCase();
@@ -861,7 +861,8 @@ io.on('connection', (socket) => {
       }
       if (allowed) { if (!room.gmPassword) room.gmPassword = pw; gm = true; }
     }
-    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm, atTable: atTable === true }; // #224 hybrid table: 🪑 in the room vs 🌐 remote
+    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm, atTable: atTable === true, spectator: spectator === true && !gm }; // #224 hybrid + #243 spectators
+    if (spectator === true && !gm) pushSystem(joinedRoom, `👁 ${name || 'Someone'} is watching the adventure.`);
 
     socket.emit('scene:list', sceneMeta(room));   // #214 prepped scenes arrive with the join
     socket.emit('note:list', (room.notebook || {})[room.players[socket.id].name] || []); // #218 your private notebook

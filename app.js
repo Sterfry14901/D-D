@@ -55,8 +55,9 @@ function join() {
   const gmPassword = $('join-gm').value;
   const license = localStorage.getItem('dmLicenseKey') || undefined;   // #178 DM Pro
   me.atTable = !!($('join-attable') && $('join-attable').checked);     // #224 hybrid table
+  me.spectator = !!($('join-spectate') && $('join-spectate').checked); // #243 just watching
   try { localStorage.setItem('dnd-attable', me.atTable ? '1' : '0'); } catch (e) {}
-  socket.emit('join', { roomId: me.room, name: me.name, color: me.color, gmPassword, license, atTable: me.atTable });
+  socket.emit('join', { roomId: me.room, name: me.name, color: me.color, gmPassword, license, atTable: me.atTable, spectator: me.spectator });
   $('join-screen').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('room-label').textContent = `Table: ${me.room}`;
@@ -1428,17 +1429,18 @@ socket.on('players', (players) => {
   roomPlayers = players || [];
   const ul = $('player-list'); ul.innerHTML = '';
   // #224 hybrid table: once anyone is 🪑, show who's in the room vs online
-  const hybrid = roomPlayers.some((p) => p.atTable);
+  const seated = roomPlayers.filter((p) => !p.spectator);   // #243 spectators don't count as seats
+  const hybrid = seated.some((p) => p.atTable);
   if (hybrid) {
-    const seats = roomPlayers.filter((p) => p.atTable).length;
+    const seats = seated.filter((p) => p.atTable).length;
     const head = document.createElement('li'); head.className = 'hybrid-head';
-    head.textContent = `🪑 ${seats} at the table · 🌐 ${roomPlayers.length - seats} remote`;
+    head.textContent = `🪑 ${seats} at the table · 🌐 ${seated.length - seats} remote`;
     ul.appendChild(head);
   }
   players.forEach((p) => {
     const li = document.createElement('li');
-    const seat = hybrid ? `<span class="seat" title="${p.atTable ? 'At the physical table' : 'Joining remotely'}">${p.atTable ? '🪑' : '🌐'}</span> ` : '';
-    li.innerHTML = `${seat}<span class="dot" style="background:${p.color}"></span> ${escapeHtml(p.name)}${p.isGm ? ' <span class="mini-gm">GM</span>' : ''}${p.id === me.id ? ' <span class="you">(you)</span>' : ''}`;
+    const seat = p.spectator ? '<span class="seat" title="Just watching">👁</span> ' : (hybrid ? `<span class="seat" title="${p.atTable ? 'At the physical table' : 'Joining remotely'}">${p.atTable ? '🪑' : '🌐'}</span> ` : '');
+    li.innerHTML = `${seat}<span class="dot" style="background:${p.color}"></span> ${escapeHtml(p.name)}${p.isGm ? ' <span class="mini-gm">GM</span>' : ''}${p.spectator ? ' <span class="you">(watching)</span>' : ''}${p.id === me.id ? ' <span class="you">(you)</span>' : ''}`;
     if (p.id === me.id) {
       // click your own row's seat icon (or the row when not yet hybrid) to flip presence
       li.title = 'Click to switch between 🪑 at-the-table and 🌐 remote';
@@ -2641,6 +2643,7 @@ if (document.readyState !== 'loading') initChronicle();
 
 /* ============ #237 TURN HELPER — "it's your turn, here's what you can do" ============ */
 function turnHelperShow() {
+  if (me.spectator) return;                                  // #243 watchers never get turn nags
   if (localStorage.getItem('dnd-turnhelper') === 'off') return;
   turnHelperHide();
   const card = document.createElement('div'); card.id = 'turn-helper';
