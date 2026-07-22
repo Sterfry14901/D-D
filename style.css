@@ -1569,3 +1569,9 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 
 /* ===== #222 Next-session banner ===== */
 .sess-banner { background: linear-gradient(90deg,#2a2010,#1c1710); border: 1px solid var(--gold,#c9a227); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+
+/* ===== #230 NPC dead/alive ===== */
+.npc-filter { display: flex; gap: 6px; margin-bottom: 8px; }
+.npc-filter .ghost.on { border-color: var(--gold,#c9a227); color: var(--gold,#c9a227); }
+.npc-row.npc-dead { opacity: .55; }
+.npc-row.npc-dead .npc-name { text-decoration: line-through; text-decoration-thickness: 1px; }

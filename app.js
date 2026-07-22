@@ -288,15 +288,29 @@ document.querySelectorAll('.tab[data-tab="combat"]').forEach((t) => t.addEventLi
 
 /* ---- #196 NPC memory — the AI DM remembers everyone the party meets ---- */
 let NPCS = [];
+let npcFilter = 'all';   // #230: all | alive | dead
 function renderNpcs() {
   const box = $('npc-list'); if (!box) return;
   if (!NPCS.length) { box.innerHTML = '<div class="npc-empty">No one yet — meet someone! (DM: 🎭 Improv NPC adds them automatically.)</div>'; return; }
   box.innerHTML = '';
-  NPCS.slice().reverse().forEach((n) => {
+  // #230 filter row — with 60+ NPCs, dead/alive is the tag that matters
+  const deadCount = NPCS.filter((n) => n.dead).length;
+  if (NPCS.length > 1) {
+    const fr = document.createElement('div'); fr.className = 'npc-filter';
+    [['all', `All (${NPCS.length})`], ['alive', `Alive (${NPCS.length - deadCount})`], ['dead', `☠️ Dead (${deadCount})`]].forEach(([k, label]) => {
+      const b = document.createElement('button'); b.className = 'ghost' + (npcFilter === k ? ' on' : ''); b.textContent = label;
+      b.onclick = () => { npcFilter = k; renderNpcs(); };
+      fr.appendChild(b);
+    });
+    box.appendChild(fr);
+  }
+  const shown = NPCS.filter((n) => npcFilter === 'all' ? true : npcFilter === 'dead' ? !!n.dead : !n.dead);
+  if (!shown.length) { const e = document.createElement('div'); e.className = 'npc-empty'; e.textContent = npcFilter === 'dead' ? 'Nobody has died. Yet.' : 'No living NPCs match.'; box.appendChild(e); return; }
+  shown.slice().reverse().forEach((n) => {
     const row = document.createElement('div');
-    row.className = 'npc-row';
+    row.className = 'npc-row' + (n.dead ? ' npc-dead' : '');
     const info = document.createElement('div'); info.className = 'npc-info';
-    const nm = document.createElement('div'); nm.className = 'npc-name'; nm.textContent = n.name;
+    const nm = document.createElement('div'); nm.className = 'npc-name'; nm.textContent = (n.dead ? '☠️ ' : '') + n.name;
     const ds = document.createElement('div'); ds.className = 'npc-desc'; ds.textContent = (n.desc || '').slice(0, 220);
     info.appendChild(nm); info.appendChild(ds);
     if (n.notes) { const nt = document.createElement('div'); nt.className = 'npc-notes'; nt.textContent = '📝 ' + n.notes; info.appendChild(nt); }
@@ -309,9 +323,12 @@ function renderNpcs() {
         if (notes === null) return;
         socket.emit('npc:update', { id: n.id, notes });
       };
+      const dead = document.createElement('button'); dead.className = 'ghost'; dead.textContent = n.dead ? '💚' : '☠️';
+      dead.title = n.dead ? 'Mark ' + n.name + ' as alive again' : 'Mark ' + n.name + ' as dead — the AI DM will treat them as gone';
+      dead.onclick = () => socket.emit('npc:update', { id: n.id, dead: !n.dead });
       const del = document.createElement('button'); del.className = 'ghost'; del.textContent = '✖'; del.title = 'Forget this person';
       del.onclick = () => { if (window.confirm('Forget ' + n.name + '? The AI DM will no longer remember them.')) socket.emit('npc:del', { id: n.id }); };
-      acts.appendChild(ed); acts.appendChild(del);
+      acts.appendChild(ed); acts.appendChild(dead); acts.appendChild(del);
       row.appendChild(acts);
     }
     box.appendChild(row);
