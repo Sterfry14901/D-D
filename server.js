@@ -2060,6 +2060,22 @@ io.on('connection', (socket) => {
     p._deadSince = Date.now();
     pushSystem(joinedRoom, `⚰️ ${p.name} has fallen. The realm holds its breath…`);
     timelineAdd(joinedRoom, `⚰️ ${p.name} fell in battle`, null);
+    // #248: the AI DM delivers a eulogy drawn from the campaign's actual history
+    if (effectiveAI().ready) (async () => {
+      try {
+        const chron = (room.timeline || []).slice(-40)
+          .map((e) => `${e.day != null ? 'Day ' + e.day + ': ' : ''}${e.text}`).join('\n').slice(-2000);
+        const reply = await callOpenAIDM([{ role: 'user', content:
+          `The player character "${p.name}" has just died at the table (3 failed death saves). Deliver a brief, moving in-world eulogy — 2 to 3 sentences max, spoken as the Dungeon Master narrator. Honor what they actually did in this campaign if the chronicle mentions them; otherwise honor their courage. No dice talk, no rules talk, no questions. End with a note of hope or legacy.`
+          + (chron.trim() ? '\n\nCAMPAIGN CHRONICLE:\n' + chron : '') }]);
+        if (reply && !reply.startsWith('⚠️')) {
+          const r2 = rooms.get(joinedRoom); if (!r2) return;
+          const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: '🕯️ ' + String(reply).slice(0, 600), ts: Date.now() };
+          r2.chat.push(dmMsg); if (r2.chat.length > 200) r2.chat = r2.chat.slice(-200);
+          io.to(joinedRoom).emit('chat', dmMsg); markDirty();
+        }
+      } catch (e) { console.error('eulogy failed:', e); }
+    })();
   });
   socket.on('pc:revived', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
@@ -2068,6 +2084,19 @@ io.on('connection', (socket) => {
     p._deadSince = null;
     pushSystem(joinedRoom, `✨ ${p.name} returns from the brink — the tale is not over yet!`);
     timelineAdd(joinedRoom, `✨ ${p.name} returned from death's door`, null);
+    // #248: one dramatic welcome-back line from the AI DM
+    if (effectiveAI().ready) (async () => {
+      try {
+        const reply = await callOpenAIDM([{ role: 'user', content:
+          `The player character "${p.name}" was dying but has just been pulled back from death at the table. As the Dungeon Master narrator, deliver ONE dramatic sentence welcoming them back to the land of the living. No dice talk, no rules talk, no questions.` }]);
+        if (reply && !reply.startsWith('⚠️')) {
+          const r2 = rooms.get(joinedRoom); if (!r2) return;
+          const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: '🌅 ' + String(reply).slice(0, 300), ts: Date.now() };
+          r2.chat.push(dmMsg); if (r2.chat.length > 200) r2.chat = r2.chat.slice(-200);
+          io.to(joinedRoom).emit('chat', dmMsg); markDirty();
+        }
+      } catch (e) { console.error('revival line failed:', e); }
+    })();
   });
 
   // ---- #245 Spectator promotion: a watcher decides to play ----
