@@ -1654,3 +1654,17 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* ===== #239 Party inspiration ===== */
 .insp-give { background: none; border: 1px solid #3a4152; border-radius: 6px; margin-left: 6px; padding: 0 5px; cursor: pointer; font-size: 12px; }
 .insp-give:hover { border-color: #c59b45; }
+
+/* ===== Mobile pass for the July-22 feature set ===== */
+@media (max-width: 820px) {
+  #turn-helper { max-width: 94vw; bottom: 64px; font-size: 11px; }        /* #237 clear of the action bar */
+  .setup-card { max-width: 94vw; max-height: 86vh; overflow-y: auto; }    /* #232 wizard scrolls, never clips */
+  .setup-step .loot-row { flex-wrap: wrap; }
+  .music-frame { height: 132px; }                                          /* #229 slimmer player */
+  .chron-list { max-height: 160px; }                                       /* #235 shorter history pane */
+  .cs-custom-add { flex-wrap: wrap; }                                      /* #227 add-row wraps */
+  .cs-custom-add input[type="text"] { min-width: 160px; }
+  .join-attable { font-size: 11px; }                                       /* #224 checkbox line fits */
+  .cs-exh { font-size: 11px; }                                             /* #238 exhaustion row fits */
+  #dice-stats { max-height: 180px; overflow-y: auto; }                     /* #234 luck report scrolls */
+}
