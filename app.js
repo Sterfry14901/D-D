@@ -2720,6 +2720,26 @@ function chronRender() {
     box.appendChild(row);
   });
   box.scrollTop = box.scrollHeight;
+  fallenRender();   // #251: memorial wall updates with the chronicle
+}
+/* #251 Hall of the Fallen — every death (and return) from the chronicle, memorialized */
+function fallenRender() {
+  const box = $('fallen-list'); if (!box) return;
+  const wrap = $('fallen-wrap'); if (!wrap) return;
+  const deaths = CHRON.filter((e) => /⚰️ (.+) fell in battle/.test(e.text || ''));
+  wrap.style.display = deaths.length ? '' : 'none';
+  if (!deaths.length) return;
+  box.textContent = '';
+  deaths.forEach((e) => {
+    const name = (e.text.match(/⚰️ (.+) fell in battle/) || [])[1] || 'A hero';
+    // Did they return AFTER this fall? (later ✨ entry naming them)
+    const back = CHRON.find((r) => r.ts > (e.ts || 0) && new RegExp("✨ " + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + " returned").test(r.text || ''));
+    const row = document.createElement('div'); row.className = 'fallen-row' + (back ? ' fallen-back' : '');
+    const d = (e.day === null || e.day === undefined) ? '' : 'Day ' + e.day;
+    row.innerHTML = `<span class="fallen-name">${back ? '✨' : '🪦'} ${escapeHtml(name)}</span>` +
+      `<span class="fallen-fate">${back ? `fell${d ? ' on ' + d : ''}, but returned from death's door` : `fell in battle${d ? ' — ' + d : ''}. Remembered always.`}</span>`;
+    box.appendChild(row);
+  });
 }
 function initChronicle() {
   const add = $('chron-add'); if (!add) return;
