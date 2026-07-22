@@ -2495,6 +2495,50 @@ if (document.readyState !== 'loading') initSecretRolls();
 /* ============ #222 NEXT-SESSION BANNER — pain #1: scheduling ============ */
 let SESSION = { when: '', note: '' };
 let sessHinted = false;
+/* #250: best-effort parse of the free-text "when" into a Date. Handles real dates
+   ("July 25 7pm", "7/25", "2026-07-25 19:00") and weekday names ("Friday 7pm").
+   Returns null for anything it can't confidently read — then no countdown shows. */
+function sessParseWhen(str) {
+  const s = String(str || '').trim(); if (!s) return null;
+  // Weekday name → next occurrence (with optional time)
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const wd = days.findIndex((d) => new RegExp('\\b' + d + '\\b', 'i').test(s));
+  const tm = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (wd >= 0) {
+    const now = new Date(); const d = new Date(now);
+    let add = (wd - now.getDay() + 7) % 7;
+    let hh = 19, mm = 0;
+    if (tm && tm[1]) { hh = Number(tm[1]) % 12 + (/pm/i.test(tm[3] || '') ? 12 : 0); mm = Number(tm[2]) || 0; if (!tm[3] && Number(tm[1]) > 12) hh = Number(tm[1]); }
+    d.setDate(now.getDate() + add); d.setHours(hh, mm, 0, 0);
+    if (add === 0 && d < now) d.setDate(d.getDate() + 7);   // "Friday" on a Friday evening → next week
+    return d;
+  }
+  const t = Date.parse(s);
+  if (!isNaN(t)) {
+    const d = new Date(t);
+    const nowY = new Date().getFullYear();
+    // V8 quirk: "March 1" parses as year 2001 — treat any old year as "no year given".
+    if (d.getFullYear() < nowY) d.setFullYear(nowY);
+    // A yearless date more than a month in the past means the NEXT one ("March 1" said in July).
+    if (Date.now() - d.getTime() > 36e5 * 24 * 30) d.setFullYear(d.getFullYear() + 1);
+    return d;
+  }
+  return null;
+}
+function sessCountdownText() {
+  const d = sessParseWhen(SESSION.when); if (!d) return '';
+  const ms = d.getTime() - Date.now();
+  if (ms < -6 * 36e5) return '';                                  // long past — stale, stay quiet
+  if (ms <= 0) return '🎲 happening now!';
+  const mins = Math.round(ms / 6e4);
+  if (mins < 60) return `⏳ in ${mins} min`;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const that = new Date(d); that.setHours(0, 0, 0, 0);
+  const dd = Math.round((that - today) / 864e5);
+  if (dd <= 0) return `⏳ today at ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  if (dd === 1) return '⏳ tomorrow';
+  return `⏳ in ${dd} days`;
+}
 function sessRender() {
   const v = $('sess-view'); if (!v) return;
   const has = !!(SESSION.when || SESSION.note);
@@ -2502,6 +2546,7 @@ function sessRender() {
   if (has) {
     $('sess-when').textContent = SESSION.when || '(time TBD)';
     $('sess-note-view').textContent = SESSION.note ? ' — ' + SESSION.note : '';
+    const c = $('sess-count'); if (c) c.textContent = sessCountdownText();
   }
   const iw = $('sess-in-when'), inn = $('sess-in-note');
   if (iw && document.activeElement !== iw) iw.value = SESSION.when || '';
@@ -2525,6 +2570,7 @@ function initSession() {
 }
 socket.on('session:set', (s) => { SESSION = s || { when: '', note: '' }; sessRender(); });
 socket.on('state', (s) => { if (s && s.session) { SESSION = s.session; setTimeout(sessRender, 400); } });
+setInterval(() => { if (SESSION.when) { const c = $('sess-count'); if (c) c.textContent = sessCountdownText(); } }, 60000);   // #250 tick
 document.addEventListener('DOMContentLoaded', initSession);
 if (document.readyState !== 'loading') initSession();
 

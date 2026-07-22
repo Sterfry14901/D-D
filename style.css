@@ -1699,3 +1699,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
   100% { transform: scale(1.35); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .token.dying::before { animation: none; opacity: 0.8; } }
+
+/* #250 Session countdown chip on the banner */
+.sess-count { background: rgba(90, 150, 90, 0.2); border: 1px solid rgba(120, 190, 120, 0.4); color: #a8dba0; border-radius: 10px; padding: 1px 8px; font-size: 0.85em; margin-left: 6px; white-space: nowrap; }
+.sess-count:empty { display: none; }
