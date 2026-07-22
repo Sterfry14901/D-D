@@ -1454,9 +1454,31 @@ socket.on('players', (players) => {
       star.title = 'Award Inspiration to ' + p.name + ' — great roleplay, clever plan, heroic moment';
       star.onclick = (ev) => { ev.stopPropagation(); socket.emit('insp:give', { id: p.id }); };
       li.appendChild(star);
+      // #244: moderation — mute toggle + kick
+      const mute = document.createElement('button');
+      mute.className = 'insp-give'; mute.textContent = p.muted ? '🔊' : '🔇';
+      mute.title = p.muted ? 'Unmute ' + p.name : 'Mute ' + p.name + ' — their chat stops reaching the table';
+      mute.onclick = (ev) => { ev.stopPropagation(); socket.emit('mod:mute', { id: p.id }); };
+      li.appendChild(mute);
+      const kick = document.createElement('button');
+      kick.className = 'insp-give'; kick.textContent = '🚪';
+      kick.title = 'Remove ' + p.name + ' from the table';
+      kick.onclick = (ev) => { ev.stopPropagation(); if (confirm('Remove ' + p.name + ' from the table?')) socket.emit('mod:kick', { id: p.id }); };
+      li.appendChild(kick);
     }
+    if (p.muted && me.isGm) li.style.opacity = '0.6';
     ul.appendChild(li);
   });
+});
+
+// #244: being muted / kicked
+socket.on('mod:muted', ({ muted }) => { flashHint(muted ? '🔇 The DM has muted your chat.' : '🔊 The DM unmuted you — welcome back.'); });
+socket.on('mod:kicked', () => {
+  try { socket.disconnect(); } catch (e) {}
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,18,.96);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#e8e6e0;font-size:16px;text-align:center;padding:24px';
+  ov.innerHTML = '<div style="font-size:40px">🚪</div><div><b>The DM has removed you from this table.</b></div><div style="font-size:13px;opacity:.7">If this was a mistake, ask for a new invite link.</div>';
+  document.body.appendChild(ov);
 });
 
 // #239: receiving Inspiration lights up your sheet

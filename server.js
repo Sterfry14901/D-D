@@ -2246,8 +2246,28 @@ io.on('connection', (socket) => {
   socket.on('chat', ({ text }) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     const p = room.players[socket.id];
+    if (p && p.muted) return;                              // #244: muted players' chat is dropped
     const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'player', text, ts: Date.now() };
     room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
+  });
+
+  // ---- #244 DM moderation: mute + kick ----
+  socket.on('mod:mute', (m) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
+    const target = room.players[m.id]; if (!target || target.isGm) return;
+    target.muted = !target.muted;
+    io.to(target.id).emit('mod:muted', { muted: target.muted });
+    broadcastPlayers(joinedRoom);
+  });
+  socket.on('mod:kick', (m) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
+    const target = room.players[m.id]; if (!target || target.isGm) return;
+    const name = target.name;
+    io.to(target.id).emit('mod:kicked');
+    delete room.players[m.id];
+    const ts = io.sockets.sockets.get(m.id); if (ts) { try { ts.leave(joinedRoom); setTimeout(() => ts.disconnect(true), 500); } catch (e) {} }
+    pushSystem(joinedRoom, `🚪 ${name} was removed from the table by the DM.`);
+    broadcastPlayers(joinedRoom);
   });
   socket.on('roll', ({ formula, result, detail }) => {
     const room = rooms.get(joinedRoom); if (!room) return;
