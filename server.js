@@ -1941,19 +1941,21 @@ io.on('connection', (socket) => {
     markDirty();
   });
 
-  // ---- #229 Session playlist: DM links Spotify/YouTube, whole table sees it ----
+  // ---- #229/#231 Session + combat playlists: DM links Spotify/YouTube, whole table sees it ----
+  const cleanMusicUrl = (raw) => {
+    let url = String(raw || '').trim().slice(0, 300);
+    if (!url) return '';
+    let host = '';
+    try { const u = new URL(url); if (u.protocol !== 'https:') return ''; host = u.hostname; } catch (e) { return ''; }
+    const okHosts = ['open.spotify.com', 'spotify.link', 'www.youtube.com', 'youtube.com', 'youtu.be', 'music.youtube.com'];
+    return okHosts.includes(host) ? url : '';
+  };
   socket.on('music:set', (m) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
-    let url = String(m.url || '').trim().slice(0, 300);
-    if (url) {
-      let host = '';
-      try { const u = new URL(url); if (u.protocol !== 'https:') url = ''; else host = u.hostname; } catch (e) { url = ''; }
-      const okHosts = ['open.spotify.com', 'spotify.link', 'www.youtube.com', 'youtube.com', 'youtu.be', 'music.youtube.com'];
-      if (url && !okHosts.includes(host)) url = '';
-    }
-    room.music = { url };
+    const hadUrl = !!(room.music && room.music.url);
+    room.music = { url: cleanMusicUrl(m.url), combatUrl: cleanMusicUrl(m.combatUrl) }; // #231 battle mix
     io.to(joinedRoom).emit('music:set', room.music);
-    if (url) pushSystem(joinedRoom, '🎵 The DM put on a session playlist — check the Journal tab.');
+    if (room.music.url && !hadUrl) pushSystem(joinedRoom, '🎵 The DM put on a session playlist — check the Journal tab.');
     markDirty();
   });
 
