@@ -1763,11 +1763,13 @@ function monArtMatch(name, type) {                    // sync: [iconPath, tint] 
 }
 function monFaceUpgrade(btn, name, type) {            // #204 art in the bestiary list itself
   if (!monArtMatch(name, type)) return;               // no match → emoji stays
-  monArtImg(name, type).then((u) => {
-    if (!u) return;
-    const s = btn.querySelector('.me');
-    if (s) { s.classList.add('mi'); s.innerHTML = `<img src="${u}" alt=""/>`; }
-  });
+  setTimeout(() => {                                  // defer past script eval (ICON_BASE lives below us)
+    monArtImg(name, type).then((u) => {
+      if (!u) return;
+      const s = btn.querySelector('.me');
+      if (s) { s.classList.add('mi'); s.innerHTML = `<img src="${u}" alt=""/>`; }
+    });
+  }, 0);
 }
 async function monArtImg(name, type) {
   try {
