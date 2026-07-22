@@ -1309,6 +1309,9 @@ function showDmAlert(text) {
   $('dm-alert-fix').onclick = () => { b.classList.remove('show'); openAiConfig(); };
   $('dm-alert-x').onclick = () => b.classList.remove('show');
 }
+/* #212 the controls hint fades out after 15s (press ? any time for the full list) */
+setTimeout(() => { const h = $('board-hint'); if (h) h.classList.add('faded'); }, 15000);
+
 function addRollHistory(m) {
   const box = $('dice-history'); if (!box) return;
   const row = document.createElement('div');
