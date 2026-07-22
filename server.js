@@ -249,6 +249,7 @@ function saveRooms() {
         partyCode: room.partyCode || null, // #193: party invite code survives restarts
         npcs: (room.npcs || []).slice(-100), // #196: NPC memory survives restarts
         scenes: (room.scenes || []).slice(0, 20), // #214: prepped scenes survive restarts
+        notebook: room.notebook || {},   // #218: private player notebooks survive restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -346,6 +347,7 @@ function loadRooms() {
         partyCode: room.partyCode || null,          // #193: restore party invite code
         npcs: room.npcs || [],                      // #196: restore NPC memory
         scenes: room.scenes || [],                  // #214: restore prepped scenes
+        notebook: room.notebook || {},              // #218: restore player notebooks
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -387,6 +389,7 @@ function getRoom(id) {
       world: buildStarterWorld(),  // travelable world: cities, vendors, routes
       npcs: [],                // #196 NPC memory: [{id,name,desc,notes,ts}] — AI DM stays consistent
       scenes: [],              // #214 Scene Prep: up to 20 prepped {map + monster tokens + weather}
+      notebook: {},            // #218 Player Notebook: playerName -> [{id,ts,text,img}] (private)
     });
   }
   return rooms.get(id);
@@ -820,6 +823,7 @@ io.on('connection', (socket) => {
     room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
 
     socket.emit('scene:list', sceneMeta(room));   // #214 prepped scenes arrive with the join
+    socket.emit('note:list', (room.notebook || {})[room.players[socket.id].name] || []); // #218 your private notebook
     socket.emit('state', {
       tokens: tokensFor(room, socket.id),
       chat: room.chat.slice(-100),
@@ -1880,6 +1884,33 @@ io.on('connection', (socket) => {
     room.notes = String(text || '').slice(0, 20000);
     // broadcast to everyone else (sender already has it locally)
     socket.to(joinedRoom).emit('notes:set', room.notes);
+  });
+
+  // ---- #218 Player Notebook: private per-player notes with photos/sketches ----
+  socket.on('note:add', (n) => {
+    const room = rooms.get(joinedRoom); if (!room || !n) return;
+    const me = room.players[socket.id]; if (!me) return;
+    const text = String(n.text || '').slice(0, 4000);
+    let img = null;
+    if (typeof n.img === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(n.img) && n.img.length <= 350000) img = n.img;
+    if (!text && !img) return;
+    room.notebook = room.notebook || {};
+    const list = room.notebook[me.name] = room.notebook[me.name] || [];
+    if (list.length >= 40) return socket.emit('note:list', list); // per-player cap
+    // whole-room notebook budget so save files stay sane
+    try { if (JSON.stringify(room.notebook).length > 6000000) return socket.emit('note:list', list); } catch (e) {}
+    list.push({ id: rid(), ts: Date.now(), text, img });
+    socket.emit('note:list', list);   // private: only the author sees their notebook
+    markDirty();
+  });
+  socket.on('note:del', (id) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const me = room.players[socket.id]; if (!me || !room.notebook) return;
+    const list = room.notebook[me.name]; if (!list) return;
+    const i = list.findIndex((n) => n.id === id); if (i < 0) return;
+    list.splice(i, 1);
+    socket.emit('note:list', list);
+    markDirty();
   });
 
   // ---- Quest log (DM only sets; everyone sees) ----

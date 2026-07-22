@@ -706,6 +706,105 @@ socket.on('notes:set', (text) => applyNotes(text));
 document.addEventListener('DOMContentLoaded', initJournal);
 if (document.readyState !== 'loading') initJournal();
 
+/* ============ #218 PLAYER NOTEBOOK — private notes with photos & sketches ============ */
+let nbAttach = null;  // pending data-URI attachment
+function nbShrink(file, cb) {
+  // Downscale any image to ≤900px JPEG so notes stay light (~80-200KB)
+  const img = new Image();
+  img.onload = () => {
+    const max = 900, s = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(img, 0, 0, c.width, c.height);
+    let out = c.toDataURL('image/jpeg', 0.78);
+    if (out.length > 340000) out = c.toDataURL('image/jpeg', 0.55);
+    URL.revokeObjectURL(img.src);
+    cb(out.length <= 350000 ? out : null);
+  };
+  img.onerror = () => cb(null);
+  img.src = URL.createObjectURL(file);
+}
+function nbSetAttach(dataUri) {
+  nbAttach = dataUri;
+  const pv = $('nb-preview'), pi = $('nb-preview-img');
+  if (!pv || !pi) return;
+  if (dataUri) { pi.src = dataUri; pv.classList.remove('hidden'); }
+  else { pi.src = ''; pv.classList.add('hidden'); }
+}
+function nbRender(list) {
+  const el = $('nb-list'); if (!el) return;
+  if (!list || !list.length) { el.innerHTML = '<div class="npc-empty">Your notebook is empty — jot down what happened this session.</div>'; return; }
+  el.innerHTML = '';
+  [...list].reverse().forEach((n) => {
+    const d = new Date(n.ts || Date.now());
+    const row = document.createElement('div'); row.className = 'nb-note';
+    const head = document.createElement('div'); head.className = 'nb-note-head';
+    head.innerHTML = `<span>${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>`;
+    const del = document.createElement('button'); del.className = 'ghost nb-del'; del.textContent = '🗑'; del.title = 'Delete this note';
+    del.onclick = () => { if (confirm('Delete this note?')) socket.emit('note:del', n.id); };
+    head.appendChild(del); row.appendChild(head);
+    if (n.text) { const p = document.createElement('div'); p.className = 'nb-note-text'; p.textContent = n.text; row.appendChild(p); }
+    if (n.img) {
+      const im = document.createElement('img'); im.className = 'nb-note-img'; im.src = n.img; im.loading = 'lazy';
+      im.title = 'Click to zoom'; im.onclick = () => im.classList.toggle('zoom');
+      row.appendChild(im);
+    }
+    el.appendChild(row);
+  });
+}
+socket.on('note:list', nbRender);
+function initNotebook() {
+  const ta = $('nb-text'); if (!ta) return;
+  const fileIn = $('nb-file');
+  $('nb-photo').onclick = () => fileIn.click();
+  fileIn.onchange = () => { const f = fileIn.files && fileIn.files[0]; if (f) nbShrink(f, (uri) => { nbSetAttach(uri); if (!uri) flashHint('⚠️ That image is too big — try a smaller one'); }); fileIn.value = ''; };
+  $('nb-preview-x').onclick = () => nbSetAttach(null);
+  // Paste a photo straight into the note box (from GoodNotes, screenshots, anywhere)
+  ta.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items; if (!items) return;
+    for (const it of items) {
+      if (it.type && it.type.startsWith('image/')) { e.preventDefault(); const f = it.getAsFile(); if (f) nbShrink(f, nbSetAttach); return; }
+    }
+  });
+  $('nb-add').onclick = () => {
+    const text = ta.value.trim();
+    if (!text && !nbAttach) { flashHint('Write something or attach a photo first'); return; }
+    socket.emit('note:add', { text, img: nbAttach });
+    ta.value = ''; nbSetAttach(null);
+  };
+  // --- Sketch pad ---
+  const modal = $('sketch-modal'), cv = $('sk-canvas');
+  if (!modal || !cv) return;
+  const ctx = cv.getContext('2d');
+  let pen = '#222222', penW = 3, drawing = false, last = null;
+  function skReset() { ctx.fillStyle = '#fdf8ec'; ctx.fillRect(0, 0, cv.width, cv.height); }
+  function pos(e) { const r = cv.getBoundingClientRect(); const p = e.touches ? e.touches[0] : e; return [(p.clientX - r.x) * cv.width / r.width, (p.clientY - r.y) * cv.height / r.height]; }
+  function down(e) { drawing = true; last = pos(e); e.preventDefault(); }
+  function move(e) {
+    if (!drawing) return; const p = pos(e);
+    ctx.strokeStyle = pen; ctx.lineWidth = penW; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(p[0], p[1]); ctx.stroke();
+    last = p; e.preventDefault();
+  }
+  function up() { drawing = false; }
+  cv.addEventListener('mousedown', down); cv.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+  cv.addEventListener('touchstart', down, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', up);
+  document.querySelectorAll('.sk-color').forEach((b) => { b.onclick = () => { pen = b.dataset.c; }; });
+  $('sk-thin').onclick = () => { penW = 3; };
+  $('sk-thick').onclick = () => { penW = 8; };
+  $('sk-clear').onclick = skReset;
+  $('nb-sketch').onclick = () => { skReset(); modal.classList.remove('hidden'); };
+  $('sk-cancel').onclick = () => modal.classList.add('hidden');
+  $('sk-save').onclick = () => {
+    let out = cv.toDataURL('image/jpeg', 0.8);
+    if (out.length > 340000) out = cv.toDataURL('image/jpeg', 0.55);
+    nbSetAttach(out); modal.classList.add('hidden');
+  };
+}
+document.addEventListener('DOMContentLoaded', initNotebook);
+if (document.readyState !== 'loading') initNotebook();
+
 /* ============ QUEST LOG — a multi-quest board the DM runs; players see it live ============
    Model: quests.list = [{id,title,kind:'main'|'side',done}]. Legacy {main,sides} still shown. */
 let quests = { main: '', sides: [], list: [] };

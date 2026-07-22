@@ -495,6 +495,24 @@
           </div>
           <div class="journal-hint">Shared notes — everyone at the table sees edits live.</div>
           <textarea id="journal-text" class="journal-text" placeholder="Session notes, quest log, NPCs met, loot found…"></textarea>
+          <!-- #218 Player Notebook: private notes with photos & sketches -->
+          <div class="journal-head">
+            <span class="party-title">📔 My Notebook</span>
+            <span class="journal-status">Private — only you see this</span>
+          </div>
+          <div class="journal-hint">Keep your own session notes like a real notebook — snap your sketches with 📷 or draw right here with ✏️.</div>
+          <div class="nb-compose">
+            <textarea id="nb-text" class="nb-text" placeholder="Session 1 — we met a dire bear named Tiny… (paste a photo right here!)"></textarea>
+            <div id="nb-preview" class="nb-preview hidden"><img id="nb-preview-img" alt="attachment"><button id="nb-preview-x" class="ghost" title="Remove attachment">✖</button></div>
+            <div class="nb-actions">
+              <input type="file" id="nb-file" accept="image/*" class="hidden">
+              <button id="nb-photo" class="ghost" title="Attach a photo of your notes or a sketch">📷 Photo</button>
+              <button id="nb-sketch" class="ghost" title="Draw a quick sketch or map">✏️ Sketch</button>
+              <button id="nb-add" class="primary" title="Save this note to your notebook">➕ Add note</button>
+            </div>
+          </div>
+          <div id="nb-list" class="nb-list"><div class="npc-empty">Your notebook is empty — jot down what happened this session.</div></div>
+
           <div class="npc-head">
             <span class="party-title">🧠 People you've met</span>
             <button id="npc-add" class="ghost gm-only" title="Add someone to the cast — the AI DM will keep them consistent">＋ Add</button>
@@ -595,6 +613,26 @@
   </div>
 
   <!-- Battle map picker -->
+  <!-- #218 Sketch pad: quick freehand drawing saved into your notebook -->
+  <div id="sketch-modal" class="overlay hidden">
+    <div class="join-card">
+      <h2>✏️ Sketch pad</h2>
+      <canvas id="sk-canvas" width="640" height="440" style="background:#fdf8ec;border-radius:8px;touch-action:none;max-width:100%;cursor:crosshair"></canvas>
+      <div class="nb-actions" style="margin-top:8px">
+        <button class="ghost sk-color" data-c="#222222" style="border-color:#222">⚫</button>
+        <button class="ghost sk-color" data-c="#c0392b" style="border-color:#c0392b">🔴</button>
+        <button class="ghost sk-color" data-c="#2d6cdf" style="border-color:#2d6cdf">🔵</button>
+        <button class="ghost sk-color" data-c="#1e8f4e" style="border-color:#1e8f4e">🟢</button>
+        <button id="sk-thin" class="ghost" title="Thin pen">─</button>
+        <button id="sk-thick" class="ghost" title="Thick pen">━</button>
+        <button id="sk-clear" class="ghost">🗑 Clear</button>
+        <span style="flex:1"></span>
+        <button id="sk-cancel" class="ghost">Cancel</button>
+        <button id="sk-save" class="primary">✅ Use sketch</button>
+      </div>
+    </div>
+  </div>
+
   <div id="map-modal" class="overlay hidden">
     <div class="join-card wide">
       <h2>Battle Maps</h2>
@@ -786,6 +824,7 @@
             <li><code>/whisper name message</code> sends a private message (<code>/reply</code> answers the last one).</li>
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
+            <li><b>📔 My Notebook</b> (in the Journal tab): your own private session notes — nobody else sees them. Attach a <b>📷 photo</b> of your real notebook pages, <b>paste</b> a screenshot straight into the note box, or draw a quick <b>✏️ sketch</b> (monster doodles, hand-drawn maps). Notes are saved with the campaign, so they're waiting for you next session.</li>
             <li>Found something broken? Hit <b>🐛</b> up top — it goes straight to the devs.</li>
           </ul>
         </details>
@@ -868,6 +907,7 @@
             <li>Prep is optional here: demo room + AI improv + quest engine means you can run a session with literally zero prep. Try it.</li>
             <li>Let the AI narrate flavor while <i>you</i> make rulings and voice the big NPCs — best of both worlds.</li>
             <li>Keep the Journal open — players write in it, and "People you've met" becomes your campaign bible automatically.</li>
+            <li><b>📔 My Notebook</b>: every player (and you) gets a private notebook in the Journal tab — text notes, pasted photos of real notebook pages, and a built-in ✏️ sketch pad. Great for players who keep hand-drawn maps and monster doodles; everything persists with the campaign. Tell your table it exists!</li>
             <li>Join the Discord (💬 on the join screen) — #dm-lounge is behind the screen, players can't see it.</li>
           </ul>
         </details>
