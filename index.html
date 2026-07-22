@@ -250,6 +250,9 @@
               <option value="underground">🕳 Underground</option>
             </select>
             <button id="trv-go" class="gm-only" title="Roll a travel event for the chosen terrain — no AI needed, works offline">🧭 Travel event</button>
+            <input id="sec-formula" class="gm-only" type="text" value="d20" maxlength="30" style="width:64px" title="What to roll in secret (d20, 2d6+3…)" />
+            <button id="sec-roll" class="gm-only" title="Roll behind the screen — only YOU see the result. Perfect for secret perception checks.">🤫 Secret roll</button>
+            <label class="gm-only" title="Post a mysterious 'the DM rolls something…' to the party (no numbers)" style="font-size:11px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="sec-tease">👁 tease</label>
           </div>
           <div class="chat-help">“Say” talks to the table. “DM ▸” prompts the AI Dungeon Master to respond.</div>
         </div>
@@ -912,6 +915,7 @@
             <li>Click the <b>🧠 DM badge</b> to point the AI at your own free Ollama (5-min setup — ask in Discord #help-and-questions) or leave it on the server default.</li>
             <li><b>DM ▸</b> makes it narrate. It sees the battlefield, HP, dice results, quests — and every NPC in <b>Journal → People you've met</b> (🎭 Improv NPC adds them automatically, so it <i>never forgets</i> a character).</li>
             <li>Improv set: <b>🎭 NPC · 🏰 Describe place · 🎣 Plot hook</b> — instant content when players go off-script.</li>
+            <li><b>🤫 Secret roll</b> (next to the Improv set): roll any dice behind the screen — only YOU see the result. Perfect for hidden perception checks, stealth vs the party, or "rolling to see if the bridge holds". Tick <b>👁 tease</b> to post "the DM rolls something behind the screen…" with no numbers — nothing kills metagaming faster.</li>
             <li><b>🧭 Travel event</b> (next to the Improv set): pick the terrain — road, forest, mountains, swamp, desert, coast or underground — and one tap posts a ready-to-run travel moment to chat: encounters, discoveries, hazards, mysteries. 70 hand-written events, works fully offline (no AI needed). Great for making journeys feel alive instead of "you travel for three days".</li>
             <li><b>📖 Recap</b> writes a "Previously on…" from your session log. <b>🔊 voices</b> read the DM aloud.</li>
             <li>AI can also: suggest quests (Quests tab), stock your shop, and generate loot straight onto a player's sheet.</li>
