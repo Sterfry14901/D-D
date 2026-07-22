@@ -1993,6 +1993,86 @@ async function spawnMonster(m) {
 }
 buildMonsters();
 
+/* ============ #219 HOMEBREW MAKER — name + CR → balanced monster ============ */
+/* Benchmarks follow published-monster medians so homebrews feel like official stat blocks. */
+const HB_CR = {
+  '0':   { hp: 3,   ac: 12, b: 2,  dpr: 1 },  '1/8': { hp: 9,   ac: 13, b: 3,  dpr: 2 },
+  '1/4': { hp: 13,  ac: 13, b: 3,  dpr: 4 },  '1/2': { hp: 22,  ac: 13, b: 4,  dpr: 7 },
+  '1':   { hp: 30,  ac: 13, b: 4,  dpr: 10 }, '2':   { hp: 45,  ac: 13, b: 5,  dpr: 14 },
+  '3':   { hp: 60,  ac: 14, b: 5,  dpr: 18 }, '4':   { hp: 75,  ac: 14, b: 6,  dpr: 23 },
+  '5':   { hp: 95,  ac: 15, b: 7,  dpr: 28 }, '6':   { hp: 105, ac: 15, b: 7,  dpr: 32 },
+  '7':   { hp: 120, ac: 15, b: 7,  dpr: 37 }, '8':   { hp: 135, ac: 16, b: 7,  dpr: 42 },
+  '9':   { hp: 150, ac: 16, b: 8,  dpr: 48 }, '10':  { hp: 165, ac: 17, b: 8,  dpr: 54 },
+  '11':  { hp: 180, ac: 17, b: 8,  dpr: 60 }, '12':  { hp: 190, ac: 17, b: 9,  dpr: 66 },
+  '13':  { hp: 205, ac: 18, b: 9,  dpr: 72 }, '14':  { hp: 220, ac: 18, b: 10, dpr: 78 },
+  '15':  { hp: 235, ac: 18, b: 10, dpr: 84 }, '16':  { hp: 250, ac: 18, b: 10, dpr: 90 },
+  '17':  { hp: 265, ac: 19, b: 11, dpr: 96 }, '18':  { hp: 280, ac: 19, b: 11, dpr: 100 },
+  '19':  { hp: 295, ac: 19, b: 11, dpr: 105 }, '20': { hp: 330, ac: 19, b: 12, dpr: 115 },
+};
+const HB_TYPE_E = { dragon: '🐉', undead: '💀', fiend: '😈', beast: '🐾', humanoid: '🧑', giant: '🗻', aberration: '🦑', celestial: '👼', construct: '🗿', elemental: '🌪️', fey: '🧚', monstrosity: '🐲', ooze: '🟩', plant: '🌿' };
+function hbDice(dpr) {
+  // turn damage-per-round into a natural-looking dice string
+  if (dpr <= 2) return '1';
+  if (dpr <= 5) return '1d4+' + Math.max(1, dpr - 2);
+  const bonus = Math.max(0, Math.round(dpr * 0.25));
+  const n = Math.max(1, Math.round((dpr - bonus) / 3.5));
+  return `${n}d6${bonus ? '+' + bonus : ''}`;
+}
+function hbLoad() { try { return JSON.parse(localStorage.getItem('dnd-homebrew') || '[]'); } catch (e) { return []; } }
+function hbSave(list) { try { localStorage.setItem('dnd-homebrew', JSON.stringify(list.slice(0, 30))); } catch (e) {} }
+async function hbDrop(hb) {
+  if (!me.isGm) return;
+  const img = await monArtImg(hb.n, hb.type);
+  socket.emit('token:add', {
+    x: gridSize * (2 + Math.floor(Math.random() * 6)),
+    y: gridSize * (1 + Math.floor(Math.random() * 3)),
+    color: '#5a3d8f', label: hb.n, size: hb.size || 1,
+    statuses: [], emoji: HB_TYPE_E[hb.type] || '🐲', hp: hb.hp, maxhp: hb.hp, cr: hb.cr,
+    ...(img ? { img } : {}),
+    ac: hb.ac, atk: [{ name: hb.w, bonus: hb.b, dmg: hb.d }],
+  });
+  addChat({ from: '⚒ Homebrew', text: `${hb.n} (CR ${hb.cr}) prowls onto the battlefield…` });
+}
+function hbRenderSaved() {
+  const grid = $('hb-saved'); if (!grid) return;
+  const list = hbLoad();
+  grid.innerHTML = '';
+  list.forEach((hb, i) => {
+    const b = document.createElement('button'); b.className = 'mon-btn';
+    b.innerHTML = `<span class="me">${HB_TYPE_E[hb.type] || '🐲'}</span><span class="mn">${hb.n}</span><em>${hb.hp} hp · CR ${hb.cr}</em>`;
+    monFaceUpgrade(b, hb.n, hb.type);                  // matching tinted icon art, like the bestiary
+    b.title = `Drop ${hb.n} — AC ${hb.ac}, ${hb.w} +${hb.b} (${hb.d})`;
+    b.onclick = () => hbDrop(hb);
+    b.oncontextmenu = (e) => { e.preventDefault(); if (confirm(`Delete homebrew "${hb.n}"?`)) { const l = hbLoad(); l.splice(i, 1); hbSave(l); hbRenderSaved(); } };
+    grid.appendChild(b);
+  });
+  const hint = $('hb-stats');
+  if (hint && !hint.textContent) hint.textContent = list.length ? 'Your creations (right-click to delete):' : 'Pick a CR and forge — stats auto-balance to match official monsters.';
+}
+function initHomebrew() {
+  const crSel = $('hb-cr'); if (!crSel) return;
+  Object.keys(HB_CR).forEach((cr) => { const o = document.createElement('option'); o.value = cr; o.textContent = 'CR ' + cr; if (cr === '1') o.selected = true; crSel.appendChild(o); });
+  const upd = () => {
+    const c = HB_CR[crSel.value];
+    $('hb-stats').textContent = c ? `Balanced: ${c.hp} HP · AC ${c.ac} · attack +${c.b} for ${hbDice(c.dpr)} dmg` : '';
+  };
+  crSel.onchange = upd; upd();
+  $('hb-forge').onclick = () => {
+    const name = ($('hb-name').value || '').trim().slice(0, 30);
+    if (!name) { flashHint('Give your monster a name first'); return; }
+    const c = HB_CR[crSel.value]; if (!c) return;
+    const type = $('hb-type').value, size = Number($('hb-size').value) || 1;
+    const weapons = { beast: 'Bite', humanoid: 'Strike', undead: 'Grave Touch', dragon: 'Rend', fiend: 'Claw', giant: 'Slam', monstrosity: 'Gore', aberration: 'Tentacle', construct: 'Smash', elemental: 'Surge', fey: 'Trick', celestial: 'Radiant Strike', plant: 'Lash', ooze: 'Engulf' };
+    const hb = { n: name, cr: crSel.value, type, size, hp: c.hp, ac: c.ac, b: c.b, d: hbDice(c.dpr), w: weapons[type] || 'Strike' };
+    const list = hbLoad(); list.unshift(hb); hbSave(list); hbRenderSaved();
+    hbDrop(hb);
+    $('hb-name').value = '';
+  };
+  hbRenderSaved();
+}
+document.addEventListener('DOMContentLoaded', initHomebrew);
+if (document.readyState !== 'loading') initHomebrew();
+
 /* ============ OPEN5E LIVE MONSTER SEARCH ============ */
 (function () {
   const q = $('o5e-q'), go = $('o5e-go'), grid = $('o5e-grid');

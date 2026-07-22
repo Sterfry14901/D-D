@@ -295,6 +295,27 @@
             </div>
             <div id="o5e-grid" class="mon-grid"></div>
           </div>
+          <!-- #219 Homebrew Maker: name + CR → balanced monster -->
+          <div class="monster-add gm-only">
+            <div class="mon-title">🧪 Homebrew Maker — invent a monster, we balance it <span class="gm-tag">DM</span></div>
+            <div class="loot-row">
+              <input id="hb-name" class="mon-search" type="text" placeholder="Name it… (Tiny the Dire Bear)" style="flex:1;margin:0" />
+            </div>
+            <div class="loot-row">
+              <select id="hb-cr" title="Challenge Rating — sets HP, AC, attack and damage to match published monsters"></select>
+              <select id="hb-type" title="Creature type — picks the token art">
+                <option value="beast">🐾 Beast</option><option value="humanoid">🧑 Humanoid</option><option value="undead">💀 Undead</option>
+                <option value="dragon">🐉 Dragon</option><option value="fiend">😈 Fiend</option><option value="giant">🗻 Giant</option>
+                <option value="monstrosity">🐲 Monstrosity</option><option value="aberration">🦑 Aberration</option><option value="construct">🗿 Construct</option>
+                <option value="elemental">🌪️ Elemental</option><option value="fey">🧚 Fey</option><option value="celestial">👼 Celestial</option>
+                <option value="plant">🌿 Plant</option><option value="ooze">🟩 Ooze</option>
+              </select>
+              <select id="hb-size" title="Token size"><option value="1">Med</option><option value="2">Large</option><option value="3">Huge</option><option value="4">Garg.</option></select>
+              <button id="hb-forge" class="primary" title="Create it and drop it on the map">⚒ Forge &amp; drop</button>
+            </div>
+            <div id="hb-stats" class="journal-hint"></div>
+            <div id="hb-saved" class="mon-grid"></div>
+          </div>
           <div class="monster-add gm-only">
             <div class="mon-title">🐲 Encounters — drop a whole group at once <span class="gm-tag">DM</span></div>
             <div id="enc-grid" class="mon-grid"></div>
@@ -861,6 +882,7 @@
         <details><summary>⚔️ Running combat</summary>
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
+            <li><b>🧪 Homebrew Maker</b> (Combat tab): invent your own monster — type a name, pick a CR, type and size, hit <b>⚒ Forge</b>. It gets HP, AC, attack bonus and damage balanced to match official monsters of that CR, plus matching token art, and drops straight onto the map ready for the ⚔️ combat assistant. Your creations are saved for re-dropping (right-click one to delete).</li>
             <li><b>👥 Add party (roll init)</b> puts everyone in initiative with rolled d20s; <b>Next ▸</b> advances turns (players get a chime), the turn timer nudges slowpokes.</li>
             <li>Right-click a monster → <b>⚔️ Attack…</b> — its real attack profile prefills (SRD stats built in), advantage buttons, crits double dice, temp HP soaks first. The encounter meter shows Easy→Deadly as you build.</li>
             <li>Whole-party tools: 💥 Damage / 💚 Heal / 🌙 Full heal everyone at once. AoE templates auto-hit tokens inside (save-for-half supported).</li>
