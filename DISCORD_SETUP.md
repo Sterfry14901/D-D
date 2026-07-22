@@ -31,6 +31,17 @@ category when you have a minute.
 - Notifications: 🔔 Patch Notes · Events · Giveaways · Looking For Group · Beta News · New Campaigns
 - 🎥 Creator
 
+**Private wings — LOCKED (done):**
+- 🎲 All 5 **dm-*** channels → visible only to 🎲 Dungeon Master, 🎲 Official DM, ✅ Verified DM + Lead Dev/Mod/CM
+- 💎 All 4 **supporter** channels → visible only to the 5 supporter roles + Mod/CM
+- 🧪 **#alpha-testing/#closed-beta/#ptr-builds/#experimental-builds** → matching 🧪 tier + staff (#open-beta stays public on purpose)
+
+**Read-only channels — DONE:** #rules, #announcements, #roadmap, #patch-notes,
+#known-issues, #faq, #events, #polls, #dm-announcements → @everyone can read but
+not post (Send Messages + threads denied). #bug-reports, #introductions,
+#suggestions, #general, #help-and-questions, #looking-for-group stay writable.
+Admins (👑/🛡) bypass everything and can always post.
+
 ## Your 5-minute cleanup list (quick manual bits)
 
 1. **Delete 4 mistake channels** (created as text during automation, all empty):
@@ -44,11 +55,6 @@ category when you have a minute.
    - ⚙️ Lead Dev / 💻 Developer: Manage Channels, Manage Messages
    - 🛠 Moderator: Manage Messages, Kick, Timeout Members
    - Everything else: leave default (they're identity/ping roles).
-5. **Lock the private wings** (channel → Edit Channel → Permissions → Private Channel toggle):
-   - Each **dm-*** channel → allow 🎲 Dungeon Master, 🎲 Official DM, ✅ Verified DM + staff
-   - Each **supporter** channel → allow the 5 supporter roles + staff
-   - **#alpha-testing/#closed-beta/#ptr-builds/#experimental-builds** → allow matching 🧪 role + staff (leave #open-beta public)
-   - **#rules, #announcements, #roadmap, #patch-notes, #known-issues, #dm-announcements** → @everyone: Send Messages OFF (read-only)
 
 ## Bots — one-time "Authorize" clicks only you can do
 
