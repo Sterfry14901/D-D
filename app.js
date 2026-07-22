@@ -3553,7 +3553,12 @@ function styleToken(el, t) {
   }
   const st = (t.statuses || []).slice();
   if (t.conc) st.unshift('🧠');
-  el.querySelector('.statuses').innerHTML = st.map((x) => `<span>${x}</span>`).join('');
+  el.querySelector('.statuses').innerHTML = st.map((x) => {
+    // #236: hovering a condition emoji on any token shows the actual rule
+    const nm = Object.keys(COND_EMOJI).find((k) => COND_EMOJI[k] === x);
+    const tip = nm ? nm + ((window.COND_RULES || {})[nm] ? ' — ' + window.COND_RULES[nm] : '') : '';
+    return `<span title="${escapeHtml(tip).replace(/"/g, '&quot;')}">${x}</span>`;
+  }).join('');
   el.classList.toggle('concentrating', !!t.conc);
   // Death saves — shown only when downed (0 HP with a max)
   const death = el.querySelector('.tk-death');
@@ -3746,7 +3751,8 @@ function showTokenCtx(t, px, py) {
     const b = document.createElement('span');
     const on = (t.statuses || []).includes(em);
     b.className = 'ctx-cond' + (on ? ' on' : '');
-    b.textContent = em; b.title = name;
+    b.textContent = em;
+    b.title = name + ((window.COND_RULES || {})[name] ? ' — ' + window.COND_RULES[name] : ''); // #236 rule text on hover
     b.onclick = (ev) => {
       ev.stopPropagation();
       let st = [...(t.statuses || [])];
@@ -4669,7 +4675,7 @@ function buildCS() {
       <input type="checkbox" data-skill="${nm}" />
       <button class="cs-line-roll" data-roll="skill:${nm}"><span class="cs-val" data-skillval="${nm}">+0</span> ${nm} <em>${CS_ABILN[ab]}</em></button>
     </div>`).join('');
-  const condChips = CS_CONDS.map((c) => `<button class="cs-cond" data-cond="${c}">${c}</button>`).join('');
+  const condChips = CS_CONDS.map((c) => `<button class="cs-cond" data-cond="${c}" title="${escapeHtml(((window.COND_RULES || {})[c] || '').replace(/"/g, '&quot;'))}">${c}</button>`).join('');
   h.push(`<div class="cs-grid">
     <div class="cs-col">
       <div class="cs-sec"><div class="cs-sec-t">Abilities</div><div class="cs-abils">${abilCards}</div>
