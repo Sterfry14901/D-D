@@ -129,6 +129,10 @@
     ],
   };
 
+  // #236: expose condition texts so tooltips everywhere can quote the actual rule
+  window.COND_RULES = {};
+  RULES.Conditions.forEach((c) => { window.COND_RULES[c.t] = c.b; });
+
   let rulesBuilt = false;
   let activeCat = null;
 
