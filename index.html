@@ -255,6 +255,9 @@
             <button id="trv-go" class="gm-only" title="Roll a travel event for the chosen terrain — no AI needed, works offline">🧭 Travel event</button>
             <input id="sec-formula" class="gm-only" type="text" value="d20" maxlength="30" style="width:64px" title="What to roll in secret (d20, 2d6+3…)" />
             <button id="sec-roll" class="gm-only" title="Roll behind the screen — only YOU see the result. Perfect for secret perception checks.">🤫 Secret roll</button>
+            <button id="bak-btn" class="gm-only" title="Download the entire campaign — map, tokens, quests, NPCs, journal, shop, world — as one file">💾 Backup</button>
+            <button id="bak-restore" class="gm-only" title="Restore a campaign from a backup file (replaces this room's world)">📥 Restore</button>
+            <input id="bak-file" type="file" accept=".json,application/json" style="display:none" />
             <label class="gm-only" title="Post a mysterious 'the DM rolls something…' to the party (no numbers)" style="font-size:11px;display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="sec-tease">👁 tease</label>
           </div>
           <div class="chat-help">“Say” talks to the table. “DM ▸” prompts the AI Dungeon Master to respond.</div>
@@ -1013,6 +1016,7 @@
           <ul>
             <li>Join with a room code of your choosing and set a <b>GM password</b> — first password claims the DM seat. (New tables get <b>3 free DM session-days</b>; after that it's DM Pro. Players never pay.)</li>
             <li><b>🚀 Setup</b> (top bar): new campaign? The Session Zero wizard walks you through the whole thing in one pass — party code, first session time, playlists, first map, first quest. It pops up automatically on a fresh table; steps turn green as you go.</li>
+            <li><b>💾 Backup / 📥 Restore</b> (chat DM row): download your ENTIRE campaign — map, tokens, quests, NPCs, journal, shop, world, scenes, loot — as one file, and restore it any time. Insurance against anything; also the way to move a campaign to a new room. Player logins and private notebooks never leave the server.</li>
             <li>Click <b>🎟️ Party code</b> (top bar) — send the code to your players. They type it in the GM password box and land in <i>your</i> game as players.</li>
             <li>Want a co-DM? Give them your GM password instead.</li>
             <li>Try the whole game solo first: the green <b>🎲 instant demo</b> button gives you a seeded adventure to poke at.</li>
