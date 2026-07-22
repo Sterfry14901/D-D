@@ -2117,6 +2117,63 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #228 PARTY LOOT POOL — claim it, roll for it, or split it ============ */
+let POOL = { items: [], gp: 0 };
+function poolRender() {
+  const wrap = $('pool-wrap'); if (!wrap) return;
+  const hasStuff = (POOL.items && POOL.items.length) || (POOL.gp || 0) > 0;
+  wrap.classList.toggle('hidden', !hasStuff && !me.isGm);
+  const list = $('pool-list'); if (!list) return;
+  list.innerHTML = '';
+  (POOL.items || []).forEach((it) => {
+    const row = document.createElement('div'); row.className = 'pool-item' + (it.claimedBy ? ' claimed' : '');
+    const nm = document.createElement('span'); nm.className = 'pool-name'; nm.textContent = it.name; row.appendChild(nm);
+    if (it.claimedBy) {
+      const c = document.createElement('span'); c.className = 'pool-owner'; c.textContent = '→ ' + it.claimedBy; row.appendChild(c);
+    } else {
+      const rolls = Object.entries(it.rolls || {});
+      if (rolls.length) {
+        const r = document.createElement('span'); r.className = 'pool-rolls';
+        r.textContent = rolls.sort((a, b) => b[1] - a[1]).map(([n, v]) => `${n}: ${v}`).join(' · ');
+        row.appendChild(r);
+      }
+      const claim = document.createElement('button'); claim.textContent = '🖐 Claim'; claim.title = 'Take it — first come, first served';
+      claim.onclick = () => socket.emit('pool:claim', { id: it.id }); row.appendChild(claim);
+      const roll = document.createElement('button'); roll.className = 'ghost'; roll.textContent = '🎲 Roll';
+      roll.title = 'Roll a d20 for it — one roll each, highest wins when the DM awards';
+      roll.onclick = () => socket.emit('pool:roll', { id: it.id }); row.appendChild(roll);
+      if (me.isGm && rolls.length) {
+        const aw = document.createElement('button'); aw.className = 'primary'; aw.textContent = '🏆 Award';
+        aw.title = 'Give it to the highest roller';
+        aw.onclick = () => socket.emit('pool:award', { id: it.id }); row.appendChild(aw);
+      }
+    }
+    list.appendChild(row);
+  });
+  const g = $('pool-gold');
+  if (g) g.textContent = POOL.gp ? `🪙 ${POOL.gp} gp in the pool` : ((POOL.items || []).length ? '' : 'Nothing here yet — the DM drops hauls into this pool.');
+  const sp = $('pool-split'); if (sp) sp.style.display = (POOL.gp || 0) > 0 ? '' : 'none';
+  const cl = $('pool-clear'); if (cl) cl.style.display = (POOL.items || []).some((x) => x.claimedBy) ? '' : 'none';
+}
+socket.on('pool:state', (p) => { POOL = p || { items: [], gp: 0 }; poolRender(); });
+socket.on('state', (s) => { if (s && s.pool) { POOL = s.pool; setTimeout(poolRender, 350); } });
+function initPool() {
+  const d = $('pool-drop'); if (!d) return;
+  d.onclick = () => {
+    if (!me.isGm) return;
+    const items = $('pool-items').value.trim();
+    const gp = parseInt($('pool-gp').value, 10) || 0;
+    if (!items && !gp) { flashHint('Add some items or gold first'); return; }
+    socket.emit('pool:drop', { items, gp });
+    $('pool-items').value = ''; $('pool-gp').value = '';
+  };
+  $('pool-split').onclick = () => { if (me.isGm) socket.emit('pool:split'); };
+  $('pool-clear').onclick = () => { if (me.isGm) socket.emit('pool:clear'); };
+  setTimeout(poolRender, 1500);
+}
+document.addEventListener('DOMContentLoaded', initPool);
+if (document.readyState !== 'loading') initPool();
+
 /* ============ #225 LINKED NOTES — @NPCs and #tags turn notes into a campaign wiki ============ */
 window.NB_LIST = window.NB_LIST || [];
 let nbLink = { tag: null, mention: null };   // active notebook filter from a clicked link
