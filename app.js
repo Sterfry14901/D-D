@@ -464,7 +464,9 @@ function renderPartySheets() {
       <div class="ps-stats">
         <span>❤️ ${s.hp}/${s.maxhp}</span><span>🛡️ ${s.ac || '—'}</span>
         <span>⭐ ${s.xp || 0} XP</span><span>⚖️ ${Math.round(gw * 10) / 10} lb</span>
+        ${Number(s.exh) > 0 ? `<span class="ps-exh" title="Exhaustion level ${s.exh} of 6">🥵 Exh ${s.exh}</span>` : ''}
       </div>
+      ${(s.custom || []).length ? `<div class="ps-custom">${s.custom.map((t) => `<span class="ps-track" title="Homebrew tracker">✨ ${escapeHtml(t.name)}: <b>${t.val}${t.max ? '/' + t.max : ''}</b></span>`).join('')}</div>` : ''}
       <div class="ps-coins">💰 ${coinLine(s.coins)} <button class="ps-give" data-give="${s.id}" title="Give or take gold">＋ gold</button> <button class="ps-give ps-hp" data-hp="${s.id}" title="Heal or damage (negative)">❤️ HP</button></div>
       <div class="ps-gear-title">Inventory (${(s.gear || []).length})</div>
       ${gear}
@@ -4641,6 +4643,11 @@ function buildSheetSummary() {
     hp: Number(cs.hp) || 0, maxhp: Number(cs.maxhp) || 0, ac: Number(cs.ac) || 0, xp: Number(cs.xp) || 0,
     cp: Number(cs.cp) || 0, sp: Number(cs.sp) || 0, ep: Number(cs.ep) || 0, gp: Number(cs.gp) || 0, pp: Number(cs.pp) || 0,
     gear,
+    // #247: homebrew trackers + exhaustion flow to the DM party viewer
+    custom: (Array.isArray(cs.custom) ? cs.custom : []).slice(0, 12).map((t) => ({
+      name: String(t.name || '').slice(0, 30), val: Number(t.val) || 0, max: Number(t.max) || 0,
+    })).filter((t) => t.name),
+    exh: Math.max(0, Math.min(6, Number(cs.exhaustion) || 0)),
   };
 }
 let _sheetTimer = null;
