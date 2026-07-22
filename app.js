@@ -1359,7 +1359,7 @@ if ($('dmr-maps')) $('dmr-maps').onclick = () => $('map-modal').classList.remove
 if ($('dmr-next')) $('dmr-next').onclick = () => socket.emit('init:turn', 'next');
 if ($('dmr-d20')) $('dmr-d20').onclick = () => {
   const r = 1 + Math.floor(Math.random() * 20);
-  socket.emit('roll', { formula: (me.name || 'DM') + ' — d20', result: r, detail: `d20[${r}]` });
+  socket.emit('roll', { formula: 'd20', result: r, detail: `d20[${r}]` });
 };
 if ($('dmr-full')) $('dmr-full').onclick = () => { location.href = location.origin + '/?room=' + encodeURIComponent(me.room || ''); };
 /* show the rail only for the GM in ?view=dm */
