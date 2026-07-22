@@ -4994,7 +4994,7 @@ function csRenderRes() {
   const lvl = Number(cs.level) || 1;
   const list = classResources(clsName, lvl, csMod(cs.scores.cha));
   cs.resUsed = cs.resUsed || {};
-  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.65">No limited-use class powers' + (clsName ? ' at this level' : ' — set your class') + '.</div>'; return; }
+  if (!list.length) { box.innerHTML = '<div style="font-size:12px;opacity:.65">No limited-use class powers' + (clsName ? ' at this level' : ' — set your class') + '.</div>'; try { csRenderCustom(); } catch (e) {} return; }
   box.innerHTML = list.map((r) => {
     const used = Math.min(cs.resUsed[r.id] || 0, r.max);
     let ctl;
