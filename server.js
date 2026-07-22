@@ -657,8 +657,8 @@ function buildDMContext(room) {
   // #196 NPC memory — remind the DM who the party already knows so it stays consistent.
   const npcs = (room.npcs || []).slice(-12);
   if (npcs.length) {
-    const lines = npcs.map((n) => `- ${n.name}: ${(n.desc || '').replace(/\s+/g, ' ').slice(0, 160)}${n.notes ? ' | Notes: ' + String(n.notes).slice(0, 100) : ''}`);
-    msgs.unshift({ role: 'user', content: 'NPCS THE PARTY ALREADY KNOWS (stay consistent with these people — same names, personalities, secrets; reference them when it fits):\n' + lines.join('\n') });
+    const lines = npcs.map((n) => `- ${n.name}${n.dead ? ' [DEAD — do not bring them back except as a body, memory, or ghost]' : ''}: ${(n.desc || '').replace(/\s+/g, ' ').slice(0, 160)}${n.notes ? ' | Notes: ' + String(n.notes).slice(0, 100) : ''}`);
+    msgs.unshift({ role: 'user', content: 'NPCS THE PARTY ALREADY KNOWS (stay consistent with these people — same names, personalities, secrets; reference them when it fits. NEVER have a [DEAD] character speak or act alive):\n' + lines.join('\n') });
   }
   return msgs;
 }
@@ -916,7 +916,7 @@ io.on('connection', (socket) => {
     const n = rememberNpc(room, joinedRoom, name, desc, notes);
     done(n ? { ok: true, id: n.id } : { ok: false, error: 'name required' });
   });
-  socket.on('npc:update', ({ id, name, desc, notes } = {}, ack) => {
+  socket.on('npc:update', ({ id, name, desc, notes, dead } = {}, ack) => {
     const done = (r) => { if (typeof ack === 'function') ack(r); };
     const room = rooms.get(joinedRoom);
     if (!room || !isGm(room, socket.id)) return done({ ok: false, error: 'GM only' });
@@ -925,6 +925,7 @@ io.on('connection', (socket) => {
     if (name) n.name = String(name).trim().slice(0, 60);
     if (desc !== undefined) n.desc = String(desc || '').slice(0, 500);
     if (notes !== undefined) n.notes = String(notes || '').slice(0, 300);
+    if (typeof dead === 'boolean') n.dead = dead;      // #230 ☠️ dead/alive tag
     n.ts = Date.now();
     markDirty(); broadcastNpcs(joinedRoom);
     done({ ok: true });
