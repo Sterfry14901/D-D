@@ -937,6 +937,10 @@ body:not(.is-gm) .gm-only { display: none !important; }
   font-size: 0.82rem; text-align: left; transition: transform .08s, border-color .12s; }
 .mon-btn:hover { transform: translateY(-1px); border-color: var(--gold); }
 .mon-btn .me { font-size: 1.1rem; }
+/* #204 bestiary list art — tinted icon disc replaces the emoji when we have a match */
+.mon-btn .me.mi { width: 24px; height: 24px; flex: 0 0 24px; display: inline-flex; }
+.mon-btn .me.mi img { width: 100%; height: 100%; border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.14); }
 .mon-btn .mn { flex: 1; }
 .mon-btn em { color: #b98; font-style: normal; font-size: 0.72rem; }
 

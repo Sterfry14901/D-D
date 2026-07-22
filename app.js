@@ -1707,6 +1707,7 @@ function buildMonsters() {
     b.className = 'mon-btn';
     const canView = typeof window.hasStatBlock === 'function' && window.hasStatBlock(m.n);
     b.innerHTML = `<span class="me">${m.e}</span><span class="mn">${m.n}</span><em>${m.hp} hp${m.cr ? ' · CR ' + m.cr : ''}</em>${canView ? '<span class="mon-info" title="View stat block">📖</span>' : ''}`;
+    monFaceUpgrade(b, m.n, m.type);                    // #204 swap emoji → tinted icon art
     b.onclick = () => spawnMonster(m);
     b.oncontextmenu = (e) => { if (canView) { e.preventDefault(); window.showStatBlock(m.n); } };
     const info = b.querySelector('.mon-info');
@@ -1753,17 +1754,26 @@ const MON_TYPE_ART = {
   plant: ['lorc/oak', '#3f6b2f'], aberration: ['lorc/vile-fluid', '#4f2f6b'],
   celestial: ['lorc/holy-symbol', '#8a7a2f'], humanoid: ['lorc/hood', '#4a4a4a'],
 };
+const MON_ICON_BASE = 'https://raw.githubusercontent.com/game-icons/icons/master/';
+function monArtMatch(name, type) {                    // sync: [iconPath, tint] or null
+  const hit = MON_ART.find(([re]) => re.test(name || ''));
+  if (hit) return [hit[1], hit[2]];
+  const t = MON_TYPE_ART[String(type || '').toLowerCase()];
+  return t ? [t[0], t[1]] : null;
+}
+function monFaceUpgrade(btn, name, type) {            // #204 art in the bestiary list itself
+  if (!monArtMatch(name, type)) return;               // no match → emoji stays
+  monArtImg(name, type).then((u) => {
+    if (!u) return;
+    const s = btn.querySelector('.me');
+    if (s) { s.classList.add('mi'); s.innerHTML = `<img src="${u}" alt=""/>`; }
+  });
+}
 async function monArtImg(name, type) {
   try {
-    let path = null, tint = null;
-    const hit = MON_ART.find(([re]) => re.test(name || ''));
-    if (hit) { path = hit[1]; tint = hit[2]; }
-    else {
-      const t = MON_TYPE_ART[String(type || '').toLowerCase()];
-      if (t) { path = t[0]; tint = t[1]; }
-    }
-    if (!path) return null;
-    return await makeIconToken(path, tint);           // tinted-disc data URI (cached)
+    const m = monArtMatch(name, type);
+    if (!m) return null;
+    return await makeIconToken(m[0], m[1]);           // tinted-disc data URI (cached)
   } catch (e) { return null; }                        // offline → emoji token as before
 }
 async function spawnMonster(m) {
@@ -1817,6 +1827,7 @@ buildMonsters();
         const b = document.createElement('button');
         b.className = 'mon-btn';
         b.innerHTML = `<span class="me">${e}</span><span class="mn">${m.name}</span><em>${m.hit_points} hp · CR ${m.challenge_rating}</em><span class="mon-info" title="View stat block">📖</span>`;
+        monFaceUpgrade(b, m.name, m.type);             // #204 swap emoji → tinted icon art
         b.onclick = async () => {
           if (!me.isGm) return;
           const img = await monArtImg(m.name, m.type);                   // #203 matching art
