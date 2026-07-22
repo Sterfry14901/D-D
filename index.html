@@ -74,6 +74,7 @@
         <button id="ai-badge" class="ghost ai-badge hidden" title="Which AI brain the Dungeon Master is using — click to configure (DM only)">🧠 DM AI…</button>
         <button id="invite-btn" class="ghost" title="Copy an invite link to this table">🔗 Invite</button>
         <button id="party-btn" class="ghost gm-only" title="Get a party code — players type it in to land in YOUR game">🎟️ Party code</button>
+        <button id="lay-btn" class="ghost" title="Customize your interface — hide tabs you don't use, save layout presets">🎛</button>
         <button id="tv-btn" class="ghost gm-only" title="Open a clean map-only window — drag it to a second monitor or the TV facing your players">🖥️ Table view</button>
         <button id="dmv-btn" class="ghost gm-only" title="Big map with a slim LEFT rail of DM tools — no right panel">🧭 DM map view</button>
         <button id="bug-btn" class="ghost" title="Report a bug — it goes straight to our Discord">🐛</button>
@@ -688,6 +689,28 @@
   </div>
 
   <!-- Battle map picker -->
+  <!-- #226 Layout customizer: pick your tabs, save presets -->
+  <div id="lay-modal" class="overlay hidden">
+    <div class="join-card">
+      <h2>🎛 Your interface, your way</h2>
+      <div class="journal-hint">Untick tabs you don't use — fewer tabs, less clutter. Just for you; everyone customizes their own.</div>
+      <div id="lay-tabs" class="lay-tabs"></div>
+      <div class="mon-title" style="margin-top:10px">⚡ Quick presets</div>
+      <div class="nb-actions">
+        <button class="ghost lay-preset" data-preset="combat">⚔️ Combat night</button>
+        <button class="ghost lay-preset" data-preset="roleplay">🎭 Roleplay night</button>
+        <button class="ghost lay-preset" data-preset="all">🗂 Everything</button>
+      </div>
+      <div class="mon-title" style="margin-top:10px">💾 My presets</div>
+      <div class="loot-row">
+        <input id="lay-name" class="mon-search" type="text" placeholder="Name this layout… (my DM screen)" style="flex:1;margin:0" maxlength="24" />
+        <button id="lay-save">💾 Save current</button>
+      </div>
+      <div id="lay-mine" class="nb-actions"></div>
+      <div class="nb-actions" style="margin-top:12px"><span style="flex:1"></span><button id="lay-close" class="primary">✅ Done</button></div>
+    </div>
+  </div>
+
   <!-- #218 Sketch pad: quick freehand drawing saved into your notebook -->
   <div id="sketch-modal" class="overlay hidden">
     <div class="join-card">
@@ -899,6 +922,7 @@
             <li><code>/whisper name message</code> sends a private message (<code>/reply</code> answers the last one).</li>
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
+            <li><b>🎛 Your interface, your way</b> (button up top): untick the tabs you never use and they vanish from your panel — just for you. Save layouts as presets ("⚔️ Combat night" and "🎭 Roleplay night" come built in) and swap your whole workspace in one click.</li>
             <li><b>📅 Next session</b>: check the top of the Journal tab — your DM posts when you're playing next, and you'll see a reminder each time you join.</li>
             <li><b>💰 Party Loot</b> (Combat tab): when the DM drops a haul, 🖐 Claim what you want (first come!) or 🎲 Roll for contested items — winner takes it, straight onto your sheet. Split gold arrives in your coin pouch automatically.</li>
             <li><b>⚔️ Maneuvers</b> (Combat tab, if your DM enables them): martial classes get Superiority Dice — spend one on Trip, Disarm, Riposte, Menace, Push or Precision Strike. The die and the save DC post to chat automatically; dice come back on a rest.</li>
@@ -943,6 +967,7 @@
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
             <li><b>📅 Next session</b> (Journal tab): type when you're playing next ("Friday 7pm EST") + an optional note — every player sees it in their Journal and gets a reminder when they join. <b>📣 Announce</b> posts it to chat. Pair it with the Sesh bot in the Discord for RSVPs, and scheduling stops being the campaign killer.</li>
+            <li><b>🎛 Custom interfaces</b>: every player can hide tabs they don't use and save layout presets — a Fighter can run a lean ⚔️ combat layout while your bard keeps the 🎭 roleplay tabs. Each person's layout is their own; it changes nothing for anyone else.</li>
             <li><b>💰 Party Loot</b> (Combat tab): type the haul ("Flame Sword, 3 Potions") plus gold and hit <b>Drop haul</b>. Players 🖐 Claim items first-come or 🎲 roll off (one d20 each, you 🏆 Award to the highest); claimed items land straight on their sheets. <b>⚖️ Split gp evenly</b> divides the gold across the party with the remainder staying pooled. No more twenty-minute loot arguments.</li>
             <li><b>🎛 Optional rules</b> (Combat tab): flip <b>⚔️ Martial maneuvers</b> ON and your Fighters, Barbarians, Monks, Rogues, Rangers and Paladins gain Superiority Dice (d8s, short-rest recovery) plus six battle maneuvers — Trip, Disarm, Riposte, Menace, Push, Precision. One tap rolls the die and posts the save DC to chat. A clean fix for the martial/caster gap — and it's your call, per campaign.</li>
             <li><b>🧪 Homebrew Maker</b> (Combat tab): invent your own monster — type a name, pick a CR, type and size, hit <b>⚒ Forge</b>. It gets HP, AC, attack bonus and damage balanced to match official monsters of that CR, plus matching token art, and drops straight onto the map ready for the ⚔️ combat assistant. Your creations are saved for re-dropping (right-click one to delete).</li>
