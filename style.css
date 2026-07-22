@@ -1604,3 +1604,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .lay-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; margin-top: 8px; }
 .lay-row { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
 .lay-row input { accent-color: var(--gold,#c9a227); }
+
+/* ===== #227 Custom trackers ===== */
+.cs-custom-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.cs-custom-add input { background: #10141c; color: #e8e6e0; border: 1px solid #2a3140; border-radius: 6px; padding: 4px 8px; font-size: 12px; flex: 1; }
+.cs-custom-add button { padding: 3px 10px; font-size: 12px; }

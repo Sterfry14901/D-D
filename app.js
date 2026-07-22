@@ -4441,6 +4441,7 @@ function buildCS() {
     <div class="cs-sec"><div class="cs-sec-t">Features &amp; Traits</div><textarea data-cs="features" placeholder="Class features, feats, racial traits…"></textarea></div>
   </div>`);
   h.push(`<div class="cs-sec"><div class="cs-sec-t">🎯 Class Resources — limited-use powers</div><div id="cs-res"></div></div>`);
+  h.push(`<div class="cs-sec"><div class="cs-sec-t">✨ Custom Trackers — homebrew stats, your table's rules</div><div id="cs-custom"></div></div>`);
   h.push(`<div class="cs-sec cs-cando-sec"><div class="cs-sec-t">🧭 What You Can Do — <span data-cando-cls>your class</span></div><div id="cs-cando"></div></div>`);
   const deathPips = (t) => [0,1,2].map((i) => `<button class="cs-dpip ${t}" data-death="${t}:${i}"></button>`).join('');
   h.push(`<div class="cs-grid cs-grid3">
@@ -4694,6 +4695,63 @@ function csRenderRes() {
     box.innerHTML += cs.wildShape
       ? `<button class="lvl-opt" data-wildrevert style="margin-top:8px">↩️ Revert from ${escapeHtml(cs.wildShape.name)}</button>`
       : `<button class="lvl-opt" data-wildshape style="margin-top:8px">🐾 Wild Shape — transform into a beast</button>`;
+  }
+  try { csRenderCustom(); } catch (e) {}
+}
+
+/* ============ #227 CUSTOM TRACKERS — build your own sheet stats ============ */
+function csRenderCustom() {
+  const box = $('cs-custom'); if (!box) return;
+  cs.custom = Array.isArray(cs.custom) ? cs.custom : [];
+  box.textContent = '';
+  cs.custom.forEach((t, i) => {
+    const row = document.createElement('div'); row.className = 'cs-resrow';
+    const nm = document.createElement('span'); nm.className = 'cs-res-n'; nm.textContent = t.name;
+    nm.title = 'Click to rename'; nm.style.cursor = 'pointer';
+    nm.onclick = () => { const n2 = prompt('Rename tracker:', t.name); if (n2 && n2.trim()) { t.name = n2.trim().slice(0, 30); saveCS(); csRenderCustom(); } };
+    row.appendChild(nm);
+    const ctl = document.createElement('div'); ctl.className = 'cs-pips';
+    const max = Number(t.max) || 0;
+    if (max >= 1 && max <= 8) {
+      for (let p = 0; p < max; p++) {
+        const pip = document.createElement('button'); pip.className = 'cs-pip' + (p < (Number(t.val) || 0) ? ' on' : '');
+        pip.title = 'Click to set';
+        pip.onclick = () => { const cur = Number(t.val) || 0; t.val = (p + 1 === cur) ? p : p + 1; saveCS(); csRenderCustom(); };
+        ctl.appendChild(pip);
+      }
+    } else {
+      const minus = document.createElement('button'); minus.className = 'cs-res-btn'; minus.textContent = '−';
+      minus.onclick = () => { t.val = (Number(t.val) || 0) - 1; if (max && t.val < 0) t.val = 0; saveCS(); csRenderCustom(); };
+      const num = document.createElement('b'); num.textContent = ' ' + (Number(t.val) || 0) + (max ? ' / ' + max : '') + ' ';
+      const plus = document.createElement('button'); plus.className = 'cs-res-btn'; plus.textContent = '+';
+      plus.onclick = () => { t.val = (Number(t.val) || 0) + 1; if (max && t.val > max) t.val = max; saveCS(); csRenderCustom(); };
+      ctl.appendChild(minus); ctl.appendChild(num); ctl.appendChild(plus);
+    }
+    row.appendChild(ctl);
+    const del = document.createElement('button'); del.className = 'cs-res-btn'; del.textContent = '✖'; del.title = 'Delete this tracker';
+    del.onclick = () => { if (confirm('Delete tracker "' + t.name + '"?')) { cs.custom.splice(i, 1); saveCS(); csRenderCustom(); } };
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+  // add-row
+  const add = document.createElement('div'); add.className = 'cs-custom-add';
+  const nameIn = document.createElement('input'); nameIn.type = 'text'; nameIn.placeholder = 'New tracker… (Corruption, Sanity, Faction rep)'; nameIn.maxLength = 30;
+  const maxIn = document.createElement('input'); maxIn.type = 'number'; maxIn.placeholder = 'max'; maxIn.min = 0; maxIn.title = 'Optional cap — 1-8 shows pips, blank = open counter';
+  maxIn.style.width = '56px';
+  const btn = document.createElement('button'); btn.textContent = '＋ Add';
+  btn.onclick = () => {
+    const n = nameIn.value.trim(); if (!n) { flashHint('Name the tracker first'); return; }
+    if (cs.custom.length >= 12) { flashHint('Max 12 custom trackers'); return; }
+    cs.custom.push({ id: 'ct' + Date.now(), name: n.slice(0, 30), val: 0, max: Math.max(0, Math.min(999, parseInt(maxIn.value, 10) || 0)) });
+    saveCS(); csRenderCustom();
+  };
+  nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') btn.click(); });
+  add.appendChild(nameIn); add.appendChild(maxIn); add.appendChild(btn);
+  box.appendChild(add);
+  if (!cs.custom.length) {
+    const hint = document.createElement('div'); hint.style.cssText = 'font-size:11px;opacity:.6;margin-top:4px';
+    hint.textContent = 'Track anything your table invents — homebrew resources, curses, favor with factions. Saves with your character and rides along on export.';
+    box.appendChild(hint);
   }
 }
 
