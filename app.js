@@ -2403,6 +2403,73 @@ socket.on('state', (s) => { if (s && s.session) { SESSION = s.session; setTimeou
 document.addEventListener('DOMContentLoaded', initSession);
 if (document.readyState !== 'loading') initSession();
 
+/* ============ #229 SESSION PLAYLIST — Spotify / YouTube for the whole table ============ */
+let MUSIC = { url: '' };
+function musicEmbedUrl(url) {
+  // Turn a normal share link into an embeddable player URL. Returns '' if we can't embed (link-only fallback).
+  try {
+    const u = new URL(url);
+    const h = u.hostname;
+    if (h === 'open.spotify.com') {
+      // /playlist/ID, /album/ID, /track/ID, /artist/ID, /episode/ID → /embed/<same>
+      const m = u.pathname.match(/^\/(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/);
+      if (m) return 'https://open.spotify.com/embed/' + m[1] + '/' + m[2];
+      return '';
+    }
+    if (h === 'youtu.be') {
+      const id = u.pathname.slice(1).split('/')[0];
+      return id ? 'https://www.youtube.com/embed/' + id : '';
+    }
+    if (h === 'www.youtube.com' || h === 'youtube.com' || h === 'music.youtube.com') {
+      const list = u.searchParams.get('list');
+      if (list) return 'https://www.youtube.com/embed/videoseries?list=' + encodeURIComponent(list);
+      const v = u.searchParams.get('v');
+      if (v) return 'https://www.youtube.com/embed/' + encodeURIComponent(v);
+      return '';
+    }
+  } catch (e) {}
+  return '';
+}
+function musicRender() {
+  const wrap = $('music-wrap'); if (!wrap) return;
+  const has = !!MUSIC.url;
+  wrap.classList.toggle('hidden', !has);
+  const inp = $('music-in');
+  if (inp && document.activeElement !== inp) inp.value = MUSIC.url || '';
+  if (!has) { $('music-embed').textContent = ''; return; }
+  $('music-open').href = MUSIC.url;
+  const emb = musicEmbedUrl(MUSIC.url);
+  const box = $('music-embed'); box.textContent = '';
+  if (emb) {
+    const f = document.createElement('iframe');
+    f.src = emb; f.className = 'music-frame';
+    f.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
+    f.setAttribute('loading', 'lazy');
+    f.height = emb.includes('spotify') ? 152 : 200;
+    box.appendChild(f);
+  } else {
+    const d = document.createElement('div'); d.className = 'journal-hint';
+    d.textContent = 'Playlist linked — hit "Open ↗" to listen.';
+    box.appendChild(d);
+  }
+}
+function initMusic() {
+  const set = $('music-set'); if (!set) return;
+  set.onclick = () => {
+    if (!me.isGm) return;
+    const url = $('music-in').value.trim();
+    if (!url) { flashHint('Paste a Spotify or YouTube link first'); return; }
+    if (!/^https:\/\/(open\.spotify\.com|spotify\.link|www\.youtube\.com|youtube\.com|youtu\.be|music\.youtube\.com)\//.test(url)) { flashHint('That doesn’t look like a Spotify or YouTube link'); return; }
+    socket.emit('music:set', { url });
+    flashHint('🎵 Playlist set — the whole table can listen from the Journal tab');
+  };
+  $('music-clear').onclick = () => { if (!me.isGm) return; socket.emit('music:set', { url: '' }); $('music-in').value = ''; };
+}
+socket.on('music:set', (m) => { MUSIC = m || { url: '' }; musicRender(); });
+socket.on('state', (s) => { if (s && s.music) { MUSIC = s.music; setTimeout(musicRender, 400); } });
+document.addEventListener('DOMContentLoaded', initMusic);
+if (document.readyState !== 'loading') initMusic();
+
 /* ============ #221 EXPLORATION & TRAVEL EVENTS — offline tables, one tap ============ */
 const TRV = {
   road: [

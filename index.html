@@ -564,6 +564,23 @@
             <div class="journal-hint">Everyone sees this the moment they join — no more "wait, when are we playing?". Use Sesh in the Discord for RSVPs.</div>
           </div>
 
+          <!-- #229 Session playlist: DM links Spotify/YouTube, whole table listens -->
+          <div id="music-wrap" class="music-wrap hidden">
+            <div class="journal-head"><span class="party-title">🎵 Session Playlist</span>
+              <a id="music-open" href="#" target="_blank" rel="noopener" class="ghost music-open">Open ↗</a>
+            </div>
+            <div id="music-embed"></div>
+          </div>
+          <div class="monster-add gm-only">
+            <div class="mon-title">🎵 Session playlist <span class="gm-tag">DM</span></div>
+            <div class="loot-row">
+              <input id="music-in" class="mon-search" type="text" placeholder="Paste a Spotify or YouTube playlist link…" style="flex:1;margin:0" maxlength="300" />
+              <button id="music-set">🎵 Set</button>
+              <button id="music-clear" class="ghost" title="Remove the playlist">✖</button>
+            </div>
+            <div class="journal-hint">The whole table gets a built-in player right here in the Journal — battle music, tavern ambience, your campaign's soundtrack.</div>
+          </div>
+
           <div class="journal-head">
             <span class="party-title">Campaign Journal</span>
             <button id="journal-rec" class="ghost" title="Dictate notes with your voice (Chrome)">🎤 Rec</button>
@@ -925,6 +942,7 @@
             <li><b>✨ Custom Trackers</b> (character sheet): add your own stats — Corruption, Sanity, Faction rep, anything your table invents. Give it a cap of 1–8 for clickable pips, or leave it open as a counter. Click the name to rename; they save with your character and travel with exports.</li>
             <li><b>🎛 Your interface, your way</b> (button up top): untick the tabs you never use and they vanish from your panel — just for you. Save layouts as presets ("⚔️ Combat night" and "🎭 Roleplay night" come built in) and swap your whole workspace in one click.</li>
             <li><b>📅 Next session</b>: check the top of the Journal tab — your DM posts when you're playing next, and you'll see a reminder each time you join.</li>
+            <li><b>🎵 Session Playlist</b> (Journal tab): when your DM links a Spotify or YouTube playlist, a player appears right in the Journal — the whole table listens to the same campaign soundtrack.</li>
             <li><b>💰 Party Loot</b> (Combat tab): when the DM drops a haul, 🖐 Claim what you want (first come!) or 🎲 Roll for contested items — winner takes it, straight onto your sheet. Split gold arrives in your coin pouch automatically.</li>
             <li><b>⚔️ Maneuvers</b> (Combat tab, if your DM enables them): martial classes get Superiority Dice — spend one on Trip, Disarm, Riposte, Menace, Push or Precision Strike. The die and the save DC post to chat automatically; dice come back on a rest.</li>
             <li><b>🔗 Linked notes</b>: type <b>@</b> in a notebook note and pick a character — the name becomes a gold link that jumps to their card (dead ones show struck-through). Type <b>#waystation</b> style tags and click any tag to see every note using it. NPC cards grow a "🔗 2 notes" button showing everywhere you've written about them. Your notes become a campaign wiki without trying.</li>
@@ -968,6 +986,7 @@
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
             <li><b>📅 Next session</b> (Journal tab): type when you're playing next ("Friday 7pm EST") + an optional note — every player sees it in their Journal and gets a reminder when they join. <b>📣 Announce</b> posts it to chat. Pair it with the Sesh bot in the Discord for RSVPs, and scheduling stops being the campaign killer.</li>
+            <li><b>🎵 Session playlist</b> (Journal tab): paste a Spotify or YouTube playlist link and every player gets a built-in player in their Journal — your campaign soundtrack travels with the room and survives restarts. Pairs with the 🔊 ambient soundscapes for layered audio.</li>
             <li><b>✨ Custom Trackers</b>: running a homebrew mechanic — corruption, sanity, faction favor? Players add it to their own sheet in seconds (character sheet → Custom Trackers) with pips or counters. Pairs with the 🧪 Homebrew Maker for fully homebrew campaigns.</li>
             <li><b>🎛 Custom interfaces</b>: every player can hide tabs they don't use and save layout presets — a Fighter can run a lean ⚔️ combat layout while your bard keeps the 🎭 roleplay tabs. Each person's layout is their own; it changes nothing for anyone else.</li>
             <li><b>💰 Party Loot</b> (Combat tab): type the haul ("Flame Sword, 3 Potions") plus gold and hit <b>Drop haul</b>. Players 🖐 Claim items first-come or 🎲 roll off (one d20 each, you 🏆 Award to the highest); claimed items land straight on their sheets. <b>⚖️ Split gp evenly</b> divides the gold across the party with the remainder staying pooled. No more twenty-minute loot arguments.</li>
