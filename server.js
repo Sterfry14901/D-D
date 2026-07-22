@@ -253,6 +253,7 @@ function saveRooms() {
         opts: room.opts || { maneuvers: false }, // #220: optional rules survive restarts
         session: room.session || { when: '', note: '' }, // #222: next session survives restarts
         pool: room.pool || { items: [], gp: 0 },         // #228: loot pool survives restarts
+        music: room.music || { url: '' },                // #229: session playlist survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -354,6 +355,7 @@ function loadRooms() {
         opts: room.opts || { maneuvers: false },    // #220: restore optional rules
         session: room.session || { when: '', note: '' }, // #222: restore next session
         pool: room.pool || { items: [], gp: 0 },         // #228: restore loot pool
+        music: room.music || { url: '' },                // #229: restore session playlist
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -399,6 +401,7 @@ function getRoom(id) {
       opts: { maneuvers: false }, // #220 optional rules the DM can switch on
       session: { when: '', note: '' }, // #222 next-session banner (DM sets, all see)
       pool: { items: [], gp: 0 },      // #228 party loot pool
+      music: { url: '' },              // #229 session playlist (Spotify/YouTube, DM sets)
     });
   }
   return rooms.get(id);
@@ -851,6 +854,7 @@ io.on('connection', (socket) => {
       opts: room.opts || {},          // #220 optional rules (martial maneuvers, …)
       session: room.session || { when: '', note: '' }, // #222 next-session banner
       pool: room.pool || { items: [], gp: 0 },         // #228 party loot pool
+      music: room.music || { url: '' },                // #229 session playlist
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
@@ -1934,6 +1938,22 @@ io.on('connection', (socket) => {
       note: String(s.note || '').slice(0, 200),
     };
     io.to(joinedRoom).emit('session:set', room.session);
+    markDirty();
+  });
+
+  // ---- #229 Session playlist: DM links Spotify/YouTube, whole table sees it ----
+  socket.on('music:set', (m) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
+    let url = String(m.url || '').trim().slice(0, 300);
+    if (url) {
+      let host = '';
+      try { const u = new URL(url); if (u.protocol !== 'https:') url = ''; else host = u.hostname; } catch (e) { url = ''; }
+      const okHosts = ['open.spotify.com', 'spotify.link', 'www.youtube.com', 'youtube.com', 'youtu.be', 'music.youtube.com'];
+      if (url && !okHosts.includes(host)) url = '';
+    }
+    room.music = { url };
+    io.to(joinedRoom).emit('music:set', room.music);
+    if (url) pushSystem(joinedRoom, '🎵 The DM put on a session playlist — check the Journal tab.');
     markDirty();
   });
 

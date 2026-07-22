@@ -1609,3 +1609,8 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .cs-custom-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
 .cs-custom-add input { background: #10141c; color: #e8e6e0; border: 1px solid #2a3140; border-radius: 6px; padding: 4px 8px; font-size: 12px; flex: 1; }
 .cs-custom-add button { padding: 3px 10px; font-size: 12px; }
+
+/* ===== #229 Session playlist ===== */
+.music-wrap { margin: 8px 0; }
+.music-frame { width: 100%; border: 0; border-radius: 12px; }
+.music-open { font-size: 11px; text-decoration: none; padding: 2px 8px; }
