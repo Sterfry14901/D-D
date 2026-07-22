@@ -40,6 +40,11 @@ $('join-gm').addEventListener('keydown', (e) => { if (e.key === 'Enter') join();
       if ($('join-name')) $('join-name').value = '📺 Table View';
       if (r) setTimeout(() => { try { join(); } catch (e) {} }, 500);   // auto-joins the room
     }
+    // #215 DM Map View — big map + slim LEFT rail of DM essentials (join as DM with your password)
+    if (q.get('view') === 'dm') {
+      document.body.classList.add('dmview');
+      if ($('join-name')) $('join-name').value = localStorage.getItem('dnd-name') || 'DM';
+    }
   } catch {}
 })();
 
@@ -1335,7 +1340,34 @@ function renderScenes() {
     box.appendChild(d);
   });
 }
-socket.on('scene:list', (list) => { SCENES = list || []; renderScenes(); });
+socket.on('scene:list', (list) => { SCENES = list || []; renderScenes(); renderDmRailScenes(); });
+
+/* #215 DM Map View — the left rail's own scene list + tool buttons */
+function renderDmRailScenes() {
+  const box = $('dmr-scenes'); if (!box) return;
+  box.innerHTML = '';
+  SCENES.forEach((s) => {
+    const b = document.createElement('button');
+    b.className = 'dmr-scene'; b.title = `${s.name} — load this scene`;
+    b.textContent = s.name.slice(0, 14);
+    b.onclick = () => { if (confirm(`Load "${s.name}"?`)) socket.emit('scene:load', { id: s.id }); };
+    box.appendChild(b);
+  });
+  if (!SCENES.length) box.innerHTML = '<div class="dmr-empty">none yet</div>';
+}
+if ($('dmr-maps')) $('dmr-maps').onclick = () => $('map-modal').classList.remove('hidden');
+if ($('dmr-next')) $('dmr-next').onclick = () => socket.emit('init:turn', 'next');
+if ($('dmr-d20')) $('dmr-d20').onclick = () => {
+  const r = 1 + Math.floor(Math.random() * 20);
+  socket.emit('roll', { formula: (me.name || 'DM') + ' — d20', result: r, detail: `d20[${r}]` });
+};
+if ($('dmr-full')) $('dmr-full').onclick = () => { location.href = location.origin + '/?room=' + encodeURIComponent(me.room || ''); };
+/* show the rail only for the GM in ?view=dm */
+function syncDmRail() {
+  const rail = $('dm-rail'); if (!rail) return;
+  rail.classList.toggle('hidden', !(document.body.classList.contains('dmview') && me.isGm));
+}
+socket.on('state', () => setTimeout(syncDmRail, 150));   // me.isGm is set by the state handler
 if ($('scene-save')) $('scene-save').onclick = () => {
   const nm = ($('scene-name').value || '').trim() || 'Scene ' + (SCENES.length + 1);
   socket.emit('scene:save', { name: nm });
@@ -1346,6 +1378,9 @@ if ($('scene-save')) $('scene-save').onclick = () => {
 /* #213 Table View button (DM): open the map-only second-screen window */
 if ($('tv-btn')) $('tv-btn').onclick = () =>
   window.open(location.origin + '/?room=' + encodeURIComponent(me.room || 'default') + '&view=map', 'rf-tableview', 'noopener');
+/* #215 DM Map View button: big map + slim left DM rail (join as DM in the new window) */
+if ($('dmv-btn')) $('dmv-btn').onclick = () =>
+  window.open(location.origin + '/?room=' + encodeURIComponent(me.room || 'default') + '&view=dm', 'rf-dmview', 'noopener');
 
 /* #212 the controls hint fades out after 15s (press ? any time for the full list) */
 setTimeout(() => { const h = $('board-hint'); if (h) h.classList.add('faded'); }, 15000);
