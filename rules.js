@@ -70,26 +70,6 @@
       { t: 'Group Checks', b: 'Everyone rolls; if at least half succeed, the group succeeds.' },
       { t: 'Working Together', b: 'The Help action grants advantage when the helper could meaningfully assist.' },
     ],
-    Skills: [
-      { t: 'Athletics (STR)', b: 'Climbing, jumping, swimming in rough conditions, and grappling/shoving contests.' },
-      { t: 'Acrobatics (DEX)', b: 'Keeping your balance, tumbling, staying on your feet on ice or a rocking deck, escaping a grapple.' },
-      { t: 'Sleight of Hand (DEX)', b: 'Palming an object, planting something on someone, lifting a coin purse, manual trickery.' },
-      { t: 'Stealth (DEX)', b: 'Hiding from enemies, sneaking past guards, moving without being noticed. Opposed by passive Perception.' },
-      { t: 'Arcana (INT)', b: 'Recalling lore about spells, magic items, eldritch symbols, planes of existence, and magical traditions.' },
-      { t: 'History (INT)', b: 'Recalling lore about historical events, legendary people, ancient kingdoms, wars, and lost civilizations.' },
-      { t: 'Investigation (INT)', b: 'Deducing from clues: searching for hidden objects, finding a weak point, examining a scene of a crime.' },
-      { t: 'Nature (INT)', b: 'Recalling lore about terrain, plants and animals, weather, and natural cycles.' },
-      { t: 'Religion (INT)', b: 'Recalling lore about deities, rites, prayers, holy symbols, and cult practices.' },
-      { t: 'Animal Handling (WIS)', b: "Calming a domesticated animal, keeping a mount from being spooked, intuiting an animal's intentions." },
-      { t: 'Insight (WIS)', b: "Reading a creature's true intentions — detecting lies, predicting someone's next move from body language." },
-      { t: 'Medicine (WIS)', b: 'Stabilizing a dying companion (DC 10) or diagnosing an illness.' },
-      { t: 'Perception (WIS)', b: 'Spotting, hearing, or otherwise detecting something — noticing an ambush, overhearing a conversation. The most-rolled skill in the game.' },
-      { t: 'Survival (WIS)', b: 'Following tracks, hunting, navigating wilderness, predicting weather, avoiding natural hazards.' },
-      { t: 'Deception (CHA)', b: 'Convincingly hiding the truth — misleading, fast-talking, keeping a straight face, con jobs and disguises.' },
-      { t: 'Intimidation (CHA)', b: 'Influencing through threats, hostile posture, or violence — extracting information, making a show of force.' },
-      { t: 'Performance (CHA)', b: 'Delighting an audience with music, dance, acting, storytelling, or another entertainment.' },
-      { t: 'Persuasion (CHA)', b: 'Influencing with tact and good nature — negotiating, requesting aid, inspiring a crowd, etiquette.' },
-    ],
     'DM: Encounters': [
       { t: 'XP Thresholds per Character', b: 'Easy / Medium / Hard / Deadly by level — L1: 25/50/75/100 · L2: 50/100/150/200 · L3: 75/150/225/400 · L4: 125/250/375/500 · L5: 250/500/750/1100 · L6: 300/600/900/1400. Sum each column across the party for the party budget.' },
       { t: 'Encounter Multiplier', b: 'Multiply total monster XP by count: 1 monster ×1 · 2 ×1.5 · 3–6 ×2 · 7–10 ×2.5 · 11–14 ×3 · 15+ ×4. Compare the adjusted XP to the party thresholds. (Use next tier up for small parties, down for 6+.)' },
@@ -104,13 +84,6 @@
       { t: 'Hiding & Being Unseen', b: 'You can\'t hide from a creature that can see you clearly. An unseen attacker has advantage; being unseen doesn\'t hide the noise of an attack.' },
       { t: 'Object AC & HP (guide)', b: 'Fragile/resilient and size set an object\'s AC (≈11–19) and HP. Objects are immune to poison & psychic; usually fail on massive damage.' },
     ],
-    'Travel & Mounts': [
-      { t: 'Travel Pace', b: 'Fast: 400 ft/min, 4 mph, 30 mi/day (\u22125 passive Perception). Normal: 300 ft/min, 3 mph, 24 mi/day. Slow: 200 ft/min, 2 mph, 18 mi/day (can move stealthily).' },
-      { t: 'Forced March', b: 'Travel beyond 8 hours a day: at the end of each extra hour, CON save DC 10 + 1 per hour past 8, or gain one level of exhaustion.' },
-      { t: 'Food & Water', b: 'Need 1 lb of food per day (half rations count as half a day). You can go without food for 3 + CON modifier days; after that, one exhaustion level per day. Water: 1 gallon/day (2 in hot weather); half rations force a DC 15 CON save or exhaustion; none means automatic exhaustion.' },
-      { t: 'Mounted Combat', b: 'Mounting or dismounting costs half your speed. A controlled mount moves on your initiative and can only Dash, Disengage, or Dodge. If you\'re knocked prone, or the mount is moved against its will, make a DC 10 DEX save or land prone within 5 ft. Independent mounts keep their own initiative and act freely.' },
-      { t: 'Underwater Combat', b: 'Melee attacks have disadvantage unless using a dagger, javelin, shortsword, spear, or trident. Ranged weapon attacks auto-miss beyond normal range and have disadvantage within it (crossbows, nets, and thrown javelin-like weapons excepted). Creatures with a swim speed ignore these penalties. Fully immersed creatures have resistance to fire damage.' },
-    ],
     'Spellcasting': [
       { t: 'Concentration', b: 'Some spells require concentration. Taking damage forces a CON save (DC 10 or half the damage, whichever is higher) or you lose the spell. Only one concentration spell at a time; casting another ends the first.' },
       { t: 'Spell Slots', b: 'Casting a spell expends a slot of its level or higher. Cantrips are free. Regain slots on a long rest (Warlocks on a short rest).' },
@@ -119,6 +92,10 @@
       { t: 'Attacks & Saves', b: 'Spell attack bonus = proficiency + spellcasting mod. Save DC = 8 + proficiency + spellcasting mod.' },
     ],
   };
+
+  // #236: expose condition texts so tooltips everywhere can quote the actual rule
+  window.COND_RULES = {};
+  RULES.Conditions.forEach((c) => { window.COND_RULES[c.t] = c.b; });
 
   let rulesBuilt = false;
   let activeCat = null;
