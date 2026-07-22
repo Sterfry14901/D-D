@@ -2422,10 +2422,16 @@ io.on('connection', (socket) => {
       .filter((m) => m.role === 'player' || m.role === 'dm')
       .map((m) => `${m.role === 'dm' ? 'DM' : (m.author || 'Player')}: ${m.text}`)
       .join('\n').slice(-4000);
-    if (!transcript.trim()) { pushSystem(joinedRoom, 'No story yet to recap — play a little first!'); return; }
+    // #240: the Campaign Chronicle gives the recap the WHOLE campaign, not just the last hour
+    const chron = (room.timeline || []).slice(-60)
+      .map((e) => `${e.day != null ? 'Day ' + e.day + ': ' : ''}${e.text}`)
+      .join('\n').slice(-2500);
+    if (!transcript.trim() && !chron.trim()) { pushSystem(joinedRoom, 'No story yet to recap — play a little first!'); return; }
     io.to(joinedRoom).emit('dm:thinking', true);
     const reply = await callOpenAIDM([{ role: 'user', content:
-      'Write a short, dramatic "Previously on…" recap (3-5 sentences) of the adventure so far, based only on this session transcript. Speak as the narrator, past tense, capture the key events, choices, and cliffhangers.\n\nTRANSCRIPT:\n' + transcript }]);
+      'Write a short, dramatic "Previously on…" recap (3-5 sentences) of the adventure so far. Speak as the narrator, past tense, capture the key events, choices, and cliffhangers. Use the campaign chronicle for the big arc and the transcript for recent detail.'
+      + (chron.trim() ? '\n\nCAMPAIGN CHRONICLE (major events, in order):\n' + chron : '')
+      + (transcript.trim() ? '\n\nRECENT TRANSCRIPT:\n' + transcript : '') }]);
     const dmMsg = { id: 'm_' + rid(), author: 'Dungeon Master', role: 'dm', text: '📖 Previously… ' + reply, ts: Date.now() };
     room.chat.push(dmMsg);
     io.to(joinedRoom).emit('dm:thinking', false);
