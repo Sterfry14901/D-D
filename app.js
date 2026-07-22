@@ -1516,8 +1516,39 @@ socket.on('insp:got', () => {
 });
 
 /* ============ CHAT + AI DM ============ */
+/* #252 Level-up fanfare — golden confetti + banner when anyone levels up */
+let _fanfareLast = 0;
+function levelFanfare(text) {
+  if (Date.now() - _fanfareLast < 4000) return;            // don't stack bursts
+  _fanfareLast = Date.now();
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Banner
+  const b = document.createElement('div'); b.className = 'lvl-banner';
+  b.textContent = (text.match(/⬆️ [^!]+!/) || ['⬆️ LEVEL UP!'])[0];
+  document.body.appendChild(b);
+  setTimeout(() => b.classList.add('lvl-out'), 2600);
+  setTimeout(() => b.remove(), 3400);
+  if (reduced) return;
+  // Confetti
+  const wrap = document.createElement('div'); wrap.className = 'confetti-wrap';
+  const cols = ['#f5d76e', '#e8b64c', '#fff2c9', '#c59b45', '#ffd700'];
+  for (let i = 0; i < 42; i++) {
+    const p = document.createElement('span'); p.className = 'confetti';
+    p.style.left = (8 + Math.random() * 84) + 'vw';
+    p.style.background = cols[i % cols.length];
+    p.style.animationDelay = (Math.random() * 0.7) + 's';
+    p.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+    p.style.width = p.style.height = (5 + Math.random() * 6) + 'px';
+    if (i % 3 === 0) p.style.borderRadius = '50%';
+    wrap.appendChild(p);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 3600);
+}
 function addChat(m) {
   const log = $('chat-log');
+  // #252: fresh level-ups only — replayed history on join (old ts) stays quiet
+  if (m && /⬆️ .+ reaches level \d+/.test(m.text || '') && m.ts && Date.now() - m.ts < 15000) { try { levelFanfare(m.text); } catch {} }
   // Only auto-scroll if the reader is already near the bottom (don't yank them
   // away while they scroll back through history).
   const atBottom = (log.scrollHeight - log.scrollTop - log.clientHeight) < 60;
