@@ -1316,6 +1316,31 @@ function addRollHistory(m) {
   row.innerHTML = `<span class="dh-who">${escapeHtml(m.author)}</span> <span class="dh-txt">${escapeHtml((m.text || '').replace(/^rolled /, ''))}</span>`;
   box.prepend(row);
   while (box.children.length > 12) box.lastChild.remove();
+  boardDice(m);                                        // #205 tumble it on the board too
+}
+/* ============ #205 DICE ON THE BOARD ============
+   Every roll (anyone's) tumbles a big d20 over the battle map, then settles on the result. */
+let _bdTimer = null, _bdIv = null;
+function boardDice(m) {
+  const txt = String(m.text || '');
+  const res = (txt.match(/[→=]\s*(-?\d+)/) || [])[1];
+  if (res === undefined) return;
+  let ov = $('board-dice');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'board-dice';
+    ov.innerHTML = '<div class="bd-die"><span class="bd-num"></span></div><div class="bd-who"></div>';
+    document.body.appendChild(ov);
+  }
+  const die = ov.querySelector('.bd-die'), num = ov.querySelector('.bd-num'), who = ov.querySelector('.bd-who');
+  who.textContent = `${m.author || ''} — ${txt.replace(/^rolled /, '').slice(0, 64)}`;
+  ov.classList.add('show'); die.classList.remove('settle');
+  clearInterval(_bdIv); clearTimeout(_bdTimer);
+  let n = 0;
+  _bdIv = setInterval(() => {
+    num.textContent = 1 + Math.floor(Math.random() * 20);
+    if (++n > 13) { clearInterval(_bdIv); num.textContent = res; die.classList.add('settle'); }
+  }, 70);
+  _bdTimer = setTimeout(() => ov.classList.remove('show'), 3400);
 }
 socket.on('chat', addChat);
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
@@ -1858,7 +1883,11 @@ buildMonsters();
 const CR_XP = { '0': 10, '1/8': 25, '1/4': 50, '1/2': 100, '1': 200, '2': 450, '3': 700, '4': 1100, '5': 1800, '6': 2300, '7': 2900, '8': 3900, '9': 5000, '10': 5900, '11': 7200, '12': 8400, '13': 10000, '14': 11500, '15': 13000, '16': 15000, '17': 18000, '18': 20000, '19': 22000, '20': 25000, '21': 33000, '22': 41000, '23': 50000, '24': 62000, '25': 75000, '26': 90000, '27': 105000, '28': 120000, '29': 135000, '30': 155000 };
 const THREAT_T = { 1: [25, 50, 75, 100], 2: [50, 100, 150, 200], 3: [75, 150, 225, 400], 4: [125, 250, 375, 500], 5: [250, 500, 750, 1100], 6: [300, 600, 900, 1400], 7: [350, 750, 1100, 1700], 8: [450, 900, 1400, 2100], 9: [550, 1100, 1600, 2400], 10: [600, 1200, 1900, 2800], 11: [800, 1600, 2400, 3600], 12: [1000, 2000, 3000, 4500], 13: [1100, 2200, 3400, 5100], 14: [1250, 2500, 3800, 5700], 15: [1400, 2800, 4300, 6400], 16: [1600, 3200, 4800, 7200], 17: [2000, 3900, 5900, 8800], 18: [2100, 4200, 6300, 9500], 19: [2400, 4900, 7300, 10900], 20: [2800, 5700, 8500, 12700] };
 let threatParty = [];
-socket.on('party:list', (list) => { threatParty = list || []; recomputeThreat(); });
+socket.on('party:list', (list) => {
+  threatParty = list || []; recomputeThreat();
+  // #206 GM roster may have changed — refresh which tokens show health bars
+  Object.values(tokenEls).forEach((e) => { if (e && e._token) styleToken(e, e._token); });
+});
 function tokenCR(t) {
   if (t.cr !== undefined && t.cr !== null && CR_XP[String(t.cr)] !== undefined) return String(t.cr);
   const m = MONSTERS.find((x) => x.n === t.label);
@@ -2381,6 +2410,7 @@ $('addtoken-btn').onclick = () => {
     if (theme.emoji) tok.emoji = theme.emoji;
     if (Number(cs.maxhp) > 0) { tok.hp = Number(cs.hp) || 0; tok.maxhp = Number(cs.maxhp); }
   }
+  if (!(Number(tok.maxhp) > 0)) { tok.hp = 10; tok.maxhp = 10; } // #206 every PC starts with a health bar
   socket.emit('token:add', tok);
 };
 /* Add a companion / pet / NPC that YOU control (owned by you). */
@@ -2474,7 +2504,10 @@ function styleToken(el, t) {
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.name || t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
   const bar = el.querySelector('.hpbar'), fill = bar.querySelector('i');
-  if (t.maxhp && Number(t.maxhp) > 0) {
+  // #206 health bars are for PLAYER tokens only — monsters keep their HP secret from players (DM sees all)
+  const gmNames = new Set((roomPlayers || []).filter((p) => p.isGm).map((p) => p.name));
+  const showBar = me.isGm || (!!t.owner && !gmNames.has(t.owner));
+  if (t.maxhp && Number(t.maxhp) > 0 && showBar) {
     bar.style.display = 'block';
     const pct = Math.max(0, Math.min(100, (Number(t.hp) / Number(t.maxhp)) * 100));
     fill.style.width = pct + '%';
@@ -2483,7 +2516,7 @@ function styleToken(el, t) {
   const bar2 = el.querySelector('.hpbar2'), fill2 = bar2 && bar2.querySelector('i');
   if (bar2) {
     const temp = Number(t.temphp) || 0;
-    if (temp > 0) {
+    if (temp > 0 && showBar) {
       bar2.style.display = 'block';
       const denom = Number(t.maxhp) > 0 ? Number(t.maxhp) : temp;
       fill2.style.width = Math.max(8, Math.min(100, (temp / denom) * 100)) + '%';
@@ -3120,6 +3153,47 @@ function renderInit(list, turnIndex, round) {
   updateTurnBanner();
   highlightActiveToken();
   tickTimers(combat.round);
+  renderCombatTracker(list, turnIndex, round || 1);    // #207 floating tracker on the board
+}
+
+/* ============ #207 FLOATING COMBAT TRACKER ============
+   Always-visible turn order over the battle map whenever combat is running.
+   Round counter · initiative chips (active glows, next is "on deck") · DM Next button. */
+function renderCombatTracker(list, turnIndex, round) {
+  let ct = $('combat-tracker');
+  if (!list || !list.length) { if (ct) ct.classList.add('hidden'); renderCombatTracker._k = ''; return; }
+  if (!ct) {
+    ct = document.createElement('div'); ct.id = 'combat-tracker';
+    ct.innerHTML = '<div class="ct-round"></div><div class="ct-chips"></div><div class="ct-actions"></div>';
+    document.body.appendChild(ct);
+  }
+  ct.classList.remove('hidden');
+  ct.querySelector('.ct-round').textContent = '⚔️ R' + round;
+  const chips = ct.querySelector('.ct-chips'); chips.innerHTML = '';
+  const deckIdx = (turnIndex + 1) % list.length;
+  list.forEach((e, i) => {
+    const c = document.createElement('span');
+    c.className = 'ct-chip' + (i === turnIndex ? ' on' : '') + (i === deckIdx && list.length > 1 ? ' deck' : '');
+    c.innerHTML = `<b>${e.init}</b>${escapeHtml(e.name)}`;
+    if (i === turnIndex) c.title = 'Taking their turn now';
+    if (i === deckIdx) c.title = 'On deck — up next';
+    chips.appendChild(c);
+  });
+  const on = chips.querySelector('.ct-chip.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  const act = ct.querySelector('.ct-actions');
+  if (me.isGm && !act.querySelector('#ct-next')) {
+    act.innerHTML = '<button id="ct-next" title="Advance to the next turn (N)">Next ▸</button>';
+    act.querySelector('#ct-next').onclick = () => socket.emit('init:turn', 'next');
+  }
+  // "You're on deck" nudge — the NEXT player gets a heads-up so their turn is ready to go (#10 slow turns)
+  const k = round + ':' + turnIndex;
+  if (k !== renderCombatTracker._k) {
+    renderCombatTracker._k = k;
+    const next = list[deckIdx];
+    if (next && list.length > 1 && (next.name === me.name || (cs && cs.name && next.name === cs.name))) {
+      flashHint('🎯 You\'re on deck — plan your move!');
+    }
+  }
 }
 
 /* ============ EFFECT ROUND TIMERS (DM, per-device) ============ */
