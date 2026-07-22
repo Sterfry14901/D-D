@@ -795,7 +795,7 @@ function trialCheck(room) {                 // -> { allowed, left, used }
 io.on('connection', (socket) => {
   let joinedRoom = null;
 
-  socket.on('join', async ({ roomId, name, color, gmPassword, license }) => {
+  socket.on('join', async ({ roomId, name, color, gmPassword, license, atTable }) => {
     // #193 Party code: a player typed an RF-XXXXX code into the GM password box →
     // teleport them into the game that owns that code (as a player, never as GM).
     const codeTry = (gmPassword || '').trim().toUpperCase();
@@ -832,7 +832,7 @@ io.on('connection', (socket) => {
       }
       if (allowed) { if (!room.gmPassword) room.gmPassword = pw; gm = true; }
     }
-    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm };
+    room.players[socket.id] = { id: socket.id, name: name || 'Adventurer', color: color || '#c0392b', isGm: gm, atTable: atTable === true }; // #224 hybrid table: 🪑 in the room vs 🌐 remote
 
     socket.emit('scene:list', sceneMeta(room));   // #214 prepped scenes arrive with the join
     socket.emit('note:list', (room.notebook || {})[room.players[socket.id].name] || []); // #218 your private notebook
@@ -1955,6 +1955,14 @@ io.on('connection', (socket) => {
     io.to(joinedRoom).emit('music:set', room.music);
     if (url) pushSystem(joinedRoom, '🎵 The DM put on a session playlist — check the Journal tab.');
     markDirty();
+  });
+
+  // ---- #224 Hybrid table: toggle 🪑 at-the-table / 🌐 remote after joining ----
+  socket.on('presence:set', (p) => {
+    const room = rooms.get(joinedRoom); if (!room || !p) return;
+    const pl = room.players[socket.id]; if (!pl) return;
+    pl.atTable = p.atTable === true;
+    broadcastPlayers(joinedRoom);
   });
 
   // ---- #218 Player Notebook: private per-player notes with photos/sketches ----
