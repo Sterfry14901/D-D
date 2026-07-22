@@ -2117,6 +2117,84 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #226 CUSTOM INTERFACES — hide tabs, save layout presets ============ */
+const LAY_PRESETS = {
+  combat:   ['chat', 'combat', 'dice', 'sheet', 'players'],
+  roleplay: ['chat', 'sheet', 'journal', 'quests', 'world', 'players'],
+  all:      null,   // null = show everything
+};
+function layAllTabs() { return [...document.querySelectorAll('.tab[data-tab]')].map((t) => ({ id: t.dataset.tab, tip: t.dataset.tip || t.dataset.tab, el: t })); }
+function layLoad() { try { return JSON.parse(localStorage.getItem('dnd-layout') || '{}'); } catch (e) { return {}; } }
+function laySave(cfg) { try { localStorage.setItem('dnd-layout', JSON.stringify(cfg)); } catch (e) {} }
+function layApply() {
+  const cfg = layLoad();
+  const hidden = new Set(cfg.hidden || []);
+  hidden.delete('chat');                                   // chat is home base — never hidden
+  let activeHidden = false;
+  layAllTabs().forEach((t) => {
+    const hide = hidden.has(t.id);
+    t.el.classList.toggle('lay-hidden', hide);
+    if (hide && t.el.classList.contains('active')) activeHidden = true;
+  });
+  if (activeHidden) { const first = document.querySelector('.tab[data-tab]:not(.lay-hidden)'); if (first) first.click(); }
+}
+function layRenderModal() {
+  const box = $('lay-tabs'); if (!box) return;
+  const cfg = layLoad(); const hidden = new Set(cfg.hidden || []);
+  box.innerHTML = '';
+  layAllTabs().forEach((t) => {
+    if (t.id === 'chat') return;                            // always on
+    if (t.el.classList.contains('gm-only') && !me.isGm) return;
+    const l = document.createElement('label'); l.className = 'lay-row';
+    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !hidden.has(t.id);
+    c.onchange = () => {
+      const cfg2 = layLoad(); const h = new Set(cfg2.hidden || []);
+      c.checked ? h.delete(t.id) : h.add(t.id);
+      cfg2.hidden = [...h]; laySave(cfg2); layApply();
+    };
+    l.appendChild(c); l.appendChild(document.createTextNode(' ' + t.tip.replace(/&amp;/g, '&')));
+    box.appendChild(l);
+  });
+  // my saved presets
+  const mine = $('lay-mine'); if (!mine) return;
+  mine.innerHTML = '';
+  Object.entries(cfg.presets || {}).forEach(([name, hiddenList]) => {
+    const b = document.createElement('button'); b.className = 'ghost'; b.textContent = '📐 ' + name;
+    b.title = 'Apply this layout (right-click to delete)';
+    b.onclick = () => { const c2 = layLoad(); c2.hidden = hiddenList; laySave(c2); layApply(); layRenderModal(); flashHint('📐 Layout "' + name + '" applied'); };
+    b.oncontextmenu = (e) => { e.preventDefault(); if (confirm('Delete layout "' + name + '"?')) { const c2 = layLoad(); delete c2.presets[name]; laySave(c2); layRenderModal(); } };
+    mine.appendChild(b);
+  });
+  if (!Object.keys(cfg.presets || {}).length) { const e = document.createElement('span'); e.className = 'journal-hint'; e.textContent = 'None yet — set up your tabs, name it, hit Save.'; mine.appendChild(e); }
+}
+function initLayout() {
+  const btn = $('lay-btn'); if (!btn) return;
+  const modal = $('lay-modal');
+  btn.onclick = () => { layRenderModal(); modal.classList.remove('hidden'); };
+  $('lay-close').onclick = () => modal.classList.add('hidden');
+  document.querySelectorAll('.lay-preset').forEach((b) => {
+    b.onclick = () => {
+      const keep = LAY_PRESETS[b.dataset.preset];
+      const cfg = layLoad();
+      cfg.hidden = keep === null ? [] : layAllTabs().map((t) => t.id).filter((id) => !keep.includes(id));
+      laySave(cfg); layApply(); layRenderModal();
+      flashHint('⚡ ' + b.textContent.trim() + ' layout applied');
+    };
+  });
+  $('lay-save').onclick = () => {
+    const name = ($('lay-name').value || '').trim().slice(0, 24);
+    if (!name) { flashHint('Name the layout first'); return; }
+    const cfg = layLoad(); cfg.presets = cfg.presets || {};
+    if (Object.keys(cfg.presets).length >= 8 && !cfg.presets[name]) { flashHint('Max 8 saved layouts — delete one first (right-click)'); return; }
+    cfg.presets[name] = [...(cfg.hidden || [])];
+    laySave(cfg); $('lay-name').value = ''; layRenderModal();
+    flashHint('💾 Layout "' + name + '" saved');
+  };
+  setTimeout(layApply, 800);   // apply saved layout on load
+}
+document.addEventListener('DOMContentLoaded', initLayout);
+if (document.readyState !== 'loading') initLayout();
+
 /* ============ #228 PARTY LOOT POOL — claim it, roll for it, or split it ============ */
 let POOL = { items: [], gp: 0 };
 function poolRender() {
