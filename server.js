@@ -1454,6 +1454,11 @@ io.on('connection', (socket) => {
         cp: num(s.cp), sp: num(s.sp), ep: num(s.ep), gp: num(s.gp), pp: num(s.pp),
       },
       gear,
+      // #247: homebrew trackers + exhaustion, validated
+      custom: (Array.isArray(s.custom) ? s.custom : []).slice(0, 12).map((t) => ({
+        name: clip(t && t.name, 30), val: num(t && t.val), max: Math.max(0, Math.min(999, num(t && t.max))),
+      })).filter((t) => t.name),
+      exh: Math.max(0, Math.min(6, num(s.exh))),
       updated: Date.now(),
     };
     sendSheetsToGms(joinedRoom);
