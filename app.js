@@ -2073,6 +2073,107 @@ function initHomebrew() {
 document.addEventListener('DOMContentLoaded', initHomebrew);
 if (document.readyState !== 'loading') initHomebrew();
 
+/* ============ #221 EXPLORATION & TRAVEL EVENTS — offline tables, one tap ============ */
+const TRV = {
+  road: [
+    '🧭 A toppled merchant cart blocks the way — the driver is missing, but the horses are calm.',
+    '🧭 A patrol of weary guards waves you down: "Seen anyone pass with a red hood?"',
+    '🧭 A milestone is carved with fresh warning runes. Someone left them within the last day.',
+    '🧭 A pilgrim shares your fire and pays for supper with a rumor about the next town.',
+    '🧭 Hoofprints leave the road here — many riders, moving fast, less than an hour ago.',
+    '🧭 A toll bridge ahead. The "toll keeper" has no uniform and a nervous smile.',
+    '🧭 A dead crow lies at the crossroads with a tiny scroll tied to its leg.',
+    '🧭 A wheel of a distant windmill has stopped mid-turn, though the wind is strong.',
+    '🧭 Sudden downpour — visibility drops, and something big shelters under the same tree line.',
+    '🧭 A child sits alone on a fence post counting travellers. She is on number nine hundred.',
+  ],
+  forest: [
+    '🌲 The birdsong stops all at once. Total silence.',
+    '🌲 Claw marks score a trunk twelve feet up. Fresh sap still weeps from them.',
+    '🌲 A ring of mushrooms — perfect, unbroken. Small footprints lead inside but not out.',
+    '🌲 A wounded stag limps across your path wearing a silver collar.',
+    '🌲 A hunter’s snare holds a satchel, not an animal. Inside: rations and an unsent letter.',
+    '🌲 Smoke rises thin and blue between the trees — a small, deliberate fire.',
+    '🌲 The path forks where your map shows none. One fork smells faintly of cinnamon.',
+    '🌲 Webs span the trees ahead — thick as rope, and freshly spun.',
+    '🌲 An abandoned camp: bedrolls still warm, food half-eaten, no signs of struggle.',
+    '🌲 A voice in the canopy repeats the last thing your party said, almost perfectly.',
+  ],
+  mountains: [
+    '⛰ A rope bridge sways ahead. Three of its planks lie splintered in the gorge below.',
+    '⛰ Rockslide! Everyone makes a DEX save or is caught in the tumbling scree.',
+    '⛰ A cairn of stones marks a grave. The name on it belongs to someone in the party.',
+    '⛰ Mountain goats scatter suddenly — something above you spooked them.',
+    '⛰ A hermit’s hut clings to the cliff. Smoke curls from the chimney; the door is open.',
+    '⛰ The temperature plunges. Frost forms on armor in minutes.',
+    '⛰ An eagle circles you three times, then flies deliberately toward a distant peak.',
+    '⛰ A narrow ledge — single file, no armor bonuses, and the wind is picking up.',
+    '⛰ You find climbing gear wedged in the rocks: good rope, and a journal of failed attempts.',
+    '⛰ Distant horns echo through the pass — one long note, answered by two short.',
+  ],
+  swamp: [
+    '🐸 Marsh lights flicker to the east — bobbing gently, keeping pace with you.',
+    '🐸 A sunken statue rises from the muck, hand outstretched, palm up.',
+    '🐸 Insects swarm suddenly. Then, just as suddenly — nothing. Not one.',
+    '🐸 A flat-bottomed boat drifts by, empty except for a single boot.',
+    '🐸 Ground that looked solid isn’t — CON save or lose a boot and 10 feet of progress.',
+    '🐸 An old woman on stilts strides past. She tips her hat and doesn’t stop.',
+    '🐸 Bubbles rise in a line across the pool ahead — moving toward you.',
+    '🐸 A tree grows glass bottles instead of fruit. One of them glows.',
+    '🐸 Croaking in rhythm — hundreds of frogs, all keeping the same slow beat.',
+    '🐸 A rickety walkway of planks appears — freshly hammered, maker unknown.',
+  ],
+  desert: [
+    '🏜 A dust plume on the horizon — riders, or something with too many legs.',
+    '🏜 Half-buried bones of a colossal beast form a tunnel of ribs across the dunes.',
+    '🏜 An oasis, exactly where the map promised. It looks too perfect.',
+    '🏜 Sandstorm rolling in — thirty minutes to find shelter, maybe less.',
+    '🏜 A merchant caravan traded here recently: tracks, tent rings, and one buried strongbox.',
+    '🏜 By night, the stars rearrange briefly into a shape someone in the party recognizes.',
+    '🏜 A lone cactus has been carved with an arrow and the words "TRUST THE WELL".',
+    '🏜 Heat mirage — or is it? A city shimmers on the horizon where no city should be.',
+    '🏜 The sand underfoot rings hollow for twenty paces.',
+    '🏜 A vulture lands nearby and refuses to leave. It seems to be waiting politely.',
+  ],
+  coast: [
+    '🌊 Wreckage on the beach — crates, rigging, and footprints leading away in a hurry.',
+    '🌊 A message in a bottle, dated three days from now.',
+    '🌊 The tide pulls back much too far, much too fast.',
+    '🌊 Seals watch you from the rocks. One of them wears a gold earring.',
+    '🌊 A lighthouse blinks a pattern — someone up there is signalling, not warning.',
+    '🌊 Fishermen haul in a net: fish, kelp, and a locked iron chest.',
+    '🌊 A storm builds offshore. Lightning strikes the same spot on the water, twice.',
+    '🌊 A song drifts over the waves. Everyone WIS save or stop to listen.',
+    '🌊 Crabs the size of shields migrate across the beach in a clanking column.',
+    '🌊 Someone has drawn a huge arrow in the sand, pointing inland. The tide is erasing it.',
+  ],
+  underground: [
+    '🕳 The torches gutter — the air is moving. Something ahead is breathing.',
+    '🕳 Glowing fungi light a fork in the tunnel: blue glow left, red glow right.',
+    '🕳 A rope descends from a crack above, knotted for climbing, slick with fresh mud.',
+    '🕳 Tap. Tap. Tap. From inside the wall. It stops when you stop.',
+    '🕳 An underground stream crosses the path — ice cold, and something glitters in it.',
+    '🕳 Old mine-cart tracks, and one cart, upright and loaded with ore no one mined recently.',
+    '🕳 The tunnel walls are scratched with tally marks. Thousands of them.',
+    '🕳 A perfectly round hole in the floor, edges smooth as glass. No bottom in sight.',
+    '🕳 A ghostly echo of laughter — three seconds AFTER the party laughs.',
+    '🕳 Cave-in behind you! The way back is gone; the dust reveals a hidden side passage.',
+  ],
+};
+function initTravel() {
+  const go = $('trv-go'), ter = $('trv-terrain');
+  if (!go || !ter) return;
+  go.onclick = () => {
+    if (!me.isGm) return;
+    const list = TRV[ter.value] || TRV.road;
+    const ev = list[Math.floor(Math.random() * list.length)];
+    socket.emit('chat', { text: ev });
+    flashHint('🧭 Travel event posted — improvise from there, or hit DM ▸ to let the AI run it');
+  };
+}
+document.addEventListener('DOMContentLoaded', initTravel);
+if (document.readyState !== 'loading') initTravel();
+
 /* ============ #220 MARTIAL MANEUVERS — DM-optional rule ============ */
 window.roomOpts = window.roomOpts || {};
 const MV_MARTIAL = ['Fighter', 'Barbarian', 'Monk', 'Rogue', 'Ranger', 'Paladin'];
