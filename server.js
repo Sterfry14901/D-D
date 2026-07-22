@@ -2047,6 +2047,24 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, `🌟 The DM awards Inspiration to ${target.name} — well played!`);
   });
 
+  // ---- #246 Death & Resurrection ceremony ----
+  socket.on('pc:died', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id]; if (!p || p.isGm || p.spectator) return;
+    if (p._deadSince && Date.now() - p._deadSince < 30000) return;   // rate-limit repeat fires
+    p._deadSince = Date.now();
+    pushSystem(joinedRoom, `⚰️ ${p.name} has fallen. The realm holds its breath…`);
+    timelineAdd(joinedRoom, `⚰️ ${p.name} fell in battle`, null);
+  });
+  socket.on('pc:revived', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id]; if (!p || p.isGm || p.spectator) return;
+    if (!p._deadSince) return;                                        // only after a death
+    p._deadSince = null;
+    pushSystem(joinedRoom, `✨ ${p.name} returns from the brink — the tale is not over yet!`);
+    timelineAdd(joinedRoom, `✨ ${p.name} returned from death's door`, null);
+  });
+
   // ---- #245 Spectator promotion: a watcher decides to play ----
   socket.on('presence:play', () => {
     const room = rooms.get(joinedRoom); if (!room) return;
