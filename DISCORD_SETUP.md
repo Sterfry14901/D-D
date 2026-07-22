@@ -11,6 +11,16 @@ Permanent invite: **https://discord.gg/qymT99jZrN** (linked in-game on the join 
 INFORMATION → 🏰 The Kingdom · COMMUNITY → ⚔️ Adventurer's Guild · GAME SUPPORT → 🛠 Forge ·
 DEVELOPMENT → 📜 Library of Wisdom · (DM/SUPPORTERS/TESTING already themed).
 
+**✅ LIVE — the onboarding machine is fully wired (July 22, 2026):**
+- Carl-bot, MEE6 and Sesh installed; Carl-bot + MEE6 roles sit above the self-assign roles.
+- **Autorole**: everyone who joins gets 👋 New Player automatically (`!autorole add "👋 New Player"` confirmed).
+- **Reaction roles** on the 🧭 CHOOSE YOUR PATH post in #welcome (message 1529508157582348350):
+  ✅→🧙 Adventurer · 🔔→🔔 Patch Notes · 🎲→🔔 Looking For Group · 📰→🔔 Beta News · 🎉→🔔 Giveaways.
+- Carl-bot gotchas learned: `!rr addmany` wants the raw message ID (links get mangled into channel
+  mentions), run it IN the channel that holds the message, pairs one per line as `emoji role name`
+  (no quotes). MEE6 level-roles: free tier, mee6.xyz dashboard → Leaderboards → Role Rewards
+  (suggested: lvl 5 → 🧙 Adventurer, lvl 10 → ⚔️ Veteran).
+
 **Auto-role assignment — all via Carl-bot (carl.gg) once YOU install it (OAuth = your click):**
 | Trigger | Role | Carl-bot feature |
 |---|---|---|
