@@ -4584,12 +4584,13 @@ $('fog-btn').onclick = () => {
 function setPaintTarget(t) {
   paintTarget = t;
   fogPaintHide = (t === 'hide');
-  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall']]
-    .forEach(([k, id]) => $(id).classList.toggle('active', paintTarget === k));
+  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase']]
+    .forEach(([k, id]) => { const b = $(id); if (b) b.classList.toggle('active', paintTarget === k); });
 }
 $('fog-paint-hide').onclick = () => setPaintTarget('hide');
 $('fog-paint-reveal').onclick = () => setPaintTarget('reveal');
 $('fog-paint-wall').onclick = () => setPaintTarget('wall');
+if ($('fog-paint-wall-erase')) $('fog-paint-wall-erase').onclick = () => setPaintTarget('wallerase');   // #255 hidden doors
 [['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
   const b = $(id); if (!b) return;
   b.onclick = () => {
@@ -4615,6 +4616,10 @@ function paintFog(e) {
     if (paintTarget === 'wall') {
       if (walls[key]) continue;
       walls[key] = true; socket.emit('wall:cell', { key, on: true }); touchedWall = true;
+    } else if (paintTarget === 'wallerase') {
+      // #255: knock a single cell out of a wall — perfect for a hidden door
+      if (!walls[key]) continue;
+      delete walls[key]; socket.emit('wall:cell', { key, on: false }); touchedWall = true;
     } else {
       const wantHidden = (paintTarget === 'hide');
       if (!!fog.hidden[key] === wantHidden) continue;
@@ -4670,21 +4675,57 @@ function hasSight(x0, y0, x1, y1) {
   return true;
 }
 
+/* #255: vision is PERSONAL now. What you see depends on your own character's
+   darkvision (from the sheet's Senses box), the light sources in the room, and
+   line of sight through the walls. Monsters no longer light up the map for you. */
+function tokenCell(t) {
+  return [Math.floor((t.x + (t.size || 1) * 32) / gridSize), Math.floor((t.y + (t.size || 1) * 32) / gridSize)];
+}
+function myDarkvisionCells() {
+  const m = String((cs && cs.senses) || '').match(/darkvision\s*(\d+)/i);
+  return m ? Math.max(0, Math.round(Number(m[1]) / 5)) : 0;
+}
+function myVisionTokens() {
+  const all = Object.values(tokenEls).map((el) => el._token).filter(Boolean);
+  const mine = all.filter((t) => t.ownerId === me.id || (t.owner && me.name && t.owner === me.name));
+  if (mine.length) return { toks: mine, personal: true };
+  // Spectators / viewers with no token of their own see what the party sees.
+  const gmN = new Set((roomPlayers || []).filter((p) => p.isGm).map((p) => p.name));
+  return { toks: all.filter((t) => t.owner && !gmN.has(t.owner)), personal: false };
+}
 function computeVision() {
   const lit = new Set();
   const R = VISION_RADIUS;
+  const SEE_CAP = 30;                       // you can spot a lit cell up to ~150 ft away
+  // 1) Illuminated cells: every light source glows outward, stopped by walls.
+  const lightCells = new Set();
   Object.values(tokenEls).forEach((el) => {
     const t = el._token; if (!t) return;
-    const tcx = Math.floor((t.x + (t.size || 1) * 32) / gridSize);
-    const tcy = Math.floor((t.y + (t.size || 1) * 32) / gridSize);
-    // per-token: use the larger of its sight range and the light it emits
-    const r = Math.max(Number(t.vision) || R, Number(t.light) || 0);
-    for (let cx = tcx - r; cx <= tcx + r; cx++) {
-      for (let cy = tcy - r; cy <= tcy + r; cy++) {
+    const lr = Number(t.light) || 0; if (lr <= 0) return;
+    const [tcx, tcy] = tokenCell(t);
+    for (let cx = tcx - lr; cx <= tcx + lr; cx++) for (let cy = tcy - lr; cy <= tcy + lr; cy++) {
+      if (cx < 0 || cy < 0) continue;
+      if (Math.max(Math.abs(cx - tcx), Math.abs(cy - tcy)) > lr) continue;
+      if (hasSight(tcx, tcy, cx, cy)) lightCells.add(`${cx},${cy}`);
+    }
+  });
+  // 2) What YOUR eyes reach: from each of your tokens, walls block sight, and a
+  //    cell is visible if it's inside your own vision/darkvision radius OR lit.
+  const dv = myDarkvisionCells();
+  const { toks, personal } = myVisionTokens();
+  toks.forEach((t) => {
+    const [tcx, tcy] = tokenCell(t);
+    const own = personal
+      ? Math.max(Number(t.vision) || 0, dv, Number(t.light) || 0, R)
+      : Math.max(Number(t.vision) || R, Number(t.light) || 0);
+    for (let cx = tcx - SEE_CAP; cx <= tcx + SEE_CAP; cx++) {
+      for (let cy = tcy - SEE_CAP; cy <= tcy + SEE_CAP; cy++) {
         if (cx < 0 || cy < 0) continue;
+        const key = `${cx},${cy}`;
         const dist = Math.max(Math.abs(cx - tcx), Math.abs(cy - tcy));
-        if (dist > r) continue;
-        if (hasSight(tcx, tcy, cx, cy)) lit.add(`${cx},${cy}`);
+        if (dist > SEE_CAP) continue;
+        if (dist > own && !lightCells.has(key)) continue;   // too far & unlit — darkness
+        if (hasSight(tcx, tcy, cx, cy)) lit.add(key);
       }
     }
   });
@@ -4703,9 +4744,12 @@ function doLighting() {
   // GM sees everything; darkness only applies to players.
   if (!lighting || me.isGm) {
     Object.values(tokenEls).forEach((el) => { el.style.visibility = 'visible'; });
+    if (window._mySight) { window._mySight = null; renderFog(); }   // #255 fog back to normal
     return;
   }
   const lit = computeVision();
+  window._mySight = lit;   // #255: fog rendering peeks through where you can see
+  renderFog();
   const cols = Math.ceil(BOARD_W / gridSize), rows = Math.ceil(BOARD_H / gridSize);
   for (let cx = 0; cx < cols; cx++) {
     for (let cy = 0; cy < rows; cy++) {
@@ -4733,6 +4777,10 @@ function renderFog() {
   $('board').classList.toggle('fog-on', fog.active);
   if (!fog.active) return;
   for (const key in fog.hidden) {
+    // #255: with lighting on, your own eyes burn through the fog wherever you
+    // actually have line of sight — darkvision included. The DM's fog stays
+    // painted; you just see through your part of it.
+    if (window._mySight && !me.isGm && window._mySight.has(key)) continue;
     const [cx, cy] = key.split(',').map(Number);
     const cell = document.createElement('div');
     cell.className = 'fog-cell';
