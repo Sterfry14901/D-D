@@ -2670,6 +2670,30 @@ function initDiceStats() { const b = $('dice-stats-btn'); if (!b) return; b.oncl
 document.addEventListener('DOMContentLoaded', initDiceStats);
 if (document.readyState !== 'loading') initDiceStats();
 
+/* ============ #242 END SESSION — 🌙 one button wraps the night ============ */
+function initEndSession() {
+  const b = $('end-session'); if (!b) return;
+  b.onclick = () => {
+    if (!me.isGm) return;
+    if (!confirm('Wrap up this session?\n\n• Dice luck report posts to chat\n• The Chronicle logs the session\n• Then: set next session + download a backup')) return;
+    // 1. share the night's dice verdicts
+    const st = diceStatsLines();
+    if (st) socket.emit('chat', { text: `📊 DICE REPORT — 🍀 ${st.luckiest} rode high${st.unluckiest ? `, 🪦 ${st.unluckiest} angered the dice gods` : ''}. ` + st.lines.join(' | ') });
+    // 2. server closes the session (announcement + chronicle + counter)
+    socket.emit('session:end', (res) => {
+      if (!res || !res.ok) { flashHint('Only the DM can end the session'); return; }
+      // 3. guide the DM to the wrap-up chores
+      setTimeout(() => {
+        const t = document.querySelector('.tab[data-tab="journal"]'); if (t) t.click();
+        const iw = $('sess-in-when'); if (iw) { iw.focus(); iw.placeholder = 'When\'s the next one? (Friday 7pm)'; }
+        flashHint(`🌙 Session ${res.session} in the books! Set the next session time — then hit 💾 Backup for safekeeping.`);
+      }, 800);
+    });
+  };
+}
+document.addEventListener('DOMContentLoaded', initEndSession);
+if (document.readyState !== 'loading') initEndSession();
+
 /* ============ #232 SESSION ZERO WIZARD — whole-campaign setup in one pass ============ */
 function suKey() { return 'dnd-setup-' + (me.room || 'default'); }
 function suState() { try { return JSON.parse(localStorage.getItem(suKey())) || {}; } catch (e) { return {}; } }
