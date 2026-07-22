@@ -201,7 +201,7 @@ body.show-names .token .tk-name:not(:empty) { display: block; }
 .token.gm-hidden::after { content: "🙈"; position: absolute; top: -10px; right: -6px; font-size: 12px; z-index: 3; }
 
 /* ===== Temp HP bar (second token bar) ===== */
-.token .hpbar2 { position: absolute; left: 6%; right: 6%; width: 88%; bottom: -9px; height: 4px; background: rgba(0,0,0,0.55); border-radius: 3px; display: none; overflow: hidden; z-index: 1; }
+.token .hpbar2 { position: absolute; left: 6%; right: 6%; width: 88%; top: -15px; height: 4px; background: rgba(0,0,0,0.55); border-radius: 3px; display: none; overflow: hidden; z-index: 1; } /* temp HP stacks above the main bar */
 .token .hpbar2 i { display: block; height: 100%; background: #4a9fe0; box-shadow: 0 0 4px rgba(74,159,224,0.8); }
 
 /* ===== Token auras ===== */
@@ -838,7 +838,7 @@ body:not(.is-gm) .gm-only { display: none !important; }
 #board.gm-fog #fog { z-index: 2; }            /* GM: fog below tokens, see-through */
 
 /* Token HP bar + statuses */
-.token .hpbar { position: absolute; left: 6%; right: 6%; bottom: -9px; height: 6px; background: rgba(0,0,0,0.7); border: 1px solid rgba(0,0,0,0.8); border-radius: 4px; overflow: hidden; display: none; }
+.token .hpbar { position: absolute; left: 6%; right: 6%; top: -9px; height: 6px; background: rgba(0,0,0,0.7); border: 1px solid rgba(0,0,0,0.8); border-radius: 4px; overflow: hidden; display: none; } /* #211 bar rides ON TOP of the player */
 .token .hpbar i { display: block; height: 100%; background: #5fae54; transition: width .2s; }
 .token .statuses { position: absolute; top: -10px; right: -8px; display: flex; gap: 1px; }
 .token .statuses span { font-size: 14px; filter: drop-shadow(0 1px 2px #000); }
