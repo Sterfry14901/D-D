@@ -2510,6 +2510,56 @@ function initAtTable() { const c = $('join-attable'); if (c && localStorage.getI
 document.addEventListener('DOMContentLoaded', initAtTable);
 if (document.readyState !== 'loading') initAtTable();
 
+/* ============ #232 SESSION ZERO WIZARD — whole-campaign setup in one pass ============ */
+function suKey() { return 'dnd-setup-' + (me.room || 'default'); }
+function suState() { try { return JSON.parse(localStorage.getItem(suKey())) || {}; } catch (e) { return {}; } }
+function suMark(step) {
+  const s = suState(); s[step] = true;
+  try { localStorage.setItem(suKey(), JSON.stringify(s)); } catch (e) {}
+  suPaint();
+}
+function suPaint() {
+  const s = suState();
+  document.querySelectorAll('#setup-modal .setup-step').forEach((el) => {
+    const done = !!s[el.dataset.step];
+    el.classList.toggle('setup-done', done);
+    el.querySelector('.setup-check').textContent = done ? '✅' : '○';
+  });
+}
+function suOpen() { suPaint(); const iw = $('su-when'); if (iw && SESSION.when) iw.value = SESSION.when; const im = $('su-music'); if (im && MUSIC.url) im.value = MUSIC.url; const ic = $('su-combat'); if (ic && MUSIC.combatUrl) ic.value = MUSIC.combatUrl; $('setup-modal').classList.remove('hidden'); }
+function suClose() { $('setup-modal').classList.add('hidden'); }
+function initSetupWizard() {
+  const btn = $('setup-btn'); if (!btn) return;
+  btn.onclick = suOpen;
+  $('su-close').onclick = suClose;
+  $('su-done').onclick = () => { const s = suState(); s.dismissed = true; try { localStorage.setItem(suKey(), JSON.stringify(s)); } catch (e) {} suClose(); flashHint('🚀 Have a great campaign — everything lives in the tabs on the right'); };
+  $('su-party').onclick = () => { suMark('invite'); suClose(); if ($('party-btn')) $('party-btn').click(); };
+  $('su-invite').onclick = () => { suMark('invite'); if ($('invite-btn')) $('invite-btn').click(); };
+  $('su-sess-set').onclick = () => {
+    const when = $('su-when').value.trim(); if (!when) { flashHint('Type when you\'re playing first'); return; }
+    socket.emit('session:set', { when, note: $('su-note').value.trim() });
+    suMark('session'); flashHint('📅 Set — every player sees it when they join');
+  };
+  $('su-music-set').onclick = () => {
+    const url = $('su-music').value.trim(); const combatUrl = $('su-combat').value.trim();
+    if (!url && !combatUrl) { flashHint('Paste a playlist link first'); return; }
+    socket.emit('music:set', { url, combatUrl });
+    suMark('music'); flashHint('🎵 Playlist set');
+  };
+  $('su-map').onclick = () => { suMark('map'); suClose(); if ($('map-btn')) $('map-btn').click(); };
+  $('su-quest').onclick = () => { suMark('quest'); suClose(); const t = document.querySelector('.tab[data-tab="quests"]'); if (t) t.click(); };
+  // Auto-offer once per room: fresh GM, nothing configured yet.
+  socket.on('state', (st) => {
+    if (!me.isGm) return;
+    const s = suState();
+    if (s.dismissed || s._offered) return;
+    const fresh = !(st.session && st.session.when) && !st.mapImage;
+    if (fresh) { s._offered = true; try { localStorage.setItem(suKey(), JSON.stringify(s)); } catch (e) {} setTimeout(suOpen, 1800); }
+  });
+}
+document.addEventListener('DOMContentLoaded', initSetupWizard);
+if (document.readyState !== 'loading') initSetupWizard();
+
 /* ============ #221 EXPLORATION & TRAVEL EVENTS — offline tables, one tap ============ */
 const TRV = {
   road: [

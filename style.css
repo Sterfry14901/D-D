@@ -1619,3 +1619,10 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .join-attable { display: block; margin: 6px 0 2px; font-size: 12px; cursor: pointer; }
 .hybrid-head { font-size: 11px; opacity: .75; list-style: none; margin-bottom: 4px; }
 .seat { cursor: default; }
+
+/* ===== #232 Session Zero wizard ===== */
+.setup-card { max-width: 560px; }
+.setup-step { border: 1px solid #2a3140; border-radius: 10px; padding: 8px 10px; margin: 8px 0; transition: border-color .2s; }
+.setup-step.setup-done { border-color: #3f7d4e; }
+.setup-step .setup-check { margin-right: 4px; }
+.setup-body { margin-top: 6px; }
