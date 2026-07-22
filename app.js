@@ -31,8 +31,15 @@ $('join-gm').addEventListener('keydown', (e) => { if (e.key === 'Enter') join();
 // Prefill the room from an invite link (?room=NAME).
 (function () {
   try {
-    const r = new URLSearchParams(location.search).get('room');
+    const q = new URLSearchParams(location.search);
+    const r = q.get('room');
     if (r && $('join-room')) $('join-room').value = r;
+    // #213 Table View — clean map-only window for a second screen / player-facing TV
+    if (q.get('view') === 'map') {
+      document.body.classList.add('tableview');
+      if ($('join-name')) $('join-name').value = '📺 Table View';
+      if (r) setTimeout(() => { try { join(); } catch (e) {} }, 500);   // auto-joins the room
+    }
   } catch {}
 })();
 
@@ -1309,6 +1316,10 @@ function showDmAlert(text) {
   $('dm-alert-fix').onclick = () => { b.classList.remove('show'); openAiConfig(); };
   $('dm-alert-x').onclick = () => b.classList.remove('show');
 }
+/* #213 Table View button (DM): open the map-only second-screen window */
+if ($('tv-btn')) $('tv-btn').onclick = () =>
+  window.open(location.origin + '/?room=' + encodeURIComponent(me.room || 'default') + '&view=map', 'rf-tableview', 'noopener');
+
 /* #212 the controls hint fades out after 15s (press ? any time for the full list) */
 setTimeout(() => { const h = $('board-hint'); if (h) h.classList.add('faded'); }, 15000);
 

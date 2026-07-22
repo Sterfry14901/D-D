@@ -958,6 +958,11 @@ body:not(.is-gm) .gm-only { display: none !important; }
 #combat-tracker #ct-next:hover { background: #93321f; }
 @media (max-width: 800px) { #combat-tracker { top: auto; bottom: 8px; max-width: 94vw; } }
 
+/* #213 Table View — clean second-screen mode (?view=map): just the board, edge to edge */
+body.tableview #topbar, body.tableview #panel, body.tableview #panel-resize,
+body.tableview #board-hint { display: none !important; }
+body.tableview #board-wrap { width: 100vw; }
+
 /* #205 dice on the board — big d20 tumbles over the map on every roll */
 #board-dice { position: fixed; left: 38%; top: 40%; transform: translate(-50%,-50%);
   z-index: 70; pointer-events: none; opacity: 0; transition: opacity .25s;
