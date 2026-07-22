@@ -1959,6 +1959,34 @@ io.on('connection', (socket) => {
     markDirty();
   });
 
+  // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music'];
+  // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
+  socket.on('campaign:export', (ack) => {
+    const room = rooms.get(joinedRoom);
+    if (!room || !isGm(room, socket.id)) { if (typeof ack === 'function') ack({ ok: false, error: 'DM only' }); return; }
+    const data = {};
+    BAK_FIELDS.forEach((f) => { if (room[f] !== undefined) data[f] = room[f]; });
+    if (typeof ack === 'function') ack({ ok: true, file: { app: 'realms-of-fate', version: 1, room: joinedRoom, exported: Date.now(), data } });
+  });
+  socket.on('campaign:import', (payload, ack) => {
+    const room = rooms.get(joinedRoom);
+    const fail = (e) => { if (typeof ack === 'function') ack({ ok: false, error: e }); };
+    if (!room || !isGm(room, socket.id)) return fail('DM only');
+    if (!payload || payload.app !== 'realms-of-fate' || payload.version !== 1 || typeof payload.data !== 'object' || !payload.data) return fail('Not a Realms of Fate backup file');
+    try { if (JSON.stringify(payload).length > 12000000) return fail('Backup too large'); } catch (e) { return fail('Unreadable backup'); }
+    const d = payload.data;
+    BAK_FIELDS.forEach((f) => { if (d[f] !== undefined) room[f] = d[f]; });
+    // Re-clamp the caps saveRooms relies on so an oversized file can't bloat the room.
+    if (Array.isArray(room.chat)) room.chat = room.chat.slice(-200);
+    if (Array.isArray(room.drawings)) room.drawings = room.drawings.slice(-500);
+    if (Array.isArray(room.npcs)) room.npcs = room.npcs.slice(-100);
+    if (Array.isArray(room.scenes)) room.scenes = room.scenes.slice(0, 20);
+    markDirty();
+    io.to(joinedRoom).emit('campaign:reload');
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
   // ---- #224 Hybrid table: toggle 🪑 at-the-table / 🌐 remote after joining ----
   socket.on('presence:set', (p) => {
     const room = rooms.get(joinedRoom); if (!room || !p) return;

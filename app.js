@@ -2510,6 +2510,43 @@ function initAtTable() { const c = $('join-attable'); if (c && localStorage.getI
 document.addEventListener('DOMContentLoaded', initAtTable);
 if (document.readyState !== 'loading') initAtTable();
 
+/* ============ #233 CAMPAIGN BACKUP — the whole world in one file ============ */
+function initBackup() {
+  const bb = $('bak-btn'); if (!bb) return;
+  bb.onclick = () => {
+    if (!me.isGm) return;
+    socket.emit('campaign:export', (res) => {
+      if (!res || !res.ok) { flashHint(res && res.error ? res.error : 'Export failed'); return; }
+      const blob = new Blob([JSON.stringify(res.file)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const d = new Date(); const pad = (n) => String(n).padStart(2, '0');
+      a.download = `realms-of-fate-${me.room}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      flashHint('💾 Campaign saved to your downloads — keep it somewhere safe');
+    });
+  };
+  $('bak-restore').onclick = () => { if (me.isGm) $('bak-file').click(); };
+  $('bak-file').onchange = () => {
+    const f = $('bak-file').files[0]; $('bak-file').value = ''; if (!f) return;
+    if (f.size > 12000000) { flashHint('That file is too large to be a campaign backup'); return; }
+    const r = new FileReader();
+    r.onload = () => {
+      let obj; try { obj = JSON.parse(r.result); } catch (e) { flashHint('That isn\'t a valid backup file'); return; }
+      if (!obj || obj.app !== 'realms-of-fate') { flashHint('That isn\'t a Realms of Fate backup'); return; }
+      const when = obj.exported ? new Date(obj.exported).toLocaleDateString() : 'unknown date';
+      if (!confirm(`Restore campaign from backup (${obj.room || '?'}, ${when})?\n\nThis REPLACES this room's map, tokens, quests, NPCs, journal, shop and world. Player accounts and private notebooks are untouched.`)) return;
+      socket.emit('campaign:import', obj, (res) => {
+        if (!res || !res.ok) { flashHint(res && res.error ? res.error : 'Restore failed'); return; }
+      });
+    };
+    r.readAsText(f);
+  };
+}
+socket.on('campaign:reload', () => { flashHint('📥 Campaign restored — reloading the table…'); setTimeout(() => location.reload(), 1600); });
+document.addEventListener('DOMContentLoaded', initBackup);
+if (document.readyState !== 'loading') initBackup();
+
 /* ============ #232 SESSION ZERO WIZARD — whole-campaign setup in one pass ============ */
 function suKey() { return 'dnd-setup-' + (me.room || 'default'); }
 function suState() { try { return JSON.parse(localStorage.getItem(suKey())) || {}; } catch (e) { return {}; } }
