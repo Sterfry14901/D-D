@@ -1682,3 +1682,20 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .ps-track { background: rgba(139, 92, 246, 0.14); border: 1px solid rgba(139, 92, 246, 0.35); color: #cbb8f5; border-radius: 10px; padding: 1px 8px; font-size: 0.78em; }
 .ps-track b { color: #e8dcff; }
 .ps-exh { color: #e8a04c; font-weight: 600; }
+
+/* #249 Downed heartbeat — a dying player's token pulses like a failing heart */
+.token.dying { animation: none; }
+.token.dying::before {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  background: none;   /* replace the gloss sheen with the heartbeat ring */
+  border: 3px solid rgba(220, 60, 60, 0.9); pointer-events: none;
+  animation: dying-beat 1.6s ease-out infinite; z-index: 3;
+}
+@keyframes dying-beat {
+  0%   { transform: scale(0.9); opacity: 0.95; }
+  25%  { transform: scale(1.18); opacity: 0.35; }
+  35%  { transform: scale(0.95); opacity: 0.9; }
+  55%  { transform: scale(1.22); opacity: 0.25; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .token.dying::before { animation: none; opacity: 0.8; } }
