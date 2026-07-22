@@ -1560,6 +1560,22 @@ function addChat(m) {
     div.innerHTML = `<span class="who">🔒 ${escapeHtml(m.author)} <em class="wto">${escapeHtml(m.whisperTo || '')}</em></span>${escapeHtml(m.text)}`;
   }
   else div.innerHTML = `<span class="who">${escapeHtml(m.author)}</span>${escapeHtml(m.text)}`;
+  // #254 reactions: id-tag every message, render existing reactions, attach hover picker
+  if (m.id) {
+    div.dataset.mid = m.id;
+    const rb = document.createElement('div'); rb.className = 'msg-reacts';
+    div.appendChild(rb);
+    reactRender(div, m.reactions || {});
+    if (m.role !== 'system') {
+      const pick = document.createElement('div'); pick.className = 'react-pick';
+      ['🎉', '❤️', '😂', '😱', '👏', '💀'].forEach((e) => {
+        const b2 = document.createElement('button'); b2.textContent = e; b2.title = 'React ' + e;
+        b2.onclick = (ev) => { ev.stopPropagation(); socket.emit('chat:react', { msgId: m.id, emoji: e }); };
+        pick.appendChild(b2);
+      });
+      div.appendChild(pick);
+    }
+  }
   log.appendChild(div);
   if (atBottom || (m.author && m.author === me.name)) log.scrollTop = log.scrollHeight;
   if (m.role === 'roll') addRollHistory(m);
@@ -1568,6 +1584,24 @@ function addChat(m) {
   // If a DM reply came back as an error, alert the DM to check their AI connection.
   if ((m.role === 'dm' || m.author === 'Dungeon Master') && /^⚠️/.test(String(m.text || '')) && me.isGm) showDmAlert(m.text);
 }
+/* #254: paint the reaction chips onto a message row */
+function reactRender(div, reactions) {
+  const rb = div.querySelector('.msg-reacts'); if (!rb) return;
+  rb.textContent = '';
+  Object.entries(reactions || {}).forEach(([emoji, names]) => {
+    if (!Array.isArray(names) || !names.length) return;
+    const chip = document.createElement('button');
+    chip.className = 'react-chip' + (names.includes((cs && cs.name) || me.name) ? ' mine' : '');
+    chip.textContent = emoji + ' ' + names.length;
+    chip.title = names.join(', ');
+    chip.onclick = (ev) => { ev.stopPropagation(); socket.emit('chat:react', { msgId: div.dataset.mid, emoji }); };
+    rb.appendChild(chip);
+  });
+}
+socket.on('chat:react', ({ msgId, reactions }) => {
+  const div = document.querySelector(`#chat-log .msg[data-mid="${msgId}"]`);
+  if (div) reactRender(div, reactions);
+});
 /* DM-only banner shown when the AI DM call fails (tunnel down, out of credits, etc.). */
 function showDmAlert(text) {
   let b = $('dm-alert'); if (!b) { b = document.createElement('div'); b.id = 'dm-alert'; b.className = 'dm-alert'; document.body.appendChild(b); }

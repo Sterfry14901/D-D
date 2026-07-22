@@ -2312,6 +2312,24 @@ io.on('connection', (socket) => {
     room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
 
+  // ---- #254 Chat reactions: 🎉❤️😂😱👏💀 on any message ----
+  const REACT_SET = ['🎉', '❤️', '😂', '😱', '👏', '💀'];
+  socket.on('chat:react', (r) => {
+    const room = rooms.get(joinedRoom); if (!room || !r) return;
+    const p = room.players[socket.id]; if (!p || p.muted) return;
+    const emoji = String(r.emoji || '');
+    if (!REACT_SET.includes(emoji)) return;
+    const msg = (room.chat || []).find((m) => m.id === r.msgId); if (!msg) return;
+    msg.reactions = msg.reactions || {};
+    const names = msg.reactions[emoji] || [];
+    const i = names.indexOf(p.name);
+    if (i >= 0) names.splice(i, 1); else { if (names.length >= 30) return; names.push(p.name); }
+    if (names.length) msg.reactions[emoji] = names; else delete msg.reactions[emoji];
+    if (!Object.keys(msg.reactions).length) delete msg.reactions;
+    io.to(joinedRoom).emit('chat:react', { msgId: msg.id, reactions: msg.reactions || {} });
+    markDirty();
+  });
+
   // ---- #244 DM moderation: mute + kick ----
   socket.on('mod:mute', (m) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !m) return;
