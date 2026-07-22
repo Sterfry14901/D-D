@@ -1714,14 +1714,68 @@ function buildMonsters() {
     g.appendChild(b);
   });
 }
-function spawnMonster(m) {
+/* ============ #203 MONSTER-TYPE TOKEN ART ============
+   Dropped monsters get a matching Game-Icons portrait instead of just an emoji.
+   Name match wins, then Open5e creature type, else keep the emoji token. */
+const MON_ART = [
+  [/wyvern/i, 'lorc/wyvern', '#7a4a1f'],
+  [/dragon|wyrmling|drake/i, 'lorc/dragon-head', '#8a1f1f'],
+  [/dire wolf|wolf|worg|werewolf|gnoll/i, 'lorc/wolf-head', '#4a4a58'],
+  [/bear|owlbear|wolverine/i, 'delapouite/wolverine-claws', '#6b4a2f'],
+  [/goblin|kobold/i, 'delapouite/goblin-head', '#3f6b2f'],
+  [/orc|hobgoblin|bugbear/i, 'delapouite/orc-head', '#5a6b2f'],
+  [/ogre|troll|ettin|giant|golem/i, 'delapouite/ogre', '#6b5a2f'],
+  [/minotaur/i, 'lorc/minotaur', '#6b3a1f'],
+  [/skeleton/i, 'lorc/skull-crossed-bones', '#5a5a68'],
+  [/zombie|ghoul|ghast|wight|mummy/i, 'lorc/dread-skull', '#4a5a3f'],
+  [/lich|death knight|bone/i, 'lorc/horned-skull', '#3f3f52'],
+  [/ghost|wraith|specter|spectre|shadow|banshee|phantom/i, 'lorc/dread-skull', '#6a6a92'],
+  [/vampire/i, 'lorc/bestial-fangs', '#5a1f2f'],
+  [/spider/i, 'lorc/masked-spider', '#2f2f3a'],
+  [/cult/i, 'lorc/cultist', '#5a2f5a'],
+  [/imp\b|devil|demon|fiend|balor|succubus|hell/i, 'lorc/evil-minion', '#6b1f1f'],
+  [/fire elemental|fire giant|flame|salamander|efreet/i, 'lorc/fire-ray', '#8a2f1f'],
+  [/frost|ice|winter|white dragon/i, 'lorc/ice-bolt', '#2f5a8a'],
+  [/mage|wizard|sorcerer|warlock|archmage/i, 'lorc/wizard-staff', '#3f3f7a'],
+  [/priest|acolyte|cleric/i, 'lorc/holy-symbol', '#7a6b2f'],
+  [/knight|guard|veteran|captain|soldier|gladiator/i, 'delapouite/knight-banner', '#4a4a6b'],
+  [/bandit|thug|assassin|scout|rogue|spy/i, 'lorc/hood', '#3a3a3a'],
+  [/dryad|pixie|sprite|fairy|fey/i, 'lorc/fairy', '#3f7a4f'],
+  [/ooze|cube|slime|pudding/i, 'lorc/vile-fluid', '#3f7a3f'],
+  [/rat|bat|boar|panther|lion|tiger|eagle|hawk|snake|toad|ape|elk|horse/i, 'lorc/bestial-fangs', '#6b4a2f'],
+];
+const MON_TYPE_ART = {
+  dragon: ['lorc/dragon-head', '#8a1f1f'], undead: ['lorc/dread-skull', '#4a5a3f'],
+  fiend: ['lorc/evil-minion', '#6b1f1f'], beast: ['lorc/bestial-fangs', '#6b4a2f'],
+  giant: ['delapouite/ogre', '#6b5a2f'], fey: ['lorc/fairy', '#3f7a4f'],
+  construct: ['lorc/battle-gear', '#5a5a68'], elemental: ['lorc/lightning-tree', '#3f5a7a'],
+  monstrosity: ['lorc/bestial-fangs', '#6b3a2f'], ooze: ['lorc/vile-fluid', '#3f7a3f'],
+  plant: ['lorc/oak', '#3f6b2f'], aberration: ['lorc/vile-fluid', '#4f2f6b'],
+  celestial: ['lorc/holy-symbol', '#8a7a2f'], humanoid: ['lorc/hood', '#4a4a4a'],
+};
+async function monArtImg(name, type) {
+  try {
+    let path = null, tint = null;
+    const hit = MON_ART.find(([re]) => re.test(name || ''));
+    if (hit) { path = hit[1]; tint = hit[2]; }
+    else {
+      const t = MON_TYPE_ART[String(type || '').toLowerCase()];
+      if (t) { path = t[0]; tint = t[1]; }
+    }
+    if (!path) return null;
+    return await makeIconToken(path, tint);           // tinted-disc data URI (cached)
+  } catch (e) { return null; }                        // offline → emoji token as before
+}
+async function spawnMonster(m) {
   if (!me.isGm) return;
   const c = (window.MON_COMBAT || {})[String(m.n || '').toLowerCase()];   // #182 SRD combat stats
+  const img = await monArtImg(m.n, m.type);                              // #203 matching art
   socket.emit('token:add', {
     x: gridSize * (2 + Math.floor(Math.random() * 6)),
     y: gridSize * (1 + Math.floor(Math.random() * 3)),
     color: '#7a2318', label: m.n, size: m.size || 1,
     statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp, cr: m.cr,
+    ...(img ? { img } : {}),
     ...(c ? { ac: c.ac, atk: [{ name: c.w, bonus: c.b, dmg: c.d }] } : {}),
   });
 }
@@ -1763,13 +1817,15 @@ buildMonsters();
         const b = document.createElement('button');
         b.className = 'mon-btn';
         b.innerHTML = `<span class="me">${e}</span><span class="mn">${m.name}</span><em>${m.hit_points} hp · CR ${m.challenge_rating}</em><span class="mon-info" title="View stat block">📖</span>`;
-        b.onclick = () => {
+        b.onclick = async () => {
           if (!me.isGm) return;
+          const img = await monArtImg(m.name, m.type);                   // #203 matching art
           socket.emit('token:add', {
             x: gridSize * (2 + Math.floor(Math.random() * 6)),
             y: gridSize * (1 + Math.floor(Math.random() * 3)),
             color: '#5a2d82', label: m.name, size: SIZE_N[(m.size || '').toLowerCase()] || 1,
             statuses: [], emoji: e, hp: m.hit_points, maxhp: m.hit_points, cr: m.challenge_rating,
+            ...(img ? { img } : {}),
           });
         };
         b.oncontextmenu = (ev) => { ev.preventDefault(); openBlock(m); };
@@ -1886,10 +1942,11 @@ function buildEncounters() {
     g.appendChild(b);
   });
 }
-function spawnEncounter(enc) {
+async function spawnEncounter(enc) {
   if (!me.isGm) return;
   let i = 0;
-  enc.mobs.forEach((m) => {
+  for (const m of enc.mobs) {
+    const img = await monArtImg(m.n, m.type);                            // #203 matching art (cached per monster)
     for (let k = 0; k < m.c; k++) {
       const cx = 3 + (i % 5) * (m.size || 1);
       const cy = 3 + Math.floor(i / 5) * 1.4;
@@ -1897,11 +1954,12 @@ function spawnEncounter(enc) {
       socket.emit('token:add', {
         x: Math.round(cx * gridSize), y: Math.round(cy * gridSize),
         color: '#7a2318', label: nm, size: m.size || 1, statuses: [], emoji: m.e, hp: m.hp, maxhp: m.hp,
+        ...(img ? { img } : {}),
       });
       socket.emit('init:add', { name: nm, init: 1 + Math.floor(Math.random() * 20) + 2 }); // auto-roll initiative
       i++;
     }
-  });
+  }
   socket.emit('init:sort');
   socket.emit('chat', { text: `🐲 Encounter dropped: ${enc.name} (${enc.mobs.map((m) => m.c + '× ' + m.n).join(', ')}). Initiative rolled.` });
 }
