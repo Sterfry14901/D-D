@@ -1998,7 +1998,22 @@ io.on('connection', (socket) => {
   socket.on('roll', ({ formula, result, detail }) => {
     const room = rooms.get(joinedRoom); if (!room) return;
     const p = room.players[socket.id];
-    const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'roll', text: `rolled ${formula} → ${result}  (${detail})`, ts: Date.now() };
+    // #208 Nat 20 / Nat 1 callouts — find the d20 faces in any of our roll formats
+    const f = String(formula || ''), det = String(detail || '');
+    let faces = [];
+    const tagged = [...det.matchAll(/d20\s*\[([\d,\s]+)\]/gi)];
+    if (tagged.length) {
+      faces = tagged.flatMap((m) => m[1].split(',').map((n) => parseInt(n, 10)));
+    } else if (/d20\b/i.test(f) && [...f.matchAll(/d(\d+)/gi)].every((m) => m[1] === '20')) {
+      const picked = [...det.matchAll(/\[[\d,\s]+\]\s*→\s*(\d+)/g)].map((m) => parseInt(m[1], 10));
+      faces = picked.length ? picked
+        : [...det.matchAll(/\[([\d,\s]+)\]/g)].flatMap((m) => m[1].split(',').map((n) => parseInt(n, 10)));
+    }
+    faces = faces.filter(Number.isFinite);
+    let crit = '';
+    if (faces.includes(20)) crit = '  💥 NATURAL 20!';
+    else if (faces.includes(1)) crit = '  💀 CRITICAL FAIL — natural 1!';
+    const msg = { id: 'm_' + rid(), author: p?.name || 'Someone', role: 'roll', text: `rolled ${formula} → ${result}  (${detail})${crit}`, ts: Date.now() };
     room.chat.push(msg); io.to(joinedRoom).emit('chat', msg);
   });
   // GM milestone: level up every character at the table.
