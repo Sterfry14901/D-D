@@ -252,6 +252,7 @@ function saveRooms() {
         notebook: room.notebook || {},   // #218: private player notebooks survive restarts
         opts: room.opts || { maneuvers: false }, // #220: optional rules survive restarts
         session: room.session || { when: '', note: '' }, // #222: next session survives restarts
+        pool: room.pool || { items: [], gp: 0 },         // #228: loot pool survives restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -352,6 +353,7 @@ function loadRooms() {
         notebook: room.notebook || {},              // #218: restore player notebooks
         opts: room.opts || { maneuvers: false },    // #220: restore optional rules
         session: room.session || { when: '', note: '' }, // #222: restore next session
+        pool: room.pool || { items: [], gp: 0 },         // #228: restore loot pool
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -396,6 +398,7 @@ function getRoom(id) {
       notebook: {},            // #218 Player Notebook: playerName -> [{id,ts,text,img}] (private)
       opts: { maneuvers: false }, // #220 optional rules the DM can switch on
       session: { when: '', note: '' }, // #222 next-session banner (DM sets, all see)
+      pool: { items: [], gp: 0 },      // #228 party loot pool
     });
   }
   return rooms.get(id);
@@ -847,6 +850,7 @@ io.on('connection', (socket) => {
       ambience: room.ambience || 'off',
       opts: room.opts || {},          // #220 optional rules (martial maneuvers, …)
       session: room.session || { when: '', note: '' }, // #222 next-session banner
+      pool: room.pool || { items: [], gp: 0 },         // #228 party loot pool
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
@@ -2164,6 +2168,72 @@ io.on('connection', (socket) => {
     io.to(target.id).emit('item:give', { item: clean });
     pushSystem(joinedRoom, giver ? `💝 ${giver} gives ${target.name}: ${clean}` : `🎁 The DM gives ${target.name}: ${clean}`);
   });
+  // ---- #228 PARTY LOOT POOL: DM drops a haul → players claim, roll off, or split the gold ----
+  socket.on('pool:drop', ({ items, gp } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    room.pool = room.pool || { items: [], gp: 0 };
+    const names = String(items || '').split(',').map((s) => s.trim().slice(0, 60)).filter(Boolean).slice(0, 20);
+    names.forEach((n) => { if (room.pool.items.length < 40) room.pool.items.push({ id: rid(), name: n, claimedBy: null, rolls: {} }); });
+    const g = Math.max(0, Math.min(1000000, parseInt(gp, 10) || 0));
+    room.pool.gp = (room.pool.gp || 0) + g;
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    pushSystem(joinedRoom, `💰 The party finds a haul: ${names.join(', ')}${g ? (names.length ? ' and ' : '') + g + ' gp' : ''} — check 💰 Party Loot!`);
+    markDirty();
+  });
+  socket.on('pool:claim', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.pool) return;
+    const p = room.players[socket.id]; if (!p) return;
+    const it = room.pool.items.find((x) => x.id === id); if (!it || it.claimedBy) return;
+    it.claimedBy = p.name;
+    io.to(socket.id).emit('item:give', { item: it.name });
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    pushSystem(joinedRoom, `🖐 ${p.name} claims: ${it.name}`);
+    markDirty();
+  });
+  socket.on('pool:roll', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.pool) return;
+    const p = room.players[socket.id]; if (!p) return;
+    const it = room.pool.items.find((x) => x.id === id); if (!it || it.claimedBy) return;
+    it.rolls = it.rolls || {};
+    if (it.rolls[p.name] !== undefined) return;              // one roll each — no rerolls
+    it.rolls[p.name] = 1 + Math.floor(Math.random() * 20);
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    pushSystem(joinedRoom, `🎲 ${p.name} rolls ${it.rolls[p.name]} for: ${it.name}`);
+    markDirty();
+  });
+  socket.on('pool:award', ({ id } = {}) => {                 // GM resolves: highest roll wins
+    const room = rooms.get(joinedRoom); if (!room || !room.pool || !isGm(room, socket.id)) return;
+    const it = room.pool.items.find((x) => x.id === id); if (!it || it.claimedBy) return;
+    const entries = Object.entries(it.rolls || {}); if (!entries.length) return;
+    entries.sort((a, b) => b[1] - a[1]);
+    const winName = entries[0][0];
+    it.claimedBy = winName;
+    const target = Object.values(room.players).find((x) => x.name === winName);
+    if (target) io.to(target.id).emit('item:give', { item: it.name });
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    pushSystem(joinedRoom, `🏆 ${winName} wins ${it.name} with a ${entries[0][1]}!`);
+    markDirty();
+  });
+  socket.on('pool:split', () => {                            // GM: split the gold evenly
+    const room = rooms.get(joinedRoom); if (!room || !room.pool || !isGm(room, socket.id)) return;
+    const players = Object.values(room.players).filter((x) => !x.isGm);
+    const gp = room.pool.gp || 0;
+    if (!gp || !players.length) return;
+    const share = Math.floor(gp / players.length);
+    const rem = gp - share * players.length;
+    if (share > 0) players.forEach((x) => io.to(x.id).emit('trade:coinGive', { coin: 'gp', amt: share, fromName: 'Party Loot' }));
+    room.pool.gp = rem;                                      // remainder stays in the pool
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    pushSystem(joinedRoom, `⚖️ ${gp} gp split ${players.length} ways — ${share} gp each${rem ? ` (${rem} gp stays in the pool)` : ''}.`);
+    markDirty();
+  });
+  socket.on('pool:clear', () => {                            // GM: sweep claimed items
+    const room = rooms.get(joinedRoom); if (!room || !room.pool || !isGm(room, socket.id)) return;
+    room.pool.items = room.pool.items.filter((x) => !x.claimedBy);
+    io.to(joinedRoom).emit('pool:state', room.pool);
+    markDirty();
+  });
+
   // DM taps "AI loot" → the AI invents a themed item and it lands on a player's sheet.
   socket.on('loot:ai', async ({ to, theme } = {}) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;

@@ -304,6 +304,22 @@
             </div>
             <div id="o5e-grid" class="mon-grid"></div>
           </div>
+          <!-- #228 Party Loot: DM drops a haul, players claim / roll off / split -->
+          <div class="monster-add hidden" id="pool-wrap">
+            <div class="mon-title">💰 Party Loot — claim it, roll for it, or split it</div>
+            <div class="loot-row gm-only">
+              <input id="pool-items" class="mon-search" type="text" placeholder="Items, comma separated (Flame Sword, 3 Potions of Healing)" style="flex:1;margin:0" maxlength="400" />
+              <input id="pool-gp" type="number" min="0" placeholder="gp" style="width:72px" />
+              <button id="pool-drop" class="primary" title="Drop the whole haul into the shared pool">💰 Drop haul</button>
+            </div>
+            <div id="pool-list" class="pool-list"></div>
+            <div class="loot-row">
+              <span id="pool-gold" class="journal-hint" style="flex:1"></span>
+              <button id="pool-split" class="gm-only" title="Divide the pooled gold evenly among the players">⚖️ Split gp evenly</button>
+              <button id="pool-clear" class="gm-only ghost" title="Remove already-claimed items from the list">🧹 Clear claimed</button>
+            </div>
+          </div>
+
           <!-- #220 Martial Maneuvers: player panel (appears when the DM turns the rule on) -->
           <div id="mv-wrap" class="monster-add hidden">
             <div class="mon-title">⚔️ Maneuvers — spend a Superiority Die (d8)</div>
@@ -884,6 +900,7 @@
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
             <li><b>📅 Next session</b>: check the top of the Journal tab — your DM posts when you're playing next, and you'll see a reminder each time you join.</li>
+            <li><b>💰 Party Loot</b> (Combat tab): when the DM drops a haul, 🖐 Claim what you want (first come!) or 🎲 Roll for contested items — winner takes it, straight onto your sheet. Split gold arrives in your coin pouch automatically.</li>
             <li><b>⚔️ Maneuvers</b> (Combat tab, if your DM enables them): martial classes get Superiority Dice — spend one on Trip, Disarm, Riposte, Menace, Push or Precision Strike. The die and the save DC post to chat automatically; dice come back on a rest.</li>
             <li><b>🔗 Linked notes</b>: type <b>@</b> in a notebook note and pick a character — the name becomes a gold link that jumps to their card (dead ones show struck-through). Type <b>#waystation</b> style tags and click any tag to see every note using it. NPC cards grow a "🔗 2 notes" button showing everywhere you've written about them. Your notes become a campaign wiki without trying.</li>
             <li><b>📔 My Notebook</b> (in the Journal tab): your own private session notes — nobody else sees them. Attach a <b>📷 photo</b> of your real notebook pages, <b>paste</b> a screenshot straight into the note box, or draw a quick <b>✏️ sketch</b> (monster doodles, hand-drawn maps). Notes are saved with the campaign, so they're waiting for you next session.</li>
@@ -926,6 +943,7 @@
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
             <li><b>📅 Next session</b> (Journal tab): type when you're playing next ("Friday 7pm EST") + an optional note — every player sees it in their Journal and gets a reminder when they join. <b>📣 Announce</b> posts it to chat. Pair it with the Sesh bot in the Discord for RSVPs, and scheduling stops being the campaign killer.</li>
+            <li><b>💰 Party Loot</b> (Combat tab): type the haul ("Flame Sword, 3 Potions") plus gold and hit <b>Drop haul</b>. Players 🖐 Claim items first-come or 🎲 roll off (one d20 each, you 🏆 Award to the highest); claimed items land straight on their sheets. <b>⚖️ Split gp evenly</b> divides the gold across the party with the remainder staying pooled. No more twenty-minute loot arguments.</li>
             <li><b>🎛 Optional rules</b> (Combat tab): flip <b>⚔️ Martial maneuvers</b> ON and your Fighters, Barbarians, Monks, Rogues, Rangers and Paladins gain Superiority Dice (d8s, short-rest recovery) plus six battle maneuvers — Trip, Disarm, Riposte, Menace, Push, Precision. One tap rolls the die and posts the save DC to chat. A clean fix for the martial/caster gap — and it's your call, per campaign.</li>
             <li><b>🧪 Homebrew Maker</b> (Combat tab): invent your own monster — type a name, pick a CR, type and size, hit <b>⚒ Forge</b>. It gets HP, AC, attack bonus and damage balanced to match official monsters of that CR, plus matching token art, and drops straight onto the map ready for the ⚔️ combat assistant. Your creations are saved for re-dropping (right-click one to delete).</li>
             <li><b>👥 Add party (roll init)</b> puts everyone in initiative with rolled d20s; <b>Next ▸</b> advances turns (players get a chime), the turn timer nudges slowpokes.</li>
