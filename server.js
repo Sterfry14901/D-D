@@ -250,6 +250,7 @@ function saveRooms() {
         npcs: (room.npcs || []).slice(-100), // #196: NPC memory survives restarts
         scenes: (room.scenes || []).slice(0, 20), // #214: prepped scenes survive restarts
         notebook: room.notebook || {},   // #218: private player notebooks survive restarts
+        opts: room.opts || { maneuvers: false }, // #220: optional rules survive restarts
       };
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(out));
@@ -348,6 +349,7 @@ function loadRooms() {
         npcs: room.npcs || [],                      // #196: restore NPC memory
         scenes: room.scenes || [],                  // #214: restore prepped scenes
         notebook: room.notebook || {},              // #218: restore player notebooks
+        opts: room.opts || { maneuvers: false },    // #220: restore optional rules
       });
     }
     console.log(`  Restored ${rooms.size} saved room(s) from disk.`);
@@ -390,6 +392,7 @@ function getRoom(id) {
       npcs: [],                // #196 NPC memory: [{id,name,desc,notes,ts}] — AI DM stays consistent
       scenes: [],              // #214 Scene Prep: up to 20 prepped {map + monster tokens + weather}
       notebook: {},            // #218 Player Notebook: playerName -> [{id,ts,text,img}] (private)
+      opts: { maneuvers: false }, // #220 optional rules the DM can switch on
     });
   }
   return rooms.get(id);
@@ -839,6 +842,7 @@ io.on('connection', (socket) => {
       handout: room.handout,
       weather: room.weather,
       ambience: room.ambience || 'off',
+      opts: room.opts || {},          // #220 optional rules (martial maneuvers, …)
       notes: room.notes || '',
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
@@ -1884,6 +1888,15 @@ io.on('connection', (socket) => {
     room.notes = String(text || '').slice(0, 20000);
     // broadcast to everyone else (sender already has it locally)
     socket.to(joinedRoom).emit('notes:set', room.notes);
+  });
+
+  // ---- #220 Optional rules: DM flips switches, whole room updates ----
+  socket.on('opts:set', (patch) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !patch) return;
+    room.opts = room.opts || {};
+    if (typeof patch.maneuvers === 'boolean') room.opts.maneuvers = patch.maneuvers;
+    io.to(joinedRoom).emit('opts:set', room.opts);
+    markDirty();
   });
 
   // ---- #218 Player Notebook: private per-player notes with photos/sketches ----

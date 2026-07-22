@@ -295,6 +295,20 @@
             </div>
             <div id="o5e-grid" class="mon-grid"></div>
           </div>
+          <!-- #220 Martial Maneuvers: player panel (appears when the DM turns the rule on) -->
+          <div id="mv-wrap" class="monster-add hidden">
+            <div class="mon-title">⚔️ Maneuvers — spend a Superiority Die (d8)</div>
+            <div id="mv-hint" class="journal-hint"></div>
+            <div id="mv-grid" class="mon-grid"></div>
+          </div>
+
+          <!-- #220 DM optional rules -->
+          <div class="monster-add gm-only">
+            <div class="mon-title">🎛 Optional rules <span class="gm-tag">DM</span></div>
+            <div class="loot-row"><button id="mv-dm">⚔️ Martial maneuvers: OFF</button></div>
+            <div class="journal-hint">Gives Fighters, Barbarians, Monks, Rogues, Rangers &amp; Paladins battle maneuvers powered by Superiority Dice — helps close the martial/caster gap. Flip it on and their Combat tab grows a Maneuvers panel.</div>
+          </div>
+
           <!-- #219 Homebrew Maker: name + CR → balanced monster -->
           <div class="monster-add gm-only">
             <div class="mon-title">🧪 Homebrew Maker — invent a monster, we balance it <span class="gm-tag">DM</span></div>
@@ -845,6 +859,7 @@
             <li><code>/whisper name message</code> sends a private message (<code>/reply</code> answers the last one).</li>
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
+            <li><b>⚔️ Maneuvers</b> (Combat tab, if your DM enables them): martial classes get Superiority Dice — spend one on Trip, Disarm, Riposte, Menace, Push or Precision Strike. The die and the save DC post to chat automatically; dice come back on a rest.</li>
             <li><b>📔 My Notebook</b> (in the Journal tab): your own private session notes — nobody else sees them. Attach a <b>📷 photo</b> of your real notebook pages, <b>paste</b> a screenshot straight into the note box, or draw a quick <b>✏️ sketch</b> (monster doodles, hand-drawn maps). Notes are saved with the campaign, so they're waiting for you next session.</li>
             <li>Found something broken? Hit <b>🐛</b> up top — it goes straight to the devs.</li>
           </ul>
@@ -882,6 +897,7 @@
         <details><summary>⚔️ Running combat</summary>
           <ul>
             <li><b>Drop monsters</b>: Combat tab → search the bestiary (or Open5e's thousands) → click to place a token with real HP/AC. Save whole groups as <b>encounters</b> and re-drop them later.</li>
+            <li><b>🎛 Optional rules</b> (Combat tab): flip <b>⚔️ Martial maneuvers</b> ON and your Fighters, Barbarians, Monks, Rogues, Rangers and Paladins gain Superiority Dice (d8s, short-rest recovery) plus six battle maneuvers — Trip, Disarm, Riposte, Menace, Push, Precision. One tap rolls the die and posts the save DC to chat. A clean fix for the martial/caster gap — and it's your call, per campaign.</li>
             <li><b>🧪 Homebrew Maker</b> (Combat tab): invent your own monster — type a name, pick a CR, type and size, hit <b>⚒ Forge</b>. It gets HP, AC, attack bonus and damage balanced to match official monsters of that CR, plus matching token art, and drops straight onto the map ready for the ⚔️ combat assistant. Your creations are saved for re-dropping (right-click one to delete).</li>
             <li><b>👥 Add party (roll init)</b> puts everyone in initiative with rolled d20s; <b>Next ▸</b> advances turns (players get a chime), the turn timer nudges slowpokes.</li>
             <li>Right-click a monster → <b>⚔️ Attack…</b> — its real attack profile prefills (SRD stats built in), advantage buttons, crits double dice, temp HP soaks first. The encounter meter shows Easy→Deadly as you build.</li>
