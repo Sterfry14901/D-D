@@ -1545,7 +1545,49 @@ if ($('dmv-btn')) $('dmv-btn').onclick = () =>
 /* #212 the controls hint fades out after 15s (press ? any time for the full list) */
 setTimeout(() => { const h = $('board-hint'); if (h) h.classList.add('faded'); }, 15000);
 
+/* ============ #234 DICE STATS — who does the dice gods favor? ============ */
+const DICE_STATS = {}; // author -> {rolls, nat20, nat1, best, sum}
+function diceStatsTrack(m) {
+  const who = m.author; if (!who || who === 'Dungeon Master') return;
+  const t = String(m.text || '');
+  const res = parseInt((t.match(/→\s*(-?\d+)/) || [])[1], 10);
+  const s = DICE_STATS[who] || (DICE_STATS[who] = { rolls: 0, nat20: 0, nat1: 0, best: -Infinity, sum: 0 });
+  s.rolls++;
+  if (Number.isFinite(res)) { s.sum += res; if (res > s.best) s.best = res; }
+  if (t.includes('NATURAL 20')) s.nat20++;
+  if (t.includes('natural 1')) s.nat1++;
+}
+function diceStatsLines() {
+  const rows = Object.entries(DICE_STATS).filter(([, s]) => s.rolls > 0);
+  if (!rows.length) return null;
+  rows.sort((a, b) => (b[1].nat20 - b[1].nat1) - (a[1].nat20 - a[1].nat1) || b[1].rolls - a[1].rolls);
+  const lines = rows.map(([who, s]) => `${who}: ${s.rolls} rolls · 💥×${s.nat20} · 💀×${s.nat1} · best ${s.best === -Infinity ? '—' : s.best} · avg ${s.rolls ? Math.round(s.sum / s.rolls) : 0}`);
+  const luckiest = rows[0], unluckiest = rows[rows.length - 1];
+  return { lines, luckiest: luckiest[0], unluckiest: rows.length > 1 && (unluckiest[1].nat1 > 0 || unluckiest[1].nat20 < luckiest[1].nat20) ? unluckiest[0] : null };
+}
+function diceStatsShow() {
+  const box = $('dice-stats'); if (!box) return;
+  const st = diceStatsLines();
+  box.classList.toggle('hidden', false);
+  box.textContent = '';
+  const h = document.createElement('div'); h.className = 'dh-who'; h.textContent = '📊 This session\'s dice';
+  box.appendChild(h);
+  if (!st) { const d = document.createElement('div'); d.className = 'dh-txt'; d.textContent = 'No rolls yet — go tempt fate.'; box.appendChild(d); return; }
+  st.lines.forEach((l) => { const d = document.createElement('div'); d.className = 'dh-row'; d.textContent = l; box.appendChild(d); });
+  const verdict = document.createElement('div'); verdict.className = 'dh-who';
+  verdict.textContent = `🍀 Luckiest: ${st.luckiest}` + (st.unluckiest ? ` · 🪦 Cursed: ${st.unluckiest}` : '');
+  box.appendChild(verdict);
+  const share = document.createElement('button'); share.textContent = '📣 Post to chat';
+  share.style.marginTop = '6px';
+  share.onclick = () => {
+    const s2 = diceStatsLines(); if (!s2) return;
+    socket.emit('chat', { text: `📊 DICE REPORT — 🍀 ${s2.luckiest} rides high${s2.unluckiest ? `, 🪦 ${s2.unluckiest} angered the dice gods` : ''}. ` + s2.lines.join(' | ') });
+    flashHint('📣 Posted');
+  };
+  box.appendChild(share);
+}
 function addRollHistory(m) {
+  diceStatsTrack(m);                                   // #234 feed the luck ledger
   const box = $('dice-history'); if (!box) return;
   const row = document.createElement('div');
   row.className = 'dh-row';
@@ -2546,6 +2588,11 @@ function initBackup() {
 socket.on('campaign:reload', () => { flashHint('📥 Campaign restored — reloading the table…'); setTimeout(() => location.reload(), 1600); });
 document.addEventListener('DOMContentLoaded', initBackup);
 if (document.readyState !== 'loading') initBackup();
+
+/* #234: luck report toggle */
+function initDiceStats() { const b = $('dice-stats-btn'); if (!b) return; b.onclick = () => { const box = $('dice-stats'); if (!box.classList.contains('hidden') && box.textContent) { box.classList.add('hidden'); } else { diceStatsShow(); } }; }
+document.addEventListener('DOMContentLoaded', initDiceStats);
+if (document.readyState !== 'loading') initDiceStats();
 
 /* ============ #232 SESSION ZERO WIZARD — whole-campaign setup in one pass ============ */
 function suKey() { return 'dnd-setup-' + (me.room || 'default'); }
