@@ -937,6 +937,47 @@ body:not(.is-gm) .gm-only { display: none !important; }
   font-size: 0.82rem; text-align: left; transition: transform .08s, border-color .12s; }
 .mon-btn:hover { transform: translateY(-1px); border-color: var(--gold); }
 .mon-btn .me { font-size: 1.1rem; }
+/* #207 floating combat tracker — turn order pinned over the battle map */
+#combat-tracker { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 55;
+  display: flex; align-items: center; gap: 8px; background: rgba(14,10,8,0.93);
+  border: 1px solid rgba(217,177,84,0.55); border-radius: 12px; padding: 6px 10px;
+  max-width: 74vw; box-shadow: 0 6px 16px rgba(0,0,0,0.55); }
+#combat-tracker.hidden { display: none; }
+#combat-tracker .ct-round { font-family: 'Cinzel', Georgia, serif; color: #d9b154; font-weight: 700; white-space: nowrap; }
+#combat-tracker .ct-chips { display: flex; gap: 6px; overflow-x: auto; max-width: 52vw; scrollbar-width: thin; padding: 2px 0; }
+#combat-tracker .ct-chip { white-space: nowrap; font-size: 0.78rem; color: #cbb59a; background: #241713;
+  border: 1px solid #3a2a20; border-radius: 8px; padding: 3px 9px; }
+#combat-tracker .ct-chip b { color: #d9b154; margin-right: 4px; }
+#combat-tracker .ct-chip.on { background: #5a2d14; border-color: #d9b154; color: #ffe9c0;
+  box-shadow: 0 0 8px rgba(217,177,84,0.55); }
+#combat-tracker .ct-chip.deck { border-color: #8a6a2f; color: #e0cfa0; }
+#combat-tracker #ct-next { background: #7a2318; color: #fff; border: 1px solid #a3402c; border-radius: 8px;
+  padding: 4px 12px; cursor: pointer; font-weight: 700; }
+#combat-tracker #ct-next:hover { background: #93321f; }
+@media (max-width: 800px) { #combat-tracker { top: auto; bottom: 8px; max-width: 94vw; } }
+
+/* #205 dice on the board — big d20 tumbles over the map on every roll */
+#board-dice { position: fixed; left: 38%; top: 40%; transform: translate(-50%,-50%);
+  z-index: 70; pointer-events: none; opacity: 0; transition: opacity .25s;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#board-dice.show { opacity: 1; }
+#board-dice .bd-die { width: 96px; height: 96px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #a32c2c, #5a1414);
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,0.65));
+  animation: bd-tumble 0.55s linear infinite; }
+#board-dice .bd-die.settle { animation: none; transform: rotate(0deg) scale(1.12);
+  background: linear-gradient(135deg, #c8a24a, #8a6a1f); transition: transform .2s, background .2s; }
+#board-dice .bd-num { font-family: 'Cinzel', Georgia, serif; font-weight: 800; font-size: 2rem;
+  color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.7); }
+#board-dice .bd-who { background: rgba(12,8,6,0.85); border: 1px solid rgba(217,177,84,0.5);
+  color: #e8d9b0; font-size: 0.78rem; padding: 4px 10px; border-radius: 8px; max-width: 320px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes bd-tumble {
+  0% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(90deg) scale(0.92); }
+  50% { transform: rotate(180deg) scale(1.05); } 75% { transform: rotate(270deg) scale(0.95); }
+  100% { transform: rotate(360deg) scale(1); } }
+
 /* #204 bestiary list art — tinted icon disc replaces the emoji when we have a match */
 .mon-btn .me.mi { width: 24px; height: 24px; flex: 0 0 24px; display: inline-flex; }
 .mon-btn .me.mi img { width: 100%; height: 100%; border-radius: 50%;
