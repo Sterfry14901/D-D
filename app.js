@@ -3631,8 +3631,10 @@ function styleToken(el, t) {
   }
   el.classList.toggle('mine', t.ownerId === me.id);
   el.classList.toggle('downed', Number(t.maxhp) > 0 && Number(t.hp) === 0);
-  // #249: a dying PLAYER's token beats like a failing heart — monsters just lie there
-  el.classList.toggle('dying', Number(t.maxhp) > 0 && Number(t.hp) === 0 && !!(t.ownerId || t.owner));
+  // #249: a dying PLAYER's token beats like a failing heart — monsters just lie there.
+  // Same PC test as the #206 health bars: owned by a non-GM player name.
+  const _gmN = new Set((roomPlayers || []).filter((p) => p.isGm).map((p) => p.name));
+  el.classList.toggle('dying', Number(t.maxhp) > 0 && Number(t.hp) === 0 && !!t.owner && !_gmN.has(t.owner));
   el.classList.toggle('bloodied', Number(t.maxhp) > 0 && Number(t.hp) > 0 && Number(t.hp) <= Number(t.maxhp) / 2);
   el.classList.toggle('ghosted', !!t.ghost);
   el.classList.toggle('has-loot', Array.isArray(t.chest) && t.chest.length > 0);
