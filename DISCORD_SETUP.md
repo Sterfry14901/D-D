@@ -2,6 +2,35 @@
 
 Permanent invite: **https://discord.gg/qymT99jZrN** (linked in-game on the join screen).
 
+## 🏰 AAA upgrade plan (Sterling's blueprint, operationalized)
+
+**Done by automation:** new channels #welcome (with full onboarding post), #lore, #guides
+(INFORMATION) and #show-your-character, #backstories, #hall-of-fame (COMMUNITY).
+
+**Themed category renames** (10 seconds each: right-click category → Edit Category → rename):
+INFORMATION → 🏰 The Kingdom · COMMUNITY → ⚔️ Adventurer's Guild · GAME SUPPORT → 🛠 Forge ·
+DEVELOPMENT → 📜 Library of Wisdom · (DM/SUPPORTERS/TESTING already themed).
+
+**Auto-role assignment — all via Carl-bot (carl.gg) once YOU install it (OAuth = your click):**
+| Trigger | Role | Carl-bot feature |
+|---|---|---|
+| Joins server | 👋 New Player | Autorole (on join) |
+| Verifies / reads rules + reacts | 🧙 Adventurer | Reaction role on the #rules post |
+| Links game account (posts room code in intro) | ✅ Verified Player | Manual or Carl-bot form |
+| Buys DM Pro / Founder Pack | 👑 Founder / ✅ Verified DM | You assign on Gumroad receipt |
+| Approved DM | 🎲 Dungeon Master | You assign |
+| Vetted by team | 🎲 Official DM | You assign |
+| Confirmed bug report | 🐛 Bug Hunter | You assign in #bug-reports |
+| Level milestones (chat/voice XP) | ⚔️ Veteran etc. | MEE6 or Arcane level-роles |
+
+**Reaction-role onboarding post** (put in #welcome after Carl-bot is in): one message where
+🗡=class roles, 🌍=region, 🔔=notification roles, ✅=unlock server (grants 🧙 Adventurer).
+
+**Later (as the community grows):** seasonal events (#events already exists), giveaways,
+creator program channels (🎥 Creator role exists), community teams, Sesh scheduling,
+weekly polls in #polls, and richer game→Discord notifications (the webhooks already post
+🟢 deploys, patch notes, and 🐛 bug reports automatically).
+
 ## What's built (done)
 
 **Categories & channels**
