@@ -254,6 +254,29 @@ function saveRooms() {
   } catch (e) { console.error('saveRooms failed:', e.message); }
 }
 
+// ---- #200 ElevenLabs TTS proxy — cinematic AI DM voices ----
+// Key lives ONLY in the ELEVENLABS_API_KEY env var; the browser never sees it.
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb'; // "George" — warm British narrator
+app.get('/api/tts-status', (req, res) => res.json({ ok: !!ELEVENLABS_API_KEY }));
+app.post('/api/tts', express.json({ limit: '8kb' }), async (req, res) => {
+  try {
+    if (!ELEVENLABS_API_KEY) return res.status(503).json({ error: 'no-key' });
+    const text = String((req.body && req.body.text) || '').slice(0, 600);
+    if (!text.trim()) return res.status(400).json({ error: 'empty' });
+    const vid = /^[A-Za-z0-9]{10,40}$/.test(String((req.body && req.body.voice) || '')) ? req.body.voice : ELEVENLABS_VOICE_ID;
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}?output_format=mp3_22050_32`, {
+      method: 'POST',
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+    });
+    if (!r.ok) { const t = await r.text().catch(() => ''); return res.status(502).json({ error: 'elevenlabs ' + r.status, detail: t.slice(0, 140) }); }
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ---- #195 Discord integrations: webhooks for bugs / status / patch notes ----
 const DISCORD_BUG_WEBHOOK = process.env.DISCORD_BUG_WEBHOOK || '';
 const DISCORD_STATUS_WEBHOOK = process.env.DISCORD_STATUS_WEBHOOK || '';

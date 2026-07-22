@@ -1426,11 +1426,28 @@ function cleanForSpeech(t) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-/* Give each quoted NPC line a slightly different voice/pitch so "voices" vary. */
+/* #200 — ElevenLabs cinematic voice via the server proxy; browser TTS as fallback. */
+let ttsCloud = null;   // null = unknown, true = ElevenLabs available on the server
+let ttsAudio = null;
+fetch('/api/tts-status').then((r) => r.json()).then((d) => { ttsCloud = !!(d && d.ok); }).catch(() => { ttsCloud = false; });
+async function speakCloud(text) {
+  const r = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+  if (!r.ok) throw new Error('tts ' + r.status);
+  const blob = await r.blob();
+  if (ttsAudio) { try { ttsAudio.pause(); } catch {} }
+  ttsAudio = new Audio(URL.createObjectURL(blob));
+  await ttsAudio.play();
+}
 function speakDM(text) {
-  if (!ttsOn || !SYNTH) return;
+  if (!ttsOn) return;
   const clean = cleanForSpeech(text);
   if (!clean) return;
+  if (ttsCloud) { speakCloud(clean).catch(() => browserSpeak(clean)); return; }
+  browserSpeak(clean);
+}
+/* Give each quoted NPC line a slightly different voice/pitch so "voices" vary. */
+function browserSpeak(clean) {
+  if (!SYNTH) return;
   try { SYNTH.cancel(); } catch {}
   // Split into narration vs. quoted speech ("...") — quotes get an NPC voice.
   const parts = clean.split(/(“[^”]*”|"[^"]*")/g).filter((s) => s && s.trim());
@@ -1450,14 +1467,20 @@ function speakDM(text) {
   });
 }
 if ($('tts-btn')) {
-  if (!SYNTH) { $('tts-btn').disabled = true; $('tts-btn').title = 'Your browser has no speech synthesis'; }
   $('tts-btn').onclick = () => {
-    if (!SYNTH) return;
+    if (!SYNTH && !ttsCloud) { flashHint('No voice available — your browser has no speech synthesis.'); return; }
     ttsOn = !ttsOn;
     $('tts-btn').textContent = ttsOn ? '🔊 DM Voice: On' : '🔈 DM Voice: Off';
     $('tts-btn').classList.toggle('on', ttsOn);
-    if (ttsOn) { pickVoices(); speakDM('The Dungeon Master finds their voice.'); flashHint('🔊 DM & NPCs will now speak aloud'); }
-    else { try { SYNTH.cancel(); } catch {} flashHint('🔈 DM voice off'); }
+    if (ttsOn) {
+      pickVoices();
+      speakDM('The Dungeon Master finds their voice.');
+      flashHint(ttsCloud ? '🔊 Cinematic DM voice (ElevenLabs) is on' : '🔊 DM & NPCs will now speak aloud');
+    } else {
+      try { if (SYNTH) SYNTH.cancel(); } catch {}
+      try { if (ttsAudio) ttsAudio.pause(); } catch {}
+      flashHint('🔈 DM voice off');
+    }
   };
 }
 
