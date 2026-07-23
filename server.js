@@ -1146,7 +1146,9 @@ io.on('connection', (socket) => {
     if (!atk || !tgt || attackerId === targetId) return;
     if (!canControlToken(room, socket.id, atk)) return;          // you may only swing your own tokens
     const b = Math.max(-5, Math.min(20, Number(bonus) || 0));
-    const mode = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : 'normal';
+    let mode = adv === 'adv' ? 'adv' : adv === 'dis' ? 'dis' : 'normal';
+    if (tgt.dodging) { mode = mode === 'adv' ? 'normal' : 'dis'; }   // #279 Dodge: attacks vs a dodging target roll at disadvantage (cancels advantage)
+    const dodgeTxt = tgt.dodging ? ' 🛡️(Dodging)' : '';
     const d20 = () => 1 + Math.floor(Math.random() * 20);
     const r1 = d20(), r2 = d20();
     const nat = mode === 'adv' ? Math.max(r1, r2) : mode === 'dis' ? Math.min(r1, r2) : r1;
@@ -1160,7 +1162,7 @@ io.on('connection', (socket) => {
     const hit = !fumble && (crit || total >= ac);
     const acTxt = `AC ${ac}${acKnown ? '' : ' (assumed)'}`;
     if (!hit) {
-      pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${fumble ? 'NAT 1, MISS!' : 'miss.'}`);
+      pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}${dodgeTxt}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${fumble ? 'NAT 1, MISS!' : 'miss.'}`);
       return;
     }
     // Parse damage like "2d6+3", "1d8", "d6+1", or a flat "5". Crits double the dice.
@@ -1189,10 +1191,23 @@ io.on('connection', (socket) => {
     emitTokenPerSocket(room, 'token:update', tgt);
     markDirty();
     const hpTxt = (Number(tgt.maxhp) || 0) > 0 ? ` ${tName}: ${tgt.hp}/${tgt.maxhp} HP${tgt.hp <= 0 ? ' — DOWN!' : ''}` : '';
-    pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${crit ? '💥 CRIT!' : 'HIT!'} ${dmgTotal} damage (${dmgTxt}).${absorbed ? ` (${absorbed} soaked by temp HP.)` : ''}${hpTxt}`);
+    pushSystem(joinedRoom, `⚔️ ${aName} attacks ${tName}${dodgeTxt}: ${rollTxt}${b ? (b > 0 ? '+' + b : b) : ''} = ${total} vs ${acTxt} — ${crit ? '💥 CRIT!' : 'HIT!'} ${dmgTotal} damage (${dmgTxt}).${absorbed ? ` (${absorbed} soaked by temp HP.)` : ''}${hpTxt}`);
     if (prevHp > 0 && tgt.hp <= 0 && (Number(tgt.maxhp) || 0) > 0) {
       questCheckKill(joinedRoom, tgt.name || tgt.label);          // kill objectives advance
     }
+  });
+
+  // #279 Dodge action — toggle a token's Dodge; attacks against it get disadvantage until its next turn.
+  socket.on('token:dodge', ({ id } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const t = room.tokens[id]; if (!t) return;
+    if (!canControlToken(room, socket.id, t)) return;
+    t.dodging = !t.dodging;
+    emitTokenPerSocket(room, 'token:update', t); markDirty();
+    const nm = t.label || t.name || 'A combatant';
+    pushSystem(joinedRoom, t.dodging
+      ? `🛡️ ${nm} takes the Dodge action — attacks against it have disadvantage until its next turn.`
+      : `🛡️ ${nm} stops dodging.`);
   });
 
   // ---- #190 Heal / direct damage with server announcements ----
@@ -1574,6 +1589,15 @@ io.on('connection', (socket) => {
     if (next >= room.initiative.length) room.round += 1;          // wrapped forward → new round
     else if (next < 0 && room.round > 1) room.round -= 1;          // wrapped back → previous round
     room.turnIndex = (next + room.initiative.length) % room.initiative.length;
+    // #279 Dodge clears at the start of the token's own turn.
+    const active = room.initiative[room.turnIndex];
+    if (active) {
+      for (const t of Object.values(room.tokens || {})) {
+        if (t && t.dodging && (t.label === active.name || t.name === active.name)) {
+          t.dodging = false; emitTokenPerSocket(room, 'token:update', t);
+        }
+      }
+    }
     emitInit();
   });
   socket.on('init:clear', () => {

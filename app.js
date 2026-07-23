@@ -290,6 +290,12 @@ if ($('pa-heal')) $('pa-heal').onclick = () => {
   if (!tok) { flashHint('No token of yours on the map yet.'); return; }
   openCombatModal(tok, 'heal');
 };
+if ($('pa-dodge')) $('pa-dodge').onclick = () => {   // #279 Dodge — your own token
+  const tok = myBattleToken();
+  if (!tok) { flashHint('No token of yours on the map yet — ask the DM to give you one.'); return; }
+  socket.emit('token:dodge', { id: tok.id });
+  flashHint(tok.dodging ? '🛡️ You stop dodging.' : '🛡️ You take the Dodge action — attacks against you have disadvantage.');
+};
 /* #260 Search — look for hidden traps & secret doors near your token (Perception/Investigation). */
 function searchBonus() {
   try {
@@ -3877,6 +3883,7 @@ function styleToken(el, t) {
   el.classList.toggle('dying', Number(t.maxhp) > 0 && Number(t.hp) === 0 && !!t.owner && !_gmN.has(t.owner));
   el.classList.toggle('bloodied', Number(t.maxhp) > 0 && Number(t.hp) > 0 && Number(t.hp) <= Number(t.maxhp) / 2);
   el.classList.toggle('ghosted', !!t.ghost);
+  el.classList.toggle('dodging', !!t.dodging);   // #279 Dodge — blue ring + shield badge
   el.classList.toggle('has-loot', Array.isArray(t.chest) && t.chest.length > 0);
   const np = el.querySelector('.tk-name'); if (np) np.textContent = t.name || t.label || '';
   if (t.z != null && t.z !== '') el.style.zIndex = String(t.z); else el.style.zIndex = '';
@@ -4069,6 +4076,7 @@ function showTokenCtx(t, px, py) {
   row('✏️', 'Edit…', () => { closeTokenCtx(); openTokenModal(t); });
   row('⚔️', 'Attack…', () => { closeTokenCtx(); startAttackFlow(t); });
   row('❤️', 'Heal / Damage…', () => { closeTokenCtx(); openCombatModal(t, 'heal'); });
+  row('🛡️', t.dodging ? 'Stop dodging' : 'Dodge (disadv. on attackers)', () => { closeTokenCtx(); socket.emit('token:dodge', { id: t.id }); }); // #279
   if (me.isGm) {
     const hasLoot = Array.isArray(t.chest) && t.chest.length;
     row('💰', hasLoot ? `Loot inside (${t.chest.length}) — edit…` : 'Stock loot…', () => {
