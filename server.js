@@ -1123,6 +1123,17 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, "📍 The DM cleared everyone's markers.");
   });
 
+  // #277 Group check — DM calls for a skill/ability check; every player is prompted to roll.
+  socket.on('check:call', (d) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
+    const key = String((d && d.key) || '').slice(0, 30).replace(/[<>]/g, '').trim();
+    const dc = Math.max(0, Math.min(40, parseInt(d && d.dc) || 0));
+    if (!key) return;
+    const by = (room.players[socket.id] && room.players[socket.id].name) || 'The DM';
+    io.to(joinedRoom).emit('check:call', { key, dc, by });
+    pushSystem(joinedRoom, `🎲 ${by} calls for a ${key} check${dc ? ` (DC ${dc})` : ''} — everyone roll!`);
+  });
+
   // ---- #181 Combat assistant: server-resolved attacks ----
   // combat:attack { attackerId, targetId, bonus, dmg, adv } -> rolls to-hit vs the
   // target's AC, applies damage on a hit (temp HP first), announces everything,

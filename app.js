@@ -1797,6 +1797,7 @@ function boardDice(m) {
   _bdTimer = setTimeout(() => ov.classList.remove('show'), 3400);
 }
 socket.on('chat', addChat);
+socket.on('check:call', ({ key, dc, by } = {}) => { if (key) showCheckPrompt(key, dc, by); }); // #277 group check prompt
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
 
 /* ============ DM AI BADGE — shows which brain the DM is using (from /ai-status) ============ */
@@ -1998,7 +1999,47 @@ function sendChat() {
   }
   const wm = text.match(/^\/(?:w|whisper|gm)\b\s*(.*)$/i);
   if (wm) { chatWhisper(wm[1]); $('chat-input').value = ''; return; }
+  const gcm = text.match(/^\/(?:check|gc)\b\s*(.*)$/i);          // #277 group check
+  if (gcm) { groupCheckCall(gcm[1]); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
+}
+// #277 Group Check — DM calls for a skill/ability check; every player is prompted to roll.
+function matchSkillKey(s) {
+  s = (s || '').trim().toLowerCase();
+  const ab = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA', strength: 'STR', dexterity: 'DEX', constitution: 'CON', intelligence: 'INT', wisdom: 'WIS', charisma: 'CHA' };
+  if (ab[s]) return ab[s];
+  const skills = CS_SKILLS.map((x) => x[0]);
+  const norm = (n) => n.toLowerCase().replace(/[^a-z]/g, '');
+  return skills.find((n) => n.toLowerCase() === s) || skills.find((n) => n.toLowerCase().startsWith(s)) || skills.find((n) => norm(n).startsWith(norm(s))) || null;
+}
+function groupCheckCall(rest) {
+  if (!me.isGm) { addChat({ role: 'system', text: 'Only the DM can call a group check. Use /roll for your own dice.' }); return; }
+  rest = (rest || '').trim();
+  if (!rest) { addChat({ role: 'system', text: 'Usage: /check <skill or ability> [DC] — e.g. /check Perception 15' }); return; }
+  let dc = 0; const mDc = rest.match(/\s+(\d{1,2})\s*$/);
+  if (mDc) { dc = parseInt(mDc[1]); rest = rest.slice(0, mDc.index).trim(); }
+  const key = matchSkillKey(rest);
+  if (!key) { addChat({ role: 'system', text: `Unknown check "${rest}". Try a skill (Perception, Stealth, Insight…) or ability (STR, DEX…).` }); return; }
+  socket.emit('check:call', { key, dc });
+}
+function showCheckPrompt(key, dc, by) {
+  let el = $('gcheck');
+  if (!el) { el = document.createElement('div'); el.id = 'gcheck'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="gc-in"><span class="gc-txt">🎲 <b>${escapeHtml(by || 'The DM')}</b> calls for a <b>${escapeHtml(key)}</b> check${dc ? ` · DC ${dc}` : ''}</span>
+    <button class="gc-roll" id="gc-roll">Roll ${escapeHtml(key)}</button><button class="gc-x" id="gc-x">✕</button></div>`;
+  el.style.display = 'block';
+  clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = 'none'; }, 30000);
+  $('gc-roll').onclick = () => { rollGroupCheck(key, dc); el.style.display = 'none'; };
+  $('gc-x').onclick = () => { el.style.display = 'none'; };
+}
+function rollGroupCheck(key, dc) {
+  const isAb = /^(STR|DEX|CON|INT|WIS|CHA)$/.test(key);
+  const prof = csProf(); let mod = 0, label = key;
+  if (isAb) { mod = csMod(cs.scores[key.toLowerCase()]); label = CS_ABILN[key.toLowerCase()] + ' check'; }
+  else { const ab = Object.fromEntries(CS_SKILLS)[key]; mod = csMod(cs.scores[ab] ) + ((cs.skills && cs.skills[key]) ? prof : 0); label = key + ' check'; }
+  const r = 1 + Math.floor(Math.random() * 20), total = r + mod;
+  const pf = dc ? (total >= dc ? ' ✅' : ' ❌') : '';
+  socket.emit('roll', { formula: (cs.name ? cs.name + ' — ' : (me.name ? me.name + ' — ' : '')) + label + (dc ? ` vs DC ${dc}` : ''), result: total, detail: `d20[${r}] ${csFmt(mod)}${pf}` });
 }
 // Private whisper: player → GM with /w <message>; GM → player with /w <name> <message> or /w <name>: <message>.
 function chatWhisper(rest) {

@@ -1513,6 +1513,12 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .wmap.wm-big::before { content: ''; position: fixed; inset: 0; background: rgba(6,6,10,.8); z-index: -1; }
 .wmap.wm-big .wm-svg { flex: 1 1 auto; width: 100%; height: 100%; min-height: 0; }
 .wmap.wm-big .wm-hint { flex: 0 0 auto; }
+/* #277 Group check prompt banner */
+#gcheck { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 9700; display: none; }
+#gcheck .gc-in { display: flex; align-items: center; gap: 12px; background: #1a1508; border: 1px solid #d4a017; border-radius: 12px; padding: 10px 14px; box-shadow: 0 10px 40px rgba(0,0,0,.6); color: #f0e2b8; font-size: 14px; max-width: 92vw; }
+#gcheck .gc-roll { background: #d4a017; color: #1a1207; border: none; border-radius: 8px; padding: 7px 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+#gcheck .gc-roll:hover { background: #f0c657; }
+#gcheck .gc-x { background: transparent; border: none; color: #9a8a63; cursor: pointer; font-size: 15px; }
 .wm-tip { position: fixed; z-index: 6000; width: 150px; transform: translate(-50%,-100%); background: #12151d; border: 1px solid #7a6534; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.6); overflow: hidden; pointer-events: none; }
 .wm-tip-img { display: block; width: 100%; height: 84px; object-fit: cover; background: #0c0e14; }
 .wm-tip-name { font-size: 13px; font-weight: 700; color: #f0e2b8; padding: 4px 8px 0; }
