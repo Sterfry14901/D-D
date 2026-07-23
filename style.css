@@ -728,6 +728,13 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
 .pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
 .pa-blue { background: linear-gradient(180deg, #2f6fb0, #1c4a78); }   /* #281 readable blue (Search / Dodge) */
+/* #285 Utility spells */
+.util-card { background: rgba(0,0,0,.25); border: 1px solid rgba(140,120,220,.28); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; }
+.util-h { color: #cbb8ff; font-size: 1rem; margin-bottom: 5px; }
+.util-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; background: rgba(140,120,220,.18); color: #b9a8ee; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }
+.util-fl { font-size: 12px; color: #c3bcd6; line-height: 1.4; margin-bottom: 9px; flex: 1; }
+.util-cast { padding: 8px; border: none; border-radius: 8px; cursor: pointer; font-family: "Cinzel", serif; font-weight: 800; color: #fff; background: linear-gradient(180deg, #7d5cc8, #573f96); }
+.util-cast:hover { filter: brightness(1.1); }
 /* #284 Haggle with vendors */
 .shop-acts { display: flex; gap: 6px; align-items: center; }
 .shop-haggle { padding: 6px 10px; border: 1px solid rgba(217,177,84,.45); background: rgba(217,177,84,.12); color: #e8c877; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; }

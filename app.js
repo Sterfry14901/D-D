@@ -7591,3 +7591,54 @@ function closeDowntime() { const m = $('downtime-modal'); if (m) m.style.display
     socket.emit('chat', { text: '🎓 ' + me.name + ' starts training in ' + what + ' — ~10 workdays, ~25 gp/workweek. (DM: set the pace.)' });
   };
 })();
+
+/* ============ #285 UTILITY SPELLS ============
+   The clever, flavor-over-damage magic. Cantrips are at-will; leveled spells
+   spend a real slot from the sheet. Every cast announces to the table. */
+const UTIL_SPELLS = [
+  { emoji: '🪄', name: 'Prestidigitation', level: 0, tag: 'Cantrip', flavor: 'a harmless flourish — clean or soil an object, chill/warm/flavor food, spark a flame, or conjure a trinket or a mark.' },
+  { emoji: '🔧', name: 'Mending', level: 0, tag: 'Cantrip', flavor: 'a single break or tear knits itself whole — a snapped chain, a torn cloak, a cracked flask.' },
+  { emoji: '💡', name: 'Light', level: 0, tag: 'Cantrip', flavor: 'an object blazes with bright light out to 20 ft (dim 20 more) until it’s dismissed.' },
+  { emoji: '🖐️', name: 'Mage Hand', level: 0, tag: 'Cantrip', flavor: 'a spectral hand appears within 30 ft to fetch, tug, or shove up to 10 lb — no touching creatures.' },
+  { emoji: '✨', name: 'Guidance', level: 0, tag: 'Cantrip', flavor: 'a touch of the divine steadies your next ability check.', roll: 4 },
+  { emoji: '💬', name: 'Message', level: 0, tag: 'Cantrip', flavor: 'you whisper a message to one creature within 120 ft; only they hear it, and they can murmur a reply.' },
+  { emoji: '🎭', name: 'Minor Illusion', level: 0, tag: 'Cantrip', flavor: 'you conjure a sound or an image no larger than a 5-ft cube — a growl, a false wall, a coin’s glint.' },
+  { emoji: '🪶', name: 'Feather Fall', level: 1, tag: 'Level 1 · reaction', flavor: 'up to five falling creatures drift down and land softly, taking no damage from the fall.' },
+  { emoji: '📜', name: 'Comprehend Languages', level: 1, tag: 'Level 1', flavor: 'for an hour you understand any spoken language you hear and any writing you touch.' },
+  { emoji: '🔍', name: 'Detect Magic', level: 1, tag: 'Level 1', flavor: 'you sense the presence and school of magic within 30 ft for up to 10 minutes.' },
+  { emoji: '🕵️', name: 'Identify', level: 1, tag: 'Level 1 · ritual', flavor: 'you learn an item’s magical properties, how to use them, and whether it needs attunement.' },
+  { emoji: '🧭', name: 'Locate Object', level: 2, tag: 'Level 2', flavor: 'you sense the direction to a familiar object within 1,000 ft, as long as it’s not lead-shielded.' }
+];
+function utilCast(sp) {
+  if (!sp) return;
+  const who = (cs && cs.name) || me.name || 'Someone';
+  let slotNote = '';
+  if (sp.level >= 1) {
+    if (!cs || !cs.slots) { flashHint('✨ Make a spellcasting character first.'); return; }
+    let use = 0;
+    for (let l = sp.level; l <= 9; l++) { const s = cs.slots[l]; if (s && s.max > 0 && s.used < s.max) { use = l; break; } }
+    if (!use) { flashHint('❌ No level-' + sp.level + '+ spell slots left — take a rest!'); return; }
+    cs.slots[use].used++;
+    if (typeof saveCS === 'function') saveCS();
+    if (typeof csRenderSlots === 'function' && typeof csBuilt !== 'undefined' && csBuilt) csRenderSlots();
+    const left = cs.slots[use].max - cs.slots[use].used;
+    slotNote = ' · level ' + use + ' slot used (' + left + ' left)';
+  }
+  let extra = '';
+  if (sp.roll) { const r = 1 + Math.floor(Math.random() * sp.roll); extra = ' 🎲 +' + r + ' to the next ability check.'; }
+  socket.emit('chat', { text: '✨ ' + who + ' casts ' + sp.name + ' — ' + sp.flavor + extra + slotNote });
+  flashHint('✨ ' + sp.name + ' cast');
+}
+function renderUtil() {
+  const b = $('util-body'); if (!b) return;
+  b.innerHTML = UTIL_SPELLS.map((sp, i) =>
+    '<div class="util-card"><div class="util-h">' + sp.emoji + ' <b>' + sp.name + '</b> <span class="util-tag">' + sp.tag + '</span></div>' +
+    '<div class="util-fl">' + sp.flavor + '</div>' +
+    '<button class="util-cast" data-util="' + i + '">Cast</button></div>'
+  ).join('');
+  b.querySelectorAll('[data-util]').forEach((x) => { x.onclick = () => utilCast(UTIL_SPELLS[Number(x.dataset.util)]); });
+}
+(function initUtil() {
+  if ($('util-btn')) $('util-btn').onclick = () => { renderUtil(); const m = $('util-modal'); if (m) m.style.display = 'flex'; };
+  if ($('util-close')) $('util-close').onclick = () => { const m = $('util-modal'); if (m) m.style.display = 'none'; };
+})();
