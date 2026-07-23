@@ -461,6 +461,8 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .wall-cell { position: absolute; background: repeating-linear-gradient(45deg, rgba(150,60,60,0.5) 0 6px, rgba(90,30,30,0.5) 6px 12px);
   border: 1px solid rgba(200,80,80,0.55); box-sizing: border-box; }
 .dark-cell { position: absolute; background: #030303; }
+/* #257 remembered ground: dim, desaturated, but not pitch black */
+.dark-cell.remembered { background: rgba(6, 8, 14, 0.72); backdrop-filter: grayscale(0.9) brightness(0.5); }
 #aoe { z-index: 6; pointer-events: none; overflow: visible; }
 #aoe-btn.on { box-shadow: 0 0 14px rgba(217,177,84,0.4); border-color: var(--gold); }
 .aoe-size { display: inline-flex; align-items: center; gap: 5px; color: #e9dcc5; font-size: 0.82rem; }

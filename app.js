@@ -1354,6 +1354,10 @@ socket.on('state', (s) => {
   me.isGm = s.isGm;
   gridSize = s.gridSize || 70;
   applyGrid(gridSize);
+  exploredLoad();   // #257: restore this room's remembered map
+  // Seed the map signature to the CURRENT map so joining doesn't wipe memory,
+  // but any later map the DM loads counts as a change and resets exploration.
+  window._mapSig = s.mapImage ? String(s.mapImage).slice(0, 64) : 'none';
   if (s.mapImage) setMap(s.mapImage);
   $('chat-log').innerHTML = '';
   (s.chat || []).forEach(addChat);
@@ -3440,11 +3444,27 @@ $('map-file').onchange = (e) => {
 };
 function setMap(src) {
   const stage = $('stage');
+  // #257: a new map means a fresh unexplored dungeon — wipe remembered cells.
+  const sig = src ? String(src).slice(0, 64) : 'none';
+  if (window._mapSig !== undefined && window._mapSig !== sig) exploredReset();
+  window._mapSig = sig;
   if (!src) { stage.style.backgroundImage = 'none'; $('board').classList.remove('has-map'); return; }
   stage.style.backgroundImage = `url(${src})`;
   stage.style.backgroundSize = 'cover';
   $('board').classList.add('has-map');
 }
+/* #257 Explored memory — the cells you've laid eyes on stay dimly remembered. */
+let explored = new Set();
+function exploredKey() { return 'dnd-explored-' + (me.room || 'x'); }
+function exploredLoad() {
+  try { explored = new Set(JSON.parse(localStorage.getItem(exploredKey()) || '[]')); } catch { explored = new Set(); }
+}
+let _expSaveT = null;
+function exploredSave() {
+  if (_expSaveT) return;
+  _expSaveT = setTimeout(() => { _expSaveT = null; try { localStorage.setItem(exploredKey(), JSON.stringify([...explored].slice(-6000))); } catch {} }, 1200);
+}
+function exploredReset() { explored = new Set(); try { localStorage.removeItem(exploredKey()); } catch {} }
 socket.on('map:set', setMap);
 function applyGrid(size) { $('grid').style.backgroundSize = `${size}px ${size}px`; renderFog(); syncGridSlider(size); }
 function syncGridSlider(size) { const gs = $('grid-slider'); if (gs) { gs.value = size; } const gv = $('grid-val'); if (gv) gv.textContent = size; }
@@ -4779,13 +4799,19 @@ function doLighting() {
   }
   const lit = computeVision();
   window._mySight = lit;   // #255: fog rendering peeks through where you can see
+  // #257: everything you can see right now joins your remembered map.
+  let grew = false;
+  lit.forEach((k) => { if (!explored.has(k)) { explored.add(k); grew = true; } });
+  if (grew) exploredSave();
   renderFog();
   const cols = Math.ceil(BOARD_W / gridSize), rows = Math.ceil(BOARD_H / gridSize);
   for (let cx = 0; cx < cols; cx++) {
     for (let cy = 0; cy < rows; cy++) {
-      if (lit.has(`${cx},${cy}`)) continue;
+      const key = `${cx},${cy}`;
+      if (lit.has(key)) continue;
       const cell = document.createElement('div');
-      cell.className = 'dark-cell';
+      // #257: places you've been stay dimly lit ("remembered"); the rest is pitch black.
+      cell.className = explored.has(key) ? 'dark-cell remembered' : 'dark-cell';
       cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
       cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
       dark.appendChild(cell);
