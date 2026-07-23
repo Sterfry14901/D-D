@@ -1355,7 +1355,9 @@ socket.on('state', (s) => {
   gridSize = s.gridSize || 70;
   applyGrid(gridSize);
   exploredLoad();   // #257: restore this room's remembered map
-  window._mapSig = undefined;   // don't treat the first map as a "change" and wipe memory
+  // Seed the map signature to the CURRENT map so joining doesn't wipe memory,
+  // but any later map the DM loads counts as a change and resets exploration.
+  window._mapSig = s.mapImage ? String(s.mapImage).slice(0, 64) : 'none';
   if (s.mapImage) setMap(s.mapImage);
   $('chat-log').innerHTML = '';
   (s.chat || []).forEach(addChat);
