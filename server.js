@@ -60,6 +60,9 @@ function buildStarterWorld() {
     vote: null,   // {to, mode, byName, yes:[socketIds], no:[socketIds]}
     clock: { day: 1, hour: 8 },   // in-world time; travel advances it
     encounterChance: 35,          // % chance of a random encounter per journey
+    mapImage: '/maps/world-realm.jpg',   // #269 illustrated overworld everyone sees
+    pins: {},                     // #269 per-party-member markers, keyed by name
+
     cities: {
       havenbrook: {
         id: 'havenbrook', name: 'Havenbrook', kind: 'town',
@@ -553,6 +556,8 @@ function retrofitTownArt(world) {
     const c = world.cities[id];
     if (c && !c.img) c.img = SEED_TOWN_ART[id];
   }
+  if (!world.pins) world.pins = {};                                  // #269 party markers bucket
+  if (world.mapImage === undefined) world.mapImage = '/maps/world-realm.jpg'; // #269 default overworld (null = DM cleared)
 }
 // Materialize a room's world and ensure seed cities carry their default banners.
 function worldOf(room) {
@@ -1073,6 +1078,30 @@ io.on('connection', (socket) => {
     broadcastWorld(joinedRoom);
     markDirty();
     pushSystem(joinedRoom, c.img ? `🖼️ The DM revealed a view of ${c.name}.` : `🖼️ The DM cleared the view of ${c.name}.`);
+  });
+
+  // #269 Party markers — every member drops a pin on the world map; movable any time, everyone sees it.
+  socket.on('world:pinSet', ({ x, y } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world) return;
+    const p = room.players[socket.id]; if (!p) return;
+    if (!room.world.pins) room.world.pins = {};
+    const px = Math.max(2, Math.min(98, Number(x) || 0));
+    const py = Math.max(4, Math.min(72, Number(y) || 0));
+    const isNew = !room.world.pins[p.name];
+    room.world.pins[p.name] = { name: p.name, color: p.color || '#c0392b', x: px, y: py };
+    broadcastWorld(joinedRoom); markDirty();
+    if (isNew) pushSystem(joinedRoom, `📍 ${p.name} marked their position on the map.`);
+  });
+  socket.on('world:pinClear', () => {
+    const room = rooms.get(joinedRoom); if (!room || !room.world || !room.world.pins) return;
+    const p = room.players[socket.id]; if (!p) return;
+    if (room.world.pins[p.name]) { delete room.world.pins[p.name]; broadcastWorld(joinedRoom); markDirty(); }
+  });
+  socket.on('world:pinClearAll', () => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    room.world.pins = {};
+    broadcastWorld(joinedRoom); markDirty();
+    pushSystem(joinedRoom, "📍 The DM cleared everyone's markers.");
   });
 
   // ---- #181 Combat assistant: server-resolved attacks ----

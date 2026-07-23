@@ -1521,6 +1521,11 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .wm-city:hover .wm-dot { fill: #ffe9a8; stroke: #d4a017; }
 .wm-ico { font-size: 4.6px; }
 .wm-name { font-size: 3px; fill: #4b3a1e; font-weight: 700; paint-order: stroke; stroke: #e8d9b0; stroke-width: .55; }
+.wm-pin { cursor: pointer; }
+.wm-pin-ini { font-size: 2.3px; fill: #fff; font-weight: 700; }
+.wm-pin-name { font-size: 2.7px; fill: #f7ecc8; font-weight: 700; paint-order: stroke; stroke: #12100b; stroke-width: .5; }
+.wm-pin-mine path { filter: drop-shadow(0 0 1.3px #fff); }
+.wm-pinbtn { background: #3b2f6e !important; color: #e7ddff !important; }
 .wm-here .wm-dot { stroke: #b3212e; stroke-width: .8; }
 .wm-vote .wm-dot { stroke: #2e7d32; stroke-width: .9; }
 .wm-pulse { fill: none; stroke: #b3212e; stroke-width: .6; opacity: .8; animation: wmPulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
