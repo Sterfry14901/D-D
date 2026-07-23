@@ -7066,7 +7066,7 @@ function injectWorldMap() {
       ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📌 Move cities</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
       : '🧭 Click a city to propose it to the party'}
       · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}
-      <div class="wm-subhint">🔍 scroll to zoom · double-click a city to jump to it · drag to pan <button class="wm-tool" id="wm-resetview">Reset view</button> <button class="wm-tool${wmBig ? ' on' : ''}" id="wm-bigmap">${wmBig ? '✕ Close big map' : '⛶ Big map'}</button></div></div>
+      <div class="wm-subhint">🔍 scroll to zoom · double-click a city to jump to it · drag to pan <button class="wm-tool" id="wm-findparty">📍 Find party</button> <button class="wm-tool" id="wm-resetview">Reset view</button> <button class="wm-tool${wmBig ? ' on' : ''}" id="wm-bigmap">${wmBig ? '✕ Close big map' : '⛶ Big map'}</button></div></div>
     <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
@@ -7166,6 +7166,18 @@ function injectWorldMap() {
         const cx = Number(g.dataset.wmx), cy = Number(g.dataset.wmy);
         if (Number.isFinite(cx) && Number.isFinite(cy)) { animView(cx, cy, 42); flashHint('🔍 Zoomed to ' + (worldState.cities[g.dataset.wmcity] || {}).name); }
       });
+    });
+    // #274 Find party — jump the view to wherever the party currently is (or your own marker)
+    const findParty = wrap.querySelector('#wm-findparty');
+    if (findParty) findParty.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const hereG = wrap.querySelector(`[data-wmcity="${worldState.party.at}"]`);
+      const myPinG = wrap.querySelector(`[data-wmpin="${(typeof me !== 'undefined' && me.name) ? me.name.replace(/"/g, '') : ''}"]`);
+      let cx, cy, label;
+      if (hereG) { cx = Number(hereG.dataset.wmx); cy = Number(hereG.dataset.wmy); label = '🧭 ' + ((worldState.cities[worldState.party.at] || {}).name || 'the party'); }
+      else if (myPinG && worldState.pins[me.name]) { cx = worldState.pins[me.name].x; cy = worldState.pins[me.name].y; label = '📍 your marker'; }
+      if (Number.isFinite(cx) && Number.isFinite(cy)) { animView(cx, cy, 46); flashHint('Centered on ' + label); }
+      else flashHint('No party location yet');
     });
     // #272 Big map — expand the overworld to a large fullscreen view so the whole party can explore it
     const bigBtn = wrap.querySelector('#wm-bigmap');
