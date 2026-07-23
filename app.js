@@ -7049,7 +7049,8 @@ function injectWorldMap() {
     </svg>
     <div class="wm-hint">${me.isGm
       ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📍 Move pins</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
-      : '🧭 Click a city to propose it to the party'}</div>`;
+      : '🧭 Click a city to propose it to the party'}</div>
+    <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
   box.insertAdjacentElement('afterbegin', wrap);
@@ -7073,6 +7074,29 @@ function injectWorldMap() {
       }
     });
   });
+  // #267 Town-art hover preview — reveal the city's banner card when you hover its pin
+  document.querySelectorAll('body > .wm-tip').forEach((e) => e.remove());   // clear stale float from prior render
+  const wmTip = wrap.querySelector('.wm-tip');
+  if (wmTip) {
+    document.body.appendChild(wmTip);   // escape .wmap overflow:hidden clipping
+    const showTip = (g) => {
+      const c = worldState.cities[g.dataset.wmcity]; if (!c) return;
+      const img = wmTip.querySelector('.wm-tip-img');
+      if (c.img) { img.src = c.img; img.style.display = ''; } else { img.removeAttribute('src'); img.style.display = 'none'; }
+      wmTip.querySelector('.wm-tip-name').textContent = c.name;
+      wmTip.querySelector('.wm-tip-kind').textContent = (c.id === at ? '★ you are here · ' : '') + (c.kind || '');
+      wmTip.style.display = 'block';
+      const gr = g.getBoundingClientRect();
+      const tw = wmTip.offsetWidth || 150;
+      const left = Math.max(tw / 2 + 6, Math.min(window.innerWidth - tw / 2 - 6, gr.left + gr.width / 2));
+      wmTip.style.left = left + 'px';
+      wmTip.style.top = Math.max(wmTip.offsetHeight + 6, gr.top - 6) + 'px';
+    };
+    wrap.querySelectorAll('[data-wmcity]').forEach((g) => {
+      g.addEventListener('mouseenter', () => showTip(g));
+      g.addEventListener('mouseleave', () => { wmTip.style.display = 'none'; });
+    });
+  }
   // #185 DM tools: upload any map (Azgaar, Worldographer, hextml, bought packs), place pins
   const svg = wrap.querySelector('svg');
   if (me.isGm && svg) {
