@@ -1519,6 +1519,9 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 #gcheck .gc-roll { background: #d4a017; color: #1a1207; border: none; border-radius: 8px; padding: 7px 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 #gcheck .gc-roll:hover { background: #f0c657; }
 #gcheck .gc-x { background: transparent; border: none; color: #9a8a63; cursor: pointer; font-size: 15px; }
+/* #279 Dodge — blue defensive ring + shield badge on the token */
+.token.dodging { box-shadow: 0 0 0 3px rgba(96,156,232,.9), 0 0 14px rgba(96,156,232,.55); }
+.token.dodging::after { content: '🛡️'; position: absolute; top: -9px; left: -9px; font-size: 15px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); pointer-events: none; z-index: 6; }
 .wm-tip { position: fixed; z-index: 6000; width: 150px; transform: translate(-50%,-100%); background: #12151d; border: 1px solid #7a6534; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.6); overflow: hidden; pointer-events: none; }
 .wm-tip-img { display: block; width: 100%; height: 84px; object-fit: cover; background: #0c0e14; }
 .wm-tip-name { font-size: 13px; font-weight: 700; color: #f0e2b8; padding: 4px 8px 0; }
