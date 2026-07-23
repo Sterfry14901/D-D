@@ -121,6 +121,7 @@
       <button id="fog-paint-wall" class="fog-tool">🧱 Walls</button>
       <button id="fog-paint-wall-erase" class="fog-tool" title="Erase single wall cells — carve out a hidden door">✂️ Erase wall</button>
       <button id="fog-paint-door" class="fog-tool" title="Drop a door — anyone can click it to open/close; a shut door blocks sight">🚪 Door</button>
+      <button id="fog-paint-trap" class="fog-tool" title="Drop hidden traps — a player who steps on one springs it (right-click a trap to remove)">⚠️ Trap</button>
       <button id="wall-clear" class="fog-tool">Clear walls</button>
       <button id="light-toggle" class="fog-tool">💡 Lighting: Off</button>
       <span class="fog-hint">Paint walls, then turn Lighting on — players only see what their tokens can see.</span>
@@ -1090,6 +1091,7 @@
             <li><b>🚪 Working doors:</b> drop a 🚪 Door brush cell on any wall, and it becomes a real door — a closed door blocks sight like solid stone, and anyone at the table can click it to swing it open (🚪) and let the light and vision pour through. Perfect for bursting into the boss room. The whole table hears it creak.</li>
             <li><b>🔒 Locked doors &amp; 🛠️ lockpicking:</b> a locked door (🔒) won't open for anyone. If your character carries <b>thieves' tools</b> in their inventory, click the locked door to attempt a pick — the DM gets a prompt to allow it. Approved, the lock springs and the door swings open; denied, the lock holds. No tools? "It's locked — you need a key or thieves' tools."</li>
             <li><b>🕵️ Secret doors (DM):</b> click any door repeatedly to cycle it through closed → 🔒 locked → 🕵️ secret → open. A secret door is completely invisible to players and blocks sight exactly like a wall — thieves' tools can't touch it, because you can't pick a lock you haven't found. Reveal it (perception, magic, or DM fiat) by cycling it back to a normal door.</li>
+            <li><b>⚠️ Traps (DM):</b> the fog toolbar has a ⚠️ Trap brush — name the trap and set its damage, then paint hidden triggers on the map. When a player walks their token onto one, it <b>springs automatically</b>: a burst of fire on the board, an announcement to the table, and the damage applied straight to their token. Traps stay invisible to players until you reveal one (click it). A revealed trap can be <b>disarmed by a player with thieves' tools</b> — same DM-approval flow as locked doors. Right-click a trap to remove it. Monsters the DM moves never set off the party's traps.</li>
             <li><b>🗺️ Explored memory:</b> the dungeon now remembers where you've walked. Rooms you've already seen stay dimly lit even after you move on, while the unexplored dark stays pitch black — so the map fills in as you adventure, just like a real dungeon crawl. Your memory is saved per campaign and resets when the DM loads a new map.</li>
             <li><b>✨ Homebrew stats in Party Sheets:</b> the 👁 Party sheets viewer now shows each player's custom trackers (Corruption, Sanity, Faction rep…) and exhaustion level, updating live as they change. Perfect for dark campaigns where you're tracking a slow slide into madness.</li>
           </ul>

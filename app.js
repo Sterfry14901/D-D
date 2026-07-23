@@ -18,6 +18,7 @@ let fogBrush = 1;           // brush size in cells (odd: 1, 3, 5)
 let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
 let walls = {};             // "cx,cy": true — sight-blocking cells
 let doors = {};             // #256 "cx,cy": "open" | "closed"
+let traps = {};             // #259 "cx,cy": {armed,name,dmg,revealed}
 let lighting = false;       // dynamic line-of-sight active
 const VISION_RADIUS = 6;    // cells a token can see (~30 ft)
 let aoes = [];              // placed spell area templates
@@ -1368,6 +1369,7 @@ socket.on('state', (s) => {
   renderFog();
   walls = s.walls || {};
   doors = s.doors || {};
+  traps = s.traps || {};
   lighting = !!s.lighting;
   $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
   $('light-toggle').classList.toggle('active', lighting);
@@ -4614,6 +4616,17 @@ $('fog-paint-reveal').onclick = () => setPaintTarget('reveal');
 $('fog-paint-wall').onclick = () => setPaintTarget('wall');
 if ($('fog-paint-wall-erase')) $('fog-paint-wall-erase').onclick = () => setPaintTarget('wallerase');   // #255 hidden doors
 if ($('fog-paint-door')) $('fog-paint-door').onclick = () => setPaintTarget('door');                    // #256 doors
+// #259 Trap brush — DM names the trap and sets damage once, then paints hidden triggers.
+let trapBrush = { name: 'trap', dmg: 0 };
+if ($('fog-paint-trap')) $('fog-paint-trap').onclick = () => {
+  const nm = prompt('Trap name (e.g. Spike Pit, Poison Dart):', trapBrush.name || 'trap');
+  if (nm === null) return;
+  const dg = prompt('Damage on trigger (0 for none — you can rule it yourself):', String(trapBrush.dmg || 0));
+  if (dg === null) return;
+  trapBrush = { name: (nm.trim() || 'trap').slice(0, 40), dmg: Math.max(0, Math.min(999, Math.floor(Number(dg) || 0))) };
+  setPaintTarget('trap');
+  flashHint(`⚠️ Painting hidden ${trapBrush.name}s${trapBrush.dmg ? ' (' + trapBrush.dmg + ' dmg)' : ''} — click cells`);
+};
 [['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
   const b = $(id); if (!b) return;
   b.onclick = () => {
@@ -4648,6 +4661,11 @@ function paintFog(e) {
       if (doors[key]) continue;
       doors[key] = 'closed'; delete walls[key];
       socket.emit('door:set', { key, on: true }); touchedWall = true;
+    } else if (paintTarget === 'trap') {
+      // #259: drop a hidden trap. One at a time so the DM can name/set damage.
+      if (traps[key]) continue;
+      traps[key] = { armed: true, revealed: false, name: trapBrush.name, dmg: trapBrush.dmg };
+      socket.emit('trap:set', { key, name: trapBrush.name, dmg: trapBrush.dmg }); touchedWall = true;
     } else {
       const wantHidden = (paintTarget === 'hide');
       if (!!fog.hidden[key] === wantHidden) continue;
@@ -4688,6 +4706,32 @@ socket.on('door:pickreq', ({ key, who, sid }) => {
   if (!me.isGm) return;
   const yes = confirm(`🛠️ ${who} is trying to pick a locked door with thieves' tools.\n\nAllow it? (Cancel = the lock holds)`);
   socket.emit('door:pickresp', { key, sid, ok: !!yes });
+});
+/* #259 Trap listeners */
+function trapFlash(cx, cy) {
+  const b = $('board'); if (!b) return;
+  const f = document.createElement('div'); f.className = 'trap-flash';
+  f.style.left = cx * gridSize + 'px'; f.style.top = cy * gridSize + 'px';
+  f.style.width = gridSize + 'px'; f.style.height = gridSize + 'px';
+  ($('dark') || b).appendChild(f);
+  setTimeout(() => f.remove(), 900);
+}
+socket.on('trap:set', ({ key, state }) => {
+  if (state) traps[key] = state; else delete traps[key];
+  renderWalls();
+});
+socket.on('trap:sprung', ({ key, name, token, dmg }) => {
+  delete traps[key]; renderWalls();
+  const [cx, cy] = key.split(',').map(Number);
+  trapFlash(cx, cy);
+  flashHint(`💥 ${name} sprung on ${token}!${dmg ? ' −' + dmg + ' HP' : ''}`);
+});
+socket.on('trap:disarmpending', () => flashHint('🛠️ Working the trap — waiting on the DM…'));
+socket.on('trap:disarmfail', () => flashHint("💥 The disarm slips — careful!"));
+socket.on('trap:disarmreq', ({ key, who, sid }) => {
+  if (!me.isGm) return;
+  const yes = confirm(`🛠️ ${who} is trying to disarm a trap with thieves' tools.\n\nAllow it? (Cancel = it stays armed)`);
+  socket.emit('trap:disarmresp', { key, sid, ok: !!yes });
 });
 
 function renderWalls() {
@@ -4735,6 +4779,31 @@ function renderWalls() {
       }
       socket.emit('door:toggle', { key });   // normal open/close
     };
+    layer.appendChild(cell);
+  }
+  // #259 Traps. GM always sees a ⚠️ marker; players only see revealed traps.
+  for (const key in traps) {
+    const tr = traps[key]; if (!tr) continue;
+    if (!tr.revealed && !me.isGm) continue;   // hidden from players until found
+    const [cx, cy] = key.split(',').map(Number);
+    const cell = document.createElement('div');
+    cell.className = 'trap-cell' + (tr.revealed ? ' trap-revealed' : ' trap-hidden');
+    cell.textContent = '⚠️';
+    cell.title = me.isGm
+      ? `Trap: ${tr.name}${tr.dmg ? ' (' + tr.dmg + ' dmg)' : ''} — click to ${tr.revealed ? 'hide' : 'reveal'}, right-click to remove`
+      : `A ${tr.name} — dangerous!`;
+    cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
+    cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+    cell.style.fontSize = Math.round(gridSize * 0.5) + 'px';
+    cell.onclick = (e) => {
+      e.stopPropagation();
+      if (me.isGm) { socket.emit('trap:reveal', { key }); return; }   // GM toggles revealed
+      if (me.spectator) return;
+      if (!tr.revealed) return;
+      if (hasThievesTools()) { socket.emit('trap:disarm', { key }); flashHint('🛠️ Attempting to disarm the trap…'); }
+      else flashHint("⚠️ A trap! You need thieves' tools to disarm it.");
+    };
+    if (me.isGm) cell.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); socket.emit('trap:clear', { key }); };
     layer.appendChild(cell);
   }
 }
