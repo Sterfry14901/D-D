@@ -66,7 +66,7 @@ function buildStarterWorld() {
     cities: {
       havenbrook: {
         id: 'havenbrook', name: 'Havenbrook', kind: 'town',
-        x: 26, y: 58,
+        x: 26, y: 22,
         img: '/towns/forest.jpg',
         desc: 'A walled farming town of timber and thatch, ringed by barley fields. A safe first step for new adventurers.',
         vendors: [mkVendor("Brannoc's Goods", 'general'), mkVendor('The Iron Hearth', 'blacksmith')],
@@ -74,7 +74,7 @@ function buildStarterWorld() {
       },
       portcael: {
         id: 'portcael', name: 'Port Cael', kind: 'city',
-        x: 72, y: 60,
+        x: 34, y: 47,
         img: '/towns/riverport.jpg',
         desc: 'A salt-worn harbor city where tall ships crowd the docks and every third face is a smuggler. Boats leave for the mountain river-road.',
         vendors: [mkVendor('Dockside Sundries', 'general'), mkVendor("Merryweather's Wagon", 'wagon'), mkVendor('The Bilge Rat', 'fence')],
@@ -82,7 +82,7 @@ function buildStarterWorld() {
       },
       ironhold: {
         id: 'ironhold', name: 'Ironhold', kind: 'city',
-        x: 55, y: 42,
+        x: 55, y: 36,
         img: '/towns/forge.jpg',
         desc: 'A dwarven mountain hold of black stone and forge-fire, famed for arms and the arcane vaults cut deep beneath it.',
         vendors: [mkVendor('Deepdelve Arms', 'blacksmith'), mkVendor('The Arcane Vault', 'magic')],
@@ -90,7 +90,7 @@ function buildStarterWorld() {
       },
       auristol: {
         id: 'auristol', name: 'Auristol', kind: 'city',
-        x: 85, y: 48,
+        x: 78, y: 40,
         img: '/towns/highcitadel.jpg',
         desc: 'The white-and-gold capital of the realm, marble spires crowned with banners. Seat of the high council, and the grandest market for a hundred leagues.',
         vendors: [mkVendor('The Gilded Emporium', 'general'), mkVendor('Sunspire Arcanum', 'magic'), mkVendor('Highguard Armory', 'blacksmith')],
@@ -98,7 +98,7 @@ function buildStarterWorld() {
       },
       greywatch: {
         id: 'greywatch', name: 'Greywatch', kind: 'outpost',
-        x: 58, y: 24,
+        x: 60, y: 16,
         img: '/towns/outpost.jpg',
         desc: 'A stone frontier keep guarding the mountain road, its torches never dark. Soldiers drill in the muddy yard; beyond the palisade, the wilds begin.',
         vendors: [mkVendor("Quartermaster's Stores", 'general'), mkVendor('The Watchfire Smith', 'blacksmith')],
@@ -106,7 +106,7 @@ function buildStarterWorld() {
       },
       ashfall: {
         id: 'ashfall', name: 'Ashfall', kind: 'ruin',
-        x: 40, y: 20,
+        x: 54, y: 55,
         img: '/towns/warhamlet.jpg',
         desc: 'A war-scarred hamlet swallowed by the wastes — burned roofs, broken walls, and roads gone to ruin. Scavengers and worse pick through what the fires left behind.',
         vendors: [mkVendor('The Ashmarket', 'fence')],
@@ -556,18 +556,25 @@ function townImgFor(kind, name) {
 }
 // Ensure the 3 seed cities carry their default banners even in older saved rooms.
 const SEED_TOWN_ART = { havenbrook: '/towns/forest.jpg', portcael: '/towns/riverport.jpg', ironhold: '/towns/forge.jpg' };
-// #271 default map-aligned pin positions for the illustrated overworld
-const SEED_CITY_POS = { havenbrook: [26, 58], portcael: [72, 60], ironhold: [55, 42], auristol: [85, 48], greywatch: [58, 24], ashfall: [40, 20] };
+// #275 seed-city pins aligned to the actual landmarks on the illustrated overworld
+const SEED_CITY_POS = { havenbrook: [26, 22], portcael: [34, 47], ironhold: [55, 36], auristol: [78, 40], greywatch: [60, 16], ashfall: [54, 55] };
+const CITY_ART_V = 3; // bump to re-align seed cities on the default map for existing rooms
 function retrofitTownArt(world) {
   if (!world || !world.cities) return;
   for (const id of Object.keys(SEED_TOWN_ART)) {
     const c = world.cities[id];
     if (c && !c.img) c.img = SEED_TOWN_ART[id];
   }
-  for (const id of Object.keys(SEED_CITY_POS)) {                     // #271 align seed cities to the map art
+  // On the default overworld art, snap seed cities onto their landmarks. Runs once per
+  // version bump (CITY_ART_V) so a DM who later hand-moves cities keeps their placement.
+  const onDefaultMap = world.mapImage === '/maps/world-realm.jpg' || world.mapImage === undefined;
+  const realign = onDefaultMap && (world.cityArtV || 0) < CITY_ART_V;
+  for (const id of Object.keys(SEED_CITY_POS)) {
     const c = world.cities[id];
-    if (c && !(Number(c.x) > 0 && Number(c.y) > 0)) { c.x = SEED_CITY_POS[id][0]; c.y = SEED_CITY_POS[id][1]; }
+    if (!c) continue;
+    if (realign || !(Number(c.x) > 0 && Number(c.y) > 0)) { c.x = SEED_CITY_POS[id][0]; c.y = SEED_CITY_POS[id][1]; }
   }
+  if (onDefaultMap) world.cityArtV = CITY_ART_V;
   if (!world.pins) world.pins = {};                                  // #269 party markers bucket
   if (world.mapImage === undefined) world.mapImage = '/maps/world-realm.jpg'; // #269 default overworld (null = DM cleared)
 }
