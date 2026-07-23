@@ -1123,15 +1123,16 @@ io.on('connection', (socket) => {
     pushSystem(joinedRoom, "📍 The DM cleared everyone's markers.");
   });
 
-  // #277 Group check — DM calls for a skill/ability check; every player is prompted to roll.
+  // #277/#278 Group check/save — DM calls for a skill/ability check or saving throw; every player is prompted to roll.
   socket.on('check:call', (d) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
     const key = String((d && d.key) || '').slice(0, 30).replace(/[<>]/g, '').trim();
     const dc = Math.max(0, Math.min(40, parseInt(d && d.dc) || 0));
+    const kind = (d && d.kind) === 'save' ? 'save' : 'check';
     if (!key) return;
     const by = (room.players[socket.id] && room.players[socket.id].name) || 'The DM';
-    io.to(joinedRoom).emit('check:call', { key, dc, by });
-    pushSystem(joinedRoom, `🎲 ${by} calls for a ${key} check${dc ? ` (DC ${dc})` : ''} — everyone roll!`);
+    io.to(joinedRoom).emit('check:call', { key, dc, by, kind });
+    pushSystem(joinedRoom, `🎲 ${by} calls for a ${key} ${kind}${dc ? ` (DC ${dc})` : ''} — everyone roll!`);
   });
 
   // ---- #181 Combat assistant: server-resolved attacks ----

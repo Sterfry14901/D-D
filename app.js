@@ -1797,7 +1797,7 @@ function boardDice(m) {
   _bdTimer = setTimeout(() => ov.classList.remove('show'), 3400);
 }
 socket.on('chat', addChat);
-socket.on('check:call', ({ key, dc, by } = {}) => { if (key) showCheckPrompt(key, dc, by); }); // #277 group check prompt
+socket.on('check:call', ({ key, dc, by, kind } = {}) => { if (key) showCheckPrompt(key, dc, by, kind); }); // #277/#278 group check/save prompt
 socket.on('dm:thinking', (on) => $('dm-typing').classList.toggle('hidden', !on));
 
 /* ============ DM AI BADGE — shows which brain the DM is using (from /ai-status) ============ */
@@ -2000,7 +2000,9 @@ function sendChat() {
   const wm = text.match(/^\/(?:w|whisper|gm)\b\s*(.*)$/i);
   if (wm) { chatWhisper(wm[1]); $('chat-input').value = ''; return; }
   const gcm = text.match(/^\/(?:check|gc)\b\s*(.*)$/i);          // #277 group check
-  if (gcm) { groupCheckCall(gcm[1]); $('chat-input').value = ''; return; }
+  if (gcm) { groupCheckCall(gcm[1], 'check'); $('chat-input').value = ''; return; }
+  const gsm = text.match(/^\/(?:save|gs)\b\s*(.*)$/i);           // #278 group save
+  if (gsm) { groupCheckCall(gsm[1], 'save'); $('chat-input').value = ''; return; }
   socket.emit('chat', { text }); $('chat-input').value = '';
 }
 // #277 Group Check — DM calls for a skill/ability check; every player is prompted to roll.
@@ -2012,30 +2014,35 @@ function matchSkillKey(s) {
   const norm = (n) => n.toLowerCase().replace(/[^a-z]/g, '');
   return skills.find((n) => n.toLowerCase() === s) || skills.find((n) => n.toLowerCase().startsWith(s)) || skills.find((n) => norm(n).startsWith(norm(s))) || null;
 }
-function groupCheckCall(rest) {
-  if (!me.isGm) { addChat({ role: 'system', text: 'Only the DM can call a group check. Use /roll for your own dice.' }); return; }
+function groupCheckCall(rest, kind) {
+  kind = kind === 'save' ? 'save' : 'check';
+  const noun = kind === 'save' ? 'save' : 'check';
+  if (!me.isGm) { addChat({ role: 'system', text: `Only the DM can call a group ${noun}. Use /roll for your own dice.` }); return; }
   rest = (rest || '').trim();
-  if (!rest) { addChat({ role: 'system', text: 'Usage: /check <skill or ability> [DC] — e.g. /check Perception 15' }); return; }
+  if (!rest) { addChat({ role: 'system', text: kind === 'save' ? 'Usage: /save <ability> [DC] — e.g. /save DEX 15' : 'Usage: /check <skill or ability> [DC] — e.g. /check Perception 15' }); return; }
   let dc = 0; const mDc = rest.match(/\s+(\d{1,2})\s*$/);
   if (mDc) { dc = parseInt(mDc[1]); rest = rest.slice(0, mDc.index).trim(); }
   const key = matchSkillKey(rest);
-  if (!key) { addChat({ role: 'system', text: `Unknown check "${rest}". Try a skill (Perception, Stealth, Insight…) or ability (STR, DEX…).` }); return; }
-  socket.emit('check:call', { key, dc });
+  const okKey = key && (kind !== 'save' || /^(STR|DEX|CON|INT|WIS|CHA)$/.test(key));
+  if (!okKey) { addChat({ role: 'system', text: kind === 'save' ? `For a save, name an ability: STR, DEX, CON, INT, WIS, or CHA.` : `Unknown check "${rest}". Try a skill (Perception, Stealth, Insight…) or ability (STR, DEX…).` }); return; }
+  socket.emit('check:call', { key, dc, kind });
 }
-function showCheckPrompt(key, dc, by) {
+function showCheckPrompt(key, dc, by, kind) {
+  const noun = kind === 'save' ? 'save' : 'check';
   let el = $('gcheck');
   if (!el) { el = document.createElement('div'); el.id = 'gcheck'; document.body.appendChild(el); }
-  el.innerHTML = `<div class="gc-in"><span class="gc-txt">🎲 <b>${escapeHtml(by || 'The DM')}</b> calls for a <b>${escapeHtml(key)}</b> check${dc ? ` · DC ${dc}` : ''}</span>
-    <button class="gc-roll" id="gc-roll">Roll ${escapeHtml(key)}</button><button class="gc-x" id="gc-x">✕</button></div>`;
+  el.innerHTML = `<div class="gc-in"><span class="gc-txt">🎲 <b>${escapeHtml(by || 'The DM')}</b> calls for a <b>${escapeHtml(key)}</b> ${noun}${dc ? ` · DC ${dc}` : ''}</span>
+    <button class="gc-roll" id="gc-roll">Roll ${escapeHtml(key)}${kind === 'save' ? ' save' : ''}</button><button class="gc-x" id="gc-x">✕</button></div>`;
   el.style.display = 'block';
   clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = 'none'; }, 30000);
-  $('gc-roll').onclick = () => { rollGroupCheck(key, dc); el.style.display = 'none'; };
+  $('gc-roll').onclick = () => { rollGroupCheck(key, dc, kind); el.style.display = 'none'; };
   $('gc-x').onclick = () => { el.style.display = 'none'; };
 }
-function rollGroupCheck(key, dc) {
+function rollGroupCheck(key, dc, kind) {
   const isAb = /^(STR|DEX|CON|INT|WIS|CHA)$/.test(key);
-  const prof = csProf(); let mod = 0, label = key;
-  if (isAb) { mod = csMod(cs.scores[key.toLowerCase()]); label = CS_ABILN[key.toLowerCase()] + ' check'; }
+  const prof = csProf(); let mod = 0, label = key; const abl = key.toLowerCase();
+  if (kind === 'save' && isAb) { mod = csMod(cs.scores[abl]) + ((cs.saves && cs.saves[abl]) ? prof : 0); label = CS_ABILN[abl] + ' save'; }
+  else if (isAb) { mod = csMod(cs.scores[abl]); label = CS_ABILN[abl] + ' check'; }
   else { const ab = Object.fromEntries(CS_SKILLS)[key]; mod = csMod(cs.scores[ab] ) + ((cs.skills && cs.skills[key]) ? prof : 0); label = key + ' check'; }
   const r = 1 + Math.floor(Math.random() * 20), total = r + mod;
   const pf = dc ? (total >= dc ? ' ✅' : ' ❌') : '';
