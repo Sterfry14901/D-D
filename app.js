@@ -4675,6 +4675,20 @@ socket.on('door:set', ({ key, state }) => {
   if (state) { doors[key] = state; delete walls[key]; } else delete doors[key];
   renderWalls(); refreshLighting();
 });
+/* #258 Lockpicking flow */
+function hasThievesTools() {
+  // Any inventory item that reads like thieves' tools / lockpicks counts.
+  const gear = (cs && Array.isArray(cs.gear)) ? cs.gear : [];
+  return gear.some((g) => /thieves'?\s*tools|thief'?s\s*tools|lock\s*picks?|lockpick/i.test(String(g && g.n || '')));
+}
+socket.on('door:locked', () => flashHint("🔒 It's locked tight."));
+socket.on('door:pickpending', () => flashHint('🛠️ Working the lock — waiting on the DM…'));
+socket.on('door:pickfail', () => flashHint('🔒 The lock holds — the attempt fails.'));
+socket.on('door:pickreq', ({ key, who, sid }) => {
+  if (!me.isGm) return;
+  const yes = confirm(`🛠️ ${who} is trying to pick a locked door with thieves' tools.\n\nAllow it? (Cancel = the lock holds)`);
+  socket.emit('door:pickresp', { key, sid, ok: !!yes });
+});
 
 function renderWalls() {
   const layer = $('walls'); if (!layer) return;
@@ -4690,18 +4704,37 @@ function renderWalls() {
       layer.appendChild(cell);
     }
   }
-  // #256 Doors are visible to EVERYONE and clickable to open/close.
+  // #256/#258 Doors. Secret doors are invisible to players (they behave like a wall);
+  // the GM sees every door. Icons: 🚪 open · 🚪 closed · 🔒 locked · 🕵️ secret (GM).
+  const DOOR_ICON = { open: '🚪', closed: '🚪', locked: '🔒', secret: '🕵️' };
+  const DOOR_TIP = {
+    open: 'Open door — click to close',
+    closed: 'Closed door — click to open',
+    locked: "Locked — needs a key or thieves' tools",
+    secret: 'SECRET door (only you see this). Click to reveal/cycle.',
+  };
   for (const key in doors) {
     const state = doors[key];
+    if (state === 'secret' && !me.isGm) continue;   // #258 hidden from players entirely
     const [cx, cy] = key.split(',').map(Number);
     const cell = document.createElement('div');
     cell.className = 'door-cell door-' + state;
-    cell.textContent = state === 'open' ? '🚪' : '🔒';
-    cell.title = state === 'open' ? 'Open door — click to close' : 'Closed door — click to open';
+    cell.textContent = DOOR_ICON[state] || '🚪';
+    cell.title = DOOR_TIP[state] || '';
     cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
     cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
     cell.style.fontSize = Math.round(gridSize * 0.5) + 'px';
-    cell.onclick = (e) => { e.stopPropagation(); if (!me.spectator) socket.emit('door:toggle', { key }); };
+    cell.onclick = (e) => {
+      e.stopPropagation();
+      if (me.spectator) return;
+      if (me.isGm) { socket.emit('door:toggle', { key }); return; }   // GM cycles states
+      if (state === 'locked') {
+        if (hasThievesTools()) { socket.emit('door:pick', { key }); flashHint("🛠️ Attempting to pick the lock…"); }
+        else flashHint("🔒 It's locked — you need a key or thieves' tools.");
+        return;
+      }
+      socket.emit('door:toggle', { key });   // normal open/close
+    };
     layer.appendChild(cell);
   }
 }
@@ -4715,7 +4748,7 @@ function hasSight(x0, y0, x1, y1) {
     if (!(x === x0 && y === y0) && !(x === x1 && y === y1)) {
       const k = `${x},${y}`;
       if (walls[k]) return false;               // a wall between blocks sight
-      if (doors[k] === 'closed') return false;  // #256 a shut door blocks sight too
+      if (doors[k] && doors[k] !== 'open') return false;  // #256/#258 shut, locked, or secret doors block sight
     }
     if (x === x1 && y === y1) break;
     const e2 = 2 * err;
