@@ -634,6 +634,11 @@ function readyState(room) {
 }
 // Who may move/edit/remove a token: the DM (all), or the token's owner
 // (matched by stable player name, or by the current socket id, or if unowned).
+function addTokenStatus(t, emoji) {   // #280 add a condition marker to a token if not already present
+  if (!t) return;
+  if (!Array.isArray(t.statuses)) t.statuses = [];
+  if (!t.statuses.includes(emoji)) t.statuses.push(emoji);
+}
 function canControlToken(room, socketId, tok) {
   if (!tok) return false;
   if (isGm(room, socketId)) return true;
@@ -1307,15 +1312,35 @@ io.on('connection', (socket) => {
       const hkey = Math.floor((x + (t.size || 1) * 32) / g) + ',' + Math.floor((y + (t.size || 1) * 32) / g);
       const hz = room.hazards[hkey];
       if (hz) {
-        if (t._lastHazard !== hkey && (Number(hz.dmg) || 0) > 0) {
-          const hdmg = Math.max(0, Math.min(999, Number(hz.dmg) || 0));
+        if (t._lastHazard !== hkey) {
           const hnm = String(hz.name || 'hazard').slice(0, 40);
           const hwho = t.name || t.label || 'Someone';
-          t.hp = Math.max(0, (Number(t.hp) || 0) - hdmg);
-          emitTokenPerSocket(room, 'token:update', t);
-          io.to(joinedRoom).emit('hazard:hit', { key: hkey, name: hnm, token: hwho, dmg: hdmg });
-          pushSystem(joinedRoom, `🔥 ${hwho} takes ${hdmg} from ${hnm}!`);
-          markDirty();
+          if (hz.save && hz.save.kind) {                      // #280 mundane gear — caltrops / ball bearings (DEX save on enter)
+            const dc = Math.max(1, Math.min(30, Number(hz.save.dc) || 12));
+            const roll = 1 + Math.floor(Math.random() * 20);
+            if (roll >= dc) {
+              pushSystem(joinedRoom, `${hz.save.kind === 'caltrops' ? '🔩' : '⚪'} ${hwho} picks carefully through the ${hnm} — DEX save ${roll} vs ${dc}, safe.`);
+            } else if (hz.save.kind === 'caltrops') {
+              const cd = Math.max(0, Math.min(99, Number(hz.dmg) || 1));
+              t.hp = Math.max(0, (Number(t.hp) || 0) - cd);
+              addTokenStatus(t, '🐌');
+              emitTokenPerSocket(room, 'token:update', t);
+              pushSystem(joinedRoom, `🔩 ${hwho} steps on the caltrops — DEX save ${roll} vs ${dc} FAILS: ${cd} damage & speed halved!`);
+              markDirty();
+            } else {
+              addTokenStatus(t, '🥴');
+              emitTokenPerSocket(room, 'token:update', t);
+              pushSystem(joinedRoom, `⚪ ${hwho} slips on the ball bearings — DEX save ${roll} vs ${dc} FAILS: knocked prone!`);
+              markDirty();
+            }
+          } else if ((Number(hz.dmg) || 0) > 0) {
+            const hdmg = Math.max(0, Math.min(999, Number(hz.dmg) || 0));
+            t.hp = Math.max(0, (Number(t.hp) || 0) - hdmg);
+            emitTokenPerSocket(room, 'token:update', t);
+            io.to(joinedRoom).emit('hazard:hit', { key: hkey, name: hnm, token: hwho, dmg: hdmg });
+            pushSystem(joinedRoom, `🔥 ${hwho} takes ${hdmg} from ${hnm}!`);
+            markDirty();
+          }
         }
         t._lastHazard = hkey;
       } else {
@@ -1683,6 +1708,49 @@ io.on('connection', (socket) => {
     delete room.hazards[key];
     io.to(joinedRoom).emit('hazard:set', { key, state: null });
     markDirty();
+  });
+  // #280 Mundane battlefield gear — a player scatters caltrops / ball bearings at their own token's square.
+  socket.on('gear:deploy', ({ kind } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const mine = Object.values(room.tokens).find((t) => t.ownerId === socket.id) ||
+                 Object.values(room.tokens).find((t) => canControlToken(room, socket.id, t));
+    if (!mine) { io.to(socket.id).emit('gear:none', { kind }); return; }
+    const g = room.gridSize || 70;
+    const key = Math.floor((mine.x + (mine.size || 1) * 32) / g) + ',' + Math.floor((mine.y + (mine.size || 1) * 32) / g);
+    room.hazards = room.hazards || {};
+    const who = room.players[socket.id]?.name || mine.name || mine.label || 'Someone';
+    if (kind === 'bearings') {
+      room.hazards[key] = { name: 'Ball Bearings', dmg: 0, color: '#cfd3db', save: { ability: 'DEX', dc: 10, kind: 'bearings' } };
+      pushSystem(joinedRoom, `⚪ ${who} scatters ball bearings across the ground.`);
+    } else {
+      room.hazards[key] = { name: 'Caltrops', dmg: 1, color: '#c9ccd4', save: { ability: 'DEX', dc: 15, kind: 'caltrops' } };
+      pushSystem(joinedRoom, `🔩 ${who} scatters caltrops across the ground.`);
+    }
+    io.to(joinedRoom).emit('hazard:set', { key, state: room.hazards[key] });
+    markDirty();
+  });
+  // #280 10-foot pole — safely probe the squares around your token for traps/hazards without triggering them.
+  socket.on('gear:pole', () => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const mine = Object.values(room.tokens).find((t) => t.ownerId === socket.id) ||
+                 Object.values(room.tokens).find((t) => canControlToken(room, socket.id, t));
+    if (!mine) { io.to(socket.id).emit('gear:none', { kind: 'pole' }); return; }
+    const g = room.gridSize || 70;
+    const cx = Math.floor((mine.x + (mine.size || 1) * 32) / g), cy = Math.floor((mine.y + (mine.size || 1) * 32) / g);
+    const who = room.players[socket.id]?.name || mine.name || mine.label || 'Someone';
+    const found = [];
+    for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+      if (dx === 0 && dy === 0) continue;
+      const k = (cx + dx) + ',' + (cy + dy);
+      if (room.traps && room.traps[k]) {
+        if (!room.traps[k].revealed) { room.traps[k].revealed = true; io.to(joinedRoom).emit('trap:set', { key: k, state: room.traps[k] }); }
+        found.push('a trap');
+      }
+      if (room.hazards && room.hazards[k]) found.push(String(room.hazards[k].name || 'hazard'));
+    }
+    markDirty();
+    if (found.length) pushSystem(joinedRoom, `🪧 ${who} probes ahead with a 10-foot pole and finds: ${[...new Set(found)].join(', ')}.`);
+    else pushSystem(joinedRoom, `🪧 ${who} probes ahead with a 10-foot pole — the way seems clear.`);
   });
   socket.on('door:toggle', ({ key }) => {
     const room = rooms.get(joinedRoom); if (!room || !key) return;
