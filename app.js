@@ -7122,17 +7122,37 @@ function injectWorldMap() {
       const y = ((ev.clientY - r.top) / r.height) * 76;
       socket.emit('world:pinSet', { x, y });
       partyPinArm = false;
-      flashHint('📍 Your marker is set — the whole party can see it. Move it any time.');
+      flashHint('📍 Marker set — the whole party sees it. Drag it any time to move.');
       ev.stopPropagation();
     }, true);   // capture phase: beats city-travel clicks while placing
+    // Drag YOUR OWN marker to move it (pointer events → mouse + touch). Others' pins are static.
+    const clampXY = (ev) => {
+      const r = svg.getBoundingClientRect();
+      return [
+        Math.max(2, Math.min(98, ((ev.clientX - r.left) / r.width) * 100)),
+        Math.max(4, Math.min(72, ((ev.clientY - r.top) / r.height) * 76)),
+      ];
+    };
     wrap.querySelectorAll('[data-wmpin]').forEach((g) => {
-      g.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        if (g.dataset.wmpin === me.name) { partyPinArm = true; flashHint('📍 Click a new spot to move your marker'); }
+      if (g.dataset.wmpin !== me.name) return;   // only your own is grabbable
+      g.style.cursor = 'grab';
+      g.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        g.style.cursor = 'grabbing';
+        let last = null;
+        const move = (e) => { last = clampXY(e); g.setAttribute('transform', `translate(${last[0]},${last[1]})`); };
+        const up = () => {
+          document.removeEventListener('pointermove', move);
+          document.removeEventListener('pointerup', up);
+          g.style.cursor = 'grab';
+          if (last) socket.emit('world:pinSet', { x: last[0], y: last[1] });
+        };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
       });
     });
     const myPin = wrap.querySelector('#wm-mypin');
-    if (myPin) myPin.addEventListener('click', (ev) => { ev.stopPropagation(); partyPinArm = true; flashHint('📍 Click anywhere on the map to place your marker'); });
+    if (myPin) myPin.addEventListener('click', (ev) => { ev.stopPropagation(); partyPinArm = true; flashHint(iHavePin ? '📍 Tap a new spot to move your marker — or just drag it' : '📍 Tap anywhere on the map to place your marker'); });
     const myPinClr = wrap.querySelector('#wm-mypin-clear');
     if (myPinClr) myPinClr.addEventListener('click', (ev) => { ev.stopPropagation(); socket.emit('world:pinClear'); });
     const clrPins = wrap.querySelector('#wm-clearpins');
