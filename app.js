@@ -995,10 +995,11 @@ function renderWorld() {
   }
   box.innerHTML = `
     <div class="world-here">
-      ${window.pdPlaceFor ? `<img class="world-art" src="${pdArt(pdPlaceFor(here), 320)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ''}
+      ${here.img ? `<img class="world-art world-photo" src="${here.img}" alt="" loading="lazy" />` : (window.pdPlaceFor ? `<img class="world-art" src="${pdArt(pdPlaceFor(here), 320)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : '')}
       <div class="world-city">📍 ${escapeHtml(here.name)} <span class="world-kind">${here.kind || ''}</span></div>
       ${worldState.clock ? `<div class="world-clock">🕐 Day ${worldState.clock.day}, ${String(worldState.clock.hour).padStart(2, '0')}:00</div>` : ''}
       <div class="world-desc">${escapeHtml(here.desc || '')}</div>
+      ${me.isGm ? `<div class="world-photo-ctl"><button id="wh-photo" class="world-mini">📷 ${here.img ? 'Change' : 'Add'} town photo</button>${here.img ? ' <button id="wh-photo-x" class="world-mini">✖ Remove</button>' : ''}<input type="file" id="wh-photo-file" accept="image/*" style="display:none"></div>` : ''}
     </div>
     <div class="world-sec-t">Vendors here</div>
     <div class="world-vendors">${vendors || '<div class="world-empty">No vendors here.</div>'}</div>
@@ -1030,6 +1031,15 @@ function renderWorld() {
   const jgo = box.querySelector('#journey-go'); if (jgo) jgo.onclick = () => { const to = box.querySelector('#journey-to').value; if (to) socket.emit('world:travelTo', { to }); };
   const encRoll = box.querySelector('#enc-roll'); if (encRoll) encRoll.onclick = () => socket.emit('world:encounterRoll', { mode: box.querySelector('#enc-mode').value });
   const encBrowse = box.querySelector('#enc-browse'); if (encBrowse) encBrowse.onclick = () => socket.emit('world:encounterList', { mode: box.querySelector('#enc-mode').value });
+  // #264 Town photos — DM uploads a picture for this city (shows as its banner).
+  const whP = box.querySelector('#wh-photo'); if (whP) whP.onclick = () => box.querySelector('#wh-photo-file').click();
+  const whF = box.querySelector('#wh-photo-file');
+  if (whF) whF.onchange = (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    flashHint('📷 Adding town photo…');
+    nbShrink(f, (data) => { if (!data) { flashHint('That image is a bit big — try a smaller one.'); return; } socket.emit('world:cityImage', { cityId: here.id, img: data }); });
+  };
+  const whX = box.querySelector('#wh-photo-x'); if (whX) whX.onclick = () => socket.emit('world:cityImage', { cityId: here.id, img: null });
   if (me.isGm) renderWorldBuilder(box, here);
 }
 function renderWorldBuilder(box, here) {
@@ -4635,7 +4645,7 @@ $('fog-btn').onclick = () => {
 function setPaintTarget(t) {
   paintTarget = t;
   fogPaintHide = (t === 'hide');
-  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase'],['door','fog-paint-door'],['trap','fog-paint-trap'],['hazard','fog-paint-hazard']]
+  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase'],['door','fog-paint-door'],['trap','fog-paint-trap'],['hazard','fog-paint-hazard'],['erase','fog-paint-erase']]
     .forEach(([k, id]) => { const b = $(id); if (b) b.classList.toggle('active', paintTarget === k); });
 }
 $('fog-paint-hide').onclick = () => setPaintTarget('hide');
@@ -4674,6 +4684,11 @@ if ($('fog-paint-hazard')) $('fog-paint-hazard').onclick = () => {
   hazardBrush = { name, dmg: Math.max(0, Math.min(999, Math.floor(Number(dg) || 0))), color: hazardColorFor(name) };
   setPaintTarget('hazard');
   flashHint(`🔥 Painting ${hazardBrush.name}${hazardBrush.dmg ? ' (' + hazardBrush.dmg + ' dmg on enter)' : ''} — click cells · right-click to erase`);
+};
+// #263 Universal eraser — click a cell to remove any door, trap, or hazard on it.
+if ($('fog-paint-erase')) $('fog-paint-erase').onclick = () => {
+  setPaintTarget('erase');
+  flashHint('🧽 Eraser — click a cell to clear its door, trap, or hazard');
 };
 [['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
   const b = $(id); if (!b) return;
@@ -4718,6 +4733,11 @@ function paintFog(e) {
       // #262: paint a visible, persistent hazard cell (lava/acid/spikes/spell zone).
       hazards[key] = { name: hazardBrush.name, dmg: hazardBrush.dmg, color: hazardBrush.color };
       socket.emit('hazard:set', { key, name: hazardBrush.name, dmg: hazardBrush.dmg, color: hazardBrush.color }); touchedWall = true;
+    } else if (paintTarget === 'erase') {
+      // #263: universal eraser — clear any door, trap, or hazard in this cell.
+      if (doors[key]) { delete doors[key]; socket.emit('door:set', { key, on: false }); touchedWall = true; }
+      if (traps[key]) { delete traps[key]; socket.emit('trap:clear', { key }); touchedWall = true; }
+      if (hazards[key]) { delete hazards[key]; socket.emit('hazard:clear', { key }); touchedWall = true; }
     } else {
       const wantHidden = (paintTarget === 'hide');
       if (!!fog.hidden[key] === wantHidden) continue;

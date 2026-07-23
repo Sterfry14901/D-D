@@ -1012,6 +1012,18 @@ io.on('connection', (socket) => {
     broadcastWorld(joinedRoom);
     markDirty();
   });
+  // #264 Town photos — the DM uploads a picture for a city; it shows as its banner in The Realm.
+  socket.on('world:cityImage', ({ cityId, img } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !room.world) return;
+    const c = room.world.cities && room.world.cities[cityId]; if (!c) return;
+    if (img === null || img === '') { delete c.img; }
+    else if (typeof img === 'string' && /^data:image\/(png|jpe?g|webp);base64,/.test(img) && img.length < 900000) {
+      c.img = img;
+    } else return;
+    broadcastWorld(joinedRoom);
+    markDirty();
+    pushSystem(joinedRoom, c.img ? `🖼️ The DM revealed a view of ${c.name}.` : `🖼️ The DM cleared the view of ${c.name}.`);
+  });
 
   // ---- #181 Combat assistant: server-resolved attacks ----
   // combat:attack { attackerId, targetId, bonus, dmg, adv } -> rolls to-hit vs the
