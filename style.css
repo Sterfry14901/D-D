@@ -727,6 +727,14 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .pa-big:active { transform: translateY(1px); }
 .pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
 .pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
+.pa-blue { background: linear-gradient(180deg, #2f6fb0, #1c4a78); }   /* #281 readable blue (Search / Dodge) */
+/* #281 Per-turn movement counter — shows only on your own turn in battle */
+#move-turn { position: fixed; left: 14px; bottom: 98px; z-index: 8000; background: #16203a; border: 1px solid #3f6bb5; color: #e3ebf7; border-radius: 10px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 26px rgba(0,0,0,.55); min-width: 190px; font-family: system-ui, sans-serif; }
+#move-turn.over { border-color: #c0392b; background: #2a1614; color: #f3cdc6; }
+#move-turn .mt-top { margin-bottom: 5px; }
+#move-turn .mt-bar { height: 6px; background: #0d1424; border-radius: 4px; overflow: hidden; }
+#move-turn .mt-bar i { display: block; height: 100%; background: #4f8fe0; transition: width .15s; }
+#move-turn.over .mt-bar i { background: #c0392b; }
 .pa-atks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pa-atk {
   padding: 6px 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--line-gold, rgba(217,177,84,0.35));

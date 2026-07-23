@@ -3955,6 +3955,40 @@ function showMoveLabel(el, x, y, startX, startY) {
 }
 function hideMoveLabel() { if (moveLabel) moveLabel.style.display = 'none'; }
 
+/* ============ #281 PER-TURN MOVEMENT COUNTER ============
+   A true turn-based movement budget that only shows on YOUR active token's turn
+   during battle. Resets to 0 each turn; each drag of your active token adds the
+   feet moved; turns red once you exceed your speed. Off-turn moves are free. */
+let turnMove = { key: '', used: 0, speed: 30 };
+function activeTurnName() { return (combat && combat.list && combat.list.length) ? ((combat.list[combat.turnIndex] || {}).name || null) : null; }
+function myActiveTurnToken() {
+  const nm = activeTurnName(); if (!nm) return null;
+  return Object.values(tokenEls).map((e) => e && e._token).find(
+    (t) => t && t.label === nm && (typeof canControlTok === 'function' ? canControlTok(t) : true)
+  ) || null;
+}
+function speedOf(t) {
+  if (!t) return 30;
+  if (Number(t.speed) > 0) return Number(t.speed);
+  if (typeof linkedToken !== 'undefined' && t.id === linkedToken && typeof cs !== 'undefined' && cs && Number(cs.speed) > 0) return Number(cs.speed);
+  return 30;
+}
+function updateMoveBadge() {
+  let el = document.getElementById('move-turn');
+  const tok = myActiveTurnToken();
+  if (!tok) { if (el) el.style.display = 'none'; return; }
+  if (!el) { el = document.createElement('div'); el.id = 'move-turn'; document.body.appendChild(el); }
+  const sp = speedOf(tok); turnMove.speed = sp;
+  const used = Math.round(turnMove.used);
+  const over = used > sp;
+  const pct = Math.max(0, Math.min(100, sp ? (used / sp) * 100 : 0));
+  el.style.display = 'block';
+  el.className = over ? 'over' : '';
+  el.innerHTML =
+    '<div class="mt-top">🏃 <b>' + (tok.label || 'You') + '</b> · moved <b>' + used + '</b> / ' + sp + ' ft' + (over ? ' · over!' : '') + '</div>' +
+    '<div class="mt-bar"><i style="width:' + pct + '%"></i></div>';
+}
+
 const selectedTokens = new Set();
 function toggleSelect(id) {
   if (selectedTokens.has(id)) selectedTokens.delete(id); else selectedTokens.add(id);
@@ -3993,6 +4027,16 @@ function makeDraggable(el) {
     const sx = Math.round(el._token.x / gridSize) * gridSize, sy = Math.round(el._token.y / gridSize) * gridSize;
     el.style.left = sx + 'px'; el.style.top = sy + 'px'; el._token.x = sx; el._token.y = sy;
     socket.emit('token:move', { id: el._token.id, x: sx, y: sy });
+    // #281 count feet into the per-turn budget, but only for YOUR active-turn token in battle
+    try {
+      if (combat.list && combat.list.length) {
+        const at = myActiveTurnToken();
+        if (at && at.id === el._token.id) {
+          const ft = Math.round(Math.hypot(sx - startX, sy - startY) / gridSize * 5 / 5) * 5;
+          if (ft > 0) { turnMove.used += ft; updateMoveBadge(); }
+        }
+      }
+    } catch (e) {}
     if (groupDrag) {
       group.forEach((g) => { const gx = Math.round(g.t.x / gridSize) * gridSize, gy = Math.round(g.t.y / gridSize) * gridSize; g.el.style.left = gx + 'px'; g.el.style.top = gy + 'px'; g.t.x = gx; g.t.y = gy; socket.emit('token:move', { id: g.t.id, x: gx, y: gy }); });
       groupDrag = false; group = [];
@@ -4556,6 +4600,9 @@ function renderInit(list, turnIndex, round) {
     }
   }
   combat.list = list; combat.turnIndex = turnIndex; combat.round = round || 1;
+  const _mvKey = combat.round + ':' + combat.turnIndex + ':' + (activeTurnName() || '');   // #281 reset budget each new turn
+  if (_mvKey !== turnMove.key) { turnMove.key = _mvKey; turnMove.used = 0; }
+  updateMoveBadge();
   updateTurnBanner();
   highlightActiveToken();
   tickTimers(combat.round);
