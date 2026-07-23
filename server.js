@@ -235,6 +235,7 @@ function saveRooms() {
         fog: room.fog,
         walls: room.walls,
         doors: room.doors,
+        traps: room.traps,
         lighting: room.lighting,
         aoes: room.aoes,
         handout: room.handout,
@@ -338,6 +339,7 @@ function loadRooms() {
         fog: room.fog || { active: false, hidden: {} },
         walls: room.walls || {},
         doors: room.doors || {},
+        traps: room.traps || {},
         lighting: !!room.lighting,
         aoes: room.aoes || [],
         handout: room.handout || null,
@@ -390,6 +392,7 @@ function getRoom(id) {
       fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
       walls: {},               // "cx,cy": true — sight-blocking wall cells
       doors: {},               // "cx,cy": "closed" | "open" — #256 toggleable doors
+      traps: {},               // #259 "cx,cy": {armed,name,dmg,revealed}
       lighting: false,         // dynamic line-of-sight active
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
@@ -880,6 +883,7 @@ io.on('connection', (socket) => {
       fog: room.fog,
       walls: room.walls,
       doors: room.doors,
+      traps: room.traps,
       lighting: room.lighting,
       aoes: room.aoes,
       handout: room.handout,
@@ -1138,6 +1142,67 @@ io.on('connection', (socket) => {
       if (t.hidden && !isGm(room, sid)) continue;
       io.to(sid).emit('token:move', { id, x, y });
     }
+    // #259 Trap trigger: a NON-GM moving a token onto an armed trap springs it.
+    if (room.traps && !isGm(room, socket.id)) {
+      const g = room.gridSize || 70;
+      const key = Math.floor((x + (t.size || 1) * 32) / g) + ',' + Math.floor((y + (t.size || 1) * 32) / g);
+      const trap = room.traps[key];
+      if (trap && trap.armed) {
+        delete room.traps[key];
+        const dmg = Math.max(0, Math.min(999, Number(trap.dmg) || 0));
+        const nm = String(trap.name || 'trap').slice(0, 40);
+        const who = t.name || t.label || 'Someone';
+        if (dmg > 0) { t.hp = Math.max(0, (Number(t.hp) || 0) - dmg); emitTokenPerSocket(room, 'token:update', t); }
+        io.to(joinedRoom).emit('trap:sprung', { key, name: nm, token: who, dmg });
+        io.to(joinedRoom).emit('trap:set', { key, state: null });
+        pushSystem(joinedRoom, `💥 A ${nm} springs on ${who}!${dmg ? ' (' + dmg + ' damage)' : ''}`);
+        timelineAdd(joinedRoom, `💥 ${who} triggered a ${nm}`, null);
+        markDirty();
+      }
+    }
+  });
+  // #259 Traps: GM places/reveals; a player with tools can disarm a revealed trap (DM approves).
+  socket.on('trap:set', ({ key, name, dmg }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    room.traps = room.traps || {};
+    room.traps[key] = { armed: true, revealed: false, name: String(name || 'trap').slice(0, 40), dmg: Math.max(0, Math.min(999, Number(dmg) || 0)) };
+    io.to(joinedRoom).emit('trap:set', { key, state: room.traps[key] });
+    markDirty();
+  });
+  socket.on('trap:clear', ({ key }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    if (room.traps) delete room.traps[key];
+    io.to(joinedRoom).emit('trap:set', { key, state: null });
+    markDirty();
+  });
+  socket.on('trap:reveal', ({ key }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    const tr = (room.traps || {})[key]; if (!tr) return;
+    tr.revealed = !tr.revealed;
+    io.to(joinedRoom).emit('trap:set', { key, state: tr });
+    if (tr.revealed) pushSystem(joinedRoom, `⚠️ A ${tr.name} is spotted!`);
+    markDirty();
+  });
+  socket.on('trap:disarm', ({ key }) => {
+    const room = rooms.get(joinedRoom); if (!room || !key) return;
+    const p = room.players[socket.id]; if (!p || p.isGm || p.spectator) return;
+    const tr = (room.traps || {})[key];
+    if (!tr || !tr.revealed) return;   // can only disarm a trap you've found
+    let seen = false;
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) { io.to(sid).emit('trap:disarmreq', { key, who: p.name, sid: socket.id }); seen = true; }
+    if (seen) io.to(socket.id).emit('trap:disarmpending', { key });
+  });
+  socket.on('trap:disarmresp', ({ key, sid, ok }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    const tr = (room.traps || {})[key]; if (!tr) return;
+    const who = room.players[sid]?.name || 'Someone';
+    if (ok) {
+      delete room.traps[key];
+      io.to(joinedRoom).emit('trap:set', { key, state: null });
+      pushSystem(joinedRoom, `🛠️ ${who} disarms the ${tr.name}!`);
+      timelineAdd(joinedRoom, `🛠️ ${who} disarmed a ${tr.name}`, null);
+      markDirty();
+    } else if (sid) io.to(sid).emit('trap:disarmfail', { key });
   });
   socket.on('token:update', (token) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
@@ -2052,7 +2117,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
-  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'doors', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'doors', 'traps', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
   // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
   socket.on('campaign:export', (ack) => {
     const room = rooms.get(joinedRoom);
@@ -2306,7 +2371,7 @@ io.on('connection', (socket) => {
       v: 2,
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
-      walls: room.walls, doors: room.doors, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
+      walls: room.walls, doors: room.doors, traps: room.traps, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
       weather: room.weather, ambience: room.ambience || 'off', round: room.round || 1,
       notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
       drawings: (room.drawings || []).slice(-500),
@@ -2327,6 +2392,7 @@ io.on('connection', (socket) => {
     room.fog = data.fog || { active: false, hidden: {} };
     room.walls = data.walls || {};
     room.doors = data.doors || {};
+    room.traps = data.traps || {};
     room.lighting = !!data.lighting;
     room.aoes = data.aoes || [];
     room.handout = data.handout || null;
@@ -2346,7 +2412,7 @@ io.on('connection', (socket) => {
       io.to(sid).emit('state', {
         tokens: tokensFor(room, sid), chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
-        fog: room.fog, walls: room.walls, doors: room.doors, lighting: room.lighting, aoes: room.aoes,
+        fog: room.fog, walls: room.walls, doors: room.doors, traps: room.traps, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,
         ambience: room.ambience || 'off',
         notes: room.notes || '', quests: room.quests || { main: '', sides: [] },

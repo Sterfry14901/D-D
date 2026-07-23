@@ -1759,3 +1759,15 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 /* #258 Locked & secret door states */
 .door-locked { background: rgba(170, 55, 55, 0.55); border: 2px solid #a33; box-shadow: inset 0 0 8px rgba(0,0,0,0.5); }
 .door-secret { background: rgba(120, 70, 160, 0.4); border: 2px dashed rgba(180, 130, 220, 0.7); opacity: 0.85; }
+
+/* #259 Traps */
+.trap-cell { position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; z-index: 4; user-select: none; border-radius: 4px; }
+.trap-hidden { background: rgba(200, 140, 40, 0.28); border: 2px dashed rgba(230, 170, 60, 0.7); opacity: 0.8; }   /* GM-only look */
+.trap-revealed { background: rgba(200, 60, 40, 0.4); border: 2px solid #c0392b; animation: trap-pulse 1.4s ease-in-out infinite; }
+@keyframes trap-pulse { 0%,100% { box-shadow: 0 0 4px rgba(200,60,40,0.5); } 50% { box-shadow: 0 0 14px rgba(220,80,50,0.9); } }
+.trap-cell:hover { filter: brightness(1.25); }
+.trap-flash { position: absolute; z-index: 8; pointer-events: none; border-radius: 6px;
+  background: radial-gradient(circle, rgba(255,180,60,0.95), rgba(220,60,30,0.6) 60%, transparent 75%);
+  animation: trap-burst 0.9s ease-out forwards; }
+@keyframes trap-burst { 0% { transform: scale(0.4); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .trap-revealed { animation: none; } .trap-flash { animation: none; opacity: 0.6; } }
