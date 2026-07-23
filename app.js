@@ -6982,6 +6982,7 @@ function wmCityPos(id) {
 let wmPinMode = null;   // #185: city id currently being repositioned by the DM
 let partyPinArm = false; // #269: player is placing/moving their own party marker
 let wmView = { x: 0, y: 0, w: 100, h: 76 }; // #271: world-map pan/zoom window (scroll to zoom, drag to pan)
+let wmBig = false; // #272: overworld fullscreen ("Big map") so the whole party can explore it large
 function wmEmoji(kind) {
   const k = String(kind || '').toLowerCase();
   if (/capital|city/.test(k)) return '🏰';
@@ -7048,7 +7049,7 @@ function injectWorldMap() {
     </g>`;
   }).join('');
   const wrap = document.createElement('div');
-  wrap.className = 'wmap';
+  wrap.className = 'wmap' + (wmBig ? ' wm-big' : '');
   wrap.innerHTML = `
     <svg viewBox="${wmView.x} ${wmView.y} ${wmView.w} ${wmView.h}" preserveAspectRatio="xMidYMid meet" class="wm-svg">
       <defs>
@@ -7065,7 +7066,7 @@ function injectWorldMap() {
       ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📌 Move cities</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
       : '🧭 Click a city to propose it to the party'}
       · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}
-      <div class="wm-subhint">🔍 scroll to zoom · drag the map to pan <button class="wm-tool" id="wm-resetview">Reset view</button></div></div>
+      <div class="wm-subhint">🔍 scroll to zoom · drag the map to pan <button class="wm-tool" id="wm-resetview">Reset view</button> <button class="wm-tool${wmBig ? ' on' : ''}" id="wm-bigmap">${wmBig ? '✕ Close big map' : '⛶ Big map'}</button></div></div>
     <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
@@ -7146,6 +7147,13 @@ function injectWorldMap() {
     });
     const resetV = wrap.querySelector('#wm-resetview');
     if (resetV) resetV.addEventListener('click', (ev) => { ev.stopPropagation(); wmView = { x: 0, y: 0, w: 100, h: 76 }; applyView(); flashHint('🗺️ View reset'); });
+    // #272 Big map — expand the overworld to a large fullscreen view so the whole party can explore it
+    const bigBtn = wrap.querySelector('#wm-bigmap');
+    if (bigBtn) bigBtn.addEventListener('click', (ev) => { ev.stopPropagation(); wmBig = !wmBig; injectWorldMap(); flashHint(wmBig ? '🗺️ Big map — Esc to close' : '🗺️ Map minimized'); });
+    if (wmBig && !window.__wmEscBound) {
+      window.__wmEscBound = true;
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && wmBig) { wmBig = false; try { injectWorldMap(); } catch (_) {} } });
+    }
   }
   // #269 Party markers — anyone can drop/move their own pin on the world map
   if (svg) {
