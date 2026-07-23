@@ -7030,7 +7030,7 @@ function injectWorldMap() {
     const [x, y] = pos[c.id];
     const hereCls = c.id === at ? ' wm-here' : '';
     const voteCls = c.id === voteTo ? ' wm-vote' : '';
-    return `<g class="wm-city${hereCls}${voteCls}" data-wmcity="${c.id}" transform="translate(${x},${y})">
+    return `<g class="wm-city${hereCls}${voteCls}" data-wmcity="${c.id}" data-wmx="${x}" data-wmy="${y}" transform="translate(${x},${y})">
       ${c.id === at ? '<circle r="6.5" class="wm-pulse"/>' : ''}
       <circle r="4.6" class="wm-dot"/>
       <text y="1.9" text-anchor="middle" class="wm-ico">${wmEmoji(c.kind)}</text>
@@ -7066,7 +7066,7 @@ function injectWorldMap() {
       ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📌 Move cities</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
       : '🧭 Click a city to propose it to the party'}
       · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}
-      <div class="wm-subhint">🔍 scroll to zoom · drag the map to pan <button class="wm-tool" id="wm-resetview">Reset view</button> <button class="wm-tool${wmBig ? ' on' : ''}" id="wm-bigmap">${wmBig ? '✕ Close big map' : '⛶ Big map'}</button></div></div>
+      <div class="wm-subhint">🔍 scroll to zoom · double-click a city to jump to it · drag to pan <button class="wm-tool" id="wm-resetview">Reset view</button> <button class="wm-tool${wmBig ? ' on' : ''}" id="wm-bigmap">${wmBig ? '✕ Close big map' : '⛶ Big map'}</button></div></div>
     <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
@@ -7147,6 +7147,26 @@ function injectWorldMap() {
     });
     const resetV = wrap.querySelector('#wm-resetview');
     if (resetV) resetV.addEventListener('click', (ev) => { ev.stopPropagation(); wmView = { x: 0, y: 0, w: 100, h: 76 }; applyView(); flashHint('🗺️ View reset'); });
+    // #273 Double-click a city to smoothly zoom the overworld right to it
+    const animView = (cx, cy, tw) => {
+      const nw = Math.max(34, Math.min(100, tw)), nh = nw * 0.76;
+      const tx = Math.max(0, Math.min(100 - nw, cx - nw / 2)), ty = Math.max(0, Math.min(76 - nh, cy - nh / 2));
+      const from = { ...wmView }, t0 = performance.now(), dur = 300;
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); // ease-out cubic
+        wmView = { x: from.x + (tx - from.x) * e, y: from.y + (ty - from.y) * e, w: from.w + (nw - from.w) * e, h: from.h + (nh - from.h) * e };
+        applyView();
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    wrap.querySelectorAll('[data-wmcity]').forEach((g) => {
+      g.addEventListener('dblclick', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const cx = Number(g.dataset.wmx), cy = Number(g.dataset.wmy);
+        if (Number.isFinite(cx) && Number.isFinite(cy)) { animView(cx, cy, 42); flashHint('🔍 Zoomed to ' + (worldState.cities[g.dataset.wmcity] || {}).name); }
+      });
+    });
     // #272 Big map — expand the overworld to a large fullscreen view so the whole party can explore it
     const bigBtn = wrap.querySelector('#wm-bigmap');
     if (bigBtn) bigBtn.addEventListener('click', (ev) => { ev.stopPropagation(); wmBig = !wmBig; injectWorldMap(); flashHint(wmBig ? '🗺️ Big map — Esc to close' : '🗺️ Map minimized'); });
