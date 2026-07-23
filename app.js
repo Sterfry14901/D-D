@@ -296,6 +296,11 @@ if ($('pa-dodge')) $('pa-dodge').onclick = () => {   // #279 Dodge — your own 
   socket.emit('token:dodge', { id: tok.id });
   flashHint(tok.dodging ? '🛡️ You stop dodging.' : '🛡️ You take the Dodge action — attacks against you have disadvantage.');
 };
+// #280 Mundane battlefield gear
+if ($('pa-caltrops')) $('pa-caltrops').onclick = () => { socket.emit('gear:deploy', { kind: 'caltrops' }); flashHint('🔩 Caltrops scattered at your feet — DEX 15 to cross safely.'); };
+if ($('pa-bearings')) $('pa-bearings').onclick = () => { socket.emit('gear:deploy', { kind: 'bearings' }); flashHint('⚪ Ball bearings scattered — DEX 10 or prone.'); };
+if ($('pa-pole')) $('pa-pole').onclick = () => { socket.emit('gear:pole'); flashHint('🪧 Probing the ground ahead with a 10-foot pole…'); };
+socket.on('gear:none', ({ kind } = {}) => flashHint(kind === 'pole' ? '🪧 You need a token on the map to probe from.' : '🎒 No token of yours on the map to drop gear at — ask the DM for one.'));
 /* #260 Search — look for hidden traps & secret doors near your token (Perception/Investigation). */
 function searchBonus() {
   try {
