@@ -728,6 +728,9 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
 .pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
 .pa-blue { background: linear-gradient(180deg, #2f6fb0, #1c4a78); }   /* #281 readable blue (Search / Dodge) */
+/* #282 Ownership credit */
+.owner-credit { text-align: center; font-size: 11px; letter-spacing: .04em; color: rgba(217,177,84,0.72); margin: 10px 0 2px; opacity: .85; }
+.guide-owner { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(217,177,84,0.18); }
 /* #281 Per-turn movement counter — shows only on your own turn in battle */
 #move-turn { position: fixed; left: 14px; bottom: 98px; z-index: 8000; background: #16203a; border: 1px solid #3f6bb5; color: #e3ebf7; border-radius: 10px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 26px rgba(0,0,0,.55); min-width: 190px; font-family: system-ui, sans-serif; }
 #move-turn.over { border-color: #c0392b; background: #2a1614; color: #f3cdc6; }
