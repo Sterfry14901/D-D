@@ -6981,6 +6981,7 @@ function wmCityPos(id) {
 }
 let wmPinMode = null;   // #185: city id currently being repositioned by the DM
 let partyPinArm = false; // #269: player is placing/moving their own party marker
+let wmView = { x: 0, y: 0, w: 100, h: 76 }; // #271: world-map pan/zoom window (scroll to zoom, drag to pan)
 function wmEmoji(kind) {
   const k = String(kind || '').toLowerCase();
   if (/capital|city/.test(k)) return '🏰';
@@ -7049,13 +7050,13 @@ function injectWorldMap() {
   const wrap = document.createElement('div');
   wrap.className = 'wmap';
   wrap.innerHTML = `
-    <svg viewBox="0 0 100 76" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox="${wmView.x} ${wmView.y} ${wmView.w} ${wmView.h}" preserveAspectRatio="xMidYMid meet" class="wm-svg">
       <defs>
         <filter id="wm-rough"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0.24  0 0 0 0 0.18  0 0 0 0 0.10  0 0 0 0.05 0"/><feComposite operator="over" in2="SourceGraphic"/></filter>
         <radialGradient id="wm-parch" cx="50%" cy="45%" r="75%"><stop offset="0%" stop-color="#e8d9b0"/><stop offset="80%" stop-color="#d3bd8a"/><stop offset="100%" stop-color="#b89b62"/></radialGradient>
       </defs>
       ${worldState.mapImage
-        ? `<image href="${worldState.mapImage}" x="0" y="0" width="100" height="76" preserveAspectRatio="xMidYMid slice"/><rect x="0" y="0" width="100" height="76" fill="rgba(10,10,14,.14)"/>`
+        ? `<rect x="0" y="0" width="100" height="76" fill="#0b0d13"/><image href="${worldState.mapImage}" x="0" y="0" width="100" height="76" preserveAspectRatio="xMidYMid meet"/><rect x="0" y="0" width="100" height="76" fill="rgba(10,10,14,.12)"/>`
         : `<rect x="0" y="0" width="100" height="76" rx="2.5" fill="url(#wm-parch)" filter="url(#wm-rough)"/>`}
       <text x="50" y="7.4" text-anchor="middle" class="wm-title${worldState.mapImage ? ' wm-title-img' : ''}">✦ ${escapeHtml((worldState.name || 'The Realm'))} ✦</text>
       ${svgLinks}${svgCities}${svgPins}
@@ -7063,7 +7064,8 @@ function injectWorldMap() {
     <div class="wm-hint">${me.isGm
       ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📌 Move cities</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
       : '🧭 Click a city to propose it to the party'}
-      · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}</div>
+      · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}
+      <div class="wm-subhint">🔍 scroll to zoom · drag the map to pan <button class="wm-tool" id="wm-resetview">Reset view</button></div></div>
     <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
@@ -7113,6 +7115,38 @@ function injectWorldMap() {
   }
   // #185 DM tools: upload any map (Azgaar, Worldographer, hextml, bought packs), place pins
   const svg = wrap.querySelector('svg');
+  // #271 Pan + zoom the world map (scroll to zoom, drag empty areas to pan)
+  if (svg) {
+    const applyView = () => svg.setAttribute('viewBox', `${wmView.x} ${wmView.y} ${wmView.w} ${wmView.h}`);
+    svg.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      const r = svg.getBoundingClientRect(); if (r.width < 5) return;
+      const fx = (ev.clientX - r.left) / r.width, fy = (ev.clientY - r.top) / r.height;
+      const px = wmView.x + fx * wmView.w, py = wmView.y + fy * wmView.h;
+      const nw = Math.max(34, Math.min(100, wmView.w * (ev.deltaY > 0 ? 1.14 : 1 / 1.14)));
+      const nh = nw * 0.76;
+      let nx = Math.max(0, Math.min(100 - nw, px - fx * nw));
+      let ny = Math.max(0, Math.min(76 - nh, py - fy * nh));
+      wmView = { x: nx, y: ny, w: nw, h: nh }; applyView();
+    }, { passive: false });
+    svg.addEventListener('pointerdown', (ev) => {
+      if (partyPinArm || wmPinMode !== null) return;                 // not while placing markers/cities
+      if (ev.target.closest('[data-wmcity],[data-wmpin]')) return;   // let cities & pins handle their own
+      if (wmView.w >= 99.9 && wmView.h >= 75.9) return;              // nothing to pan when fully zoomed out
+      const r = svg.getBoundingClientRect(); const sx = ev.clientX, sy = ev.clientY, ox = wmView.x, oy = wmView.y;
+      svg.style.cursor = 'grabbing';
+      const mv = (e) => {
+        const dx = ((e.clientX - sx) / r.width) * wmView.w, dy = ((e.clientY - sy) / r.height) * wmView.h;
+        wmView.x = Math.max(0, Math.min(100 - wmView.w, ox - dx));
+        wmView.y = Math.max(0, Math.min(76 - wmView.h, oy - dy));
+        applyView();
+      };
+      const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); svg.style.cursor = ''; };
+      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+    });
+    const resetV = wrap.querySelector('#wm-resetview');
+    if (resetV) resetV.addEventListener('click', (ev) => { ev.stopPropagation(); wmView = { x: 0, y: 0, w: 100, h: 76 }; applyView(); flashHint('🗺️ View reset'); });
+  }
   // #269 Party markers — anyone can drop/move their own pin on the world map
   if (svg) {
     svg.addEventListener('click', (ev) => {
