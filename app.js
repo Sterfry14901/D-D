@@ -17,6 +17,7 @@ let fogPainting = false;
 let fogBrush = 1;           // brush size in cells (odd: 1, 3, 5)
 let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
 let walls = {};             // "cx,cy": true — sight-blocking cells
+let doors = {};             // #256 "cx,cy": "open" | "closed"
 let lighting = false;       // dynamic line-of-sight active
 const VISION_RADIUS = 6;    // cells a token can see (~30 ft)
 let aoes = [];              // placed spell area templates
@@ -1362,6 +1363,7 @@ socket.on('state', (s) => {
   fog = s.fog || { active: false, hidden: {} };
   renderFog();
   walls = s.walls || {};
+  doors = s.doors || {};
   lighting = !!s.lighting;
   $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
   $('light-toggle').classList.toggle('active', lighting);
@@ -4584,13 +4586,14 @@ $('fog-btn').onclick = () => {
 function setPaintTarget(t) {
   paintTarget = t;
   fogPaintHide = (t === 'hide');
-  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase']]
+  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase'],['door','fog-paint-door']]
     .forEach(([k, id]) => { const b = $(id); if (b) b.classList.toggle('active', paintTarget === k); });
 }
 $('fog-paint-hide').onclick = () => setPaintTarget('hide');
 $('fog-paint-reveal').onclick = () => setPaintTarget('reveal');
 $('fog-paint-wall').onclick = () => setPaintTarget('wall');
 if ($('fog-paint-wall-erase')) $('fog-paint-wall-erase').onclick = () => setPaintTarget('wallerase');   // #255 hidden doors
+if ($('fog-paint-door')) $('fog-paint-door').onclick = () => setPaintTarget('door');                    // #256 doors
 [['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
   const b = $(id); if (!b) return;
   b.onclick = () => {
@@ -4620,6 +4623,11 @@ function paintFog(e) {
       // #255: knock a single cell out of a wall — perfect for a hidden door
       if (!walls[key]) continue;
       delete walls[key]; socket.emit('wall:cell', { key, on: false }); touchedWall = true;
+    } else if (paintTarget === 'door') {
+      // #256: drop a door where a wall was (or on open floor)
+      if (doors[key]) continue;
+      doors[key] = 'closed'; delete walls[key];
+      socket.emit('door:set', { key, on: true }); touchedWall = true;
     } else {
       const wantHidden = (paintTarget === 'hide');
       if (!!fog.hidden[key] === wantHidden) continue;
@@ -4632,8 +4640,8 @@ function paintFog(e) {
 }
 
 /* ============ DYNAMIC LIGHTING ============ */
-socket.on('light:state', ({ lighting: on, walls: w }) => {
-  lighting = !!on; walls = w || {};
+socket.on('light:state', ({ lighting: on, walls: w, doors: d }) => {
+  lighting = !!on; walls = w || {}; doors = d || {};
   $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
   $('light-toggle').classList.toggle('active', lighting);
   renderWalls(); refreshLighting();
@@ -4642,18 +4650,38 @@ socket.on('wall:cell', ({ key, on }) => {
   if (on) walls[key] = true; else delete walls[key];
   renderWalls(); refreshLighting();
 });
+// #256 door added/removed/swung — everyone re-renders and re-lights
+socket.on('door:set', ({ key, state }) => {
+  if (state) { doors[key] = state; delete walls[key]; } else delete doors[key];
+  renderWalls(); refreshLighting();
+});
 
 function renderWalls() {
   const layer = $('walls'); if (!layer) return;
   layer.innerHTML = '';
-  // Walls are a GM building aid — only the GM sees the blocks.
-  if (!me.isGm) return;
-  for (const key in walls) {
+  // Wall blocks are a GM building aid — only the GM sees the raw walls.
+  if (me.isGm) {
+    for (const key in walls) {
+      const [cx, cy] = key.split(',').map(Number);
+      const cell = document.createElement('div');
+      cell.className = 'wall-cell';
+      cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
+      cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+      layer.appendChild(cell);
+    }
+  }
+  // #256 Doors are visible to EVERYONE and clickable to open/close.
+  for (const key in doors) {
+    const state = doors[key];
     const [cx, cy] = key.split(',').map(Number);
     const cell = document.createElement('div');
-    cell.className = 'wall-cell';
+    cell.className = 'door-cell door-' + state;
+    cell.textContent = state === 'open' ? '🚪' : '🔒';
+    cell.title = state === 'open' ? 'Open door — click to close' : 'Closed door — click to open';
     cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
     cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+    cell.style.fontSize = Math.round(gridSize * 0.5) + 'px';
+    cell.onclick = (e) => { e.stopPropagation(); if (!me.spectator) socket.emit('door:toggle', { key }); };
     layer.appendChild(cell);
   }
 }
@@ -4665,7 +4693,9 @@ function hasSight(x0, y0, x1, y1) {
   let err = dx - dy, x = x0, y = y0;
   while (true) {
     if (!(x === x0 && y === y0) && !(x === x1 && y === y1)) {
-      if (walls[`${x},${y}`]) return false; // a wall between blocks sight
+      const k = `${x},${y}`;
+      if (walls[k]) return false;               // a wall between blocks sight
+      if (doors[k] === 'closed') return false;  // #256 a shut door blocks sight too
     }
     if (x === x1 && y === y1) break;
     const e2 = 2 * err;
