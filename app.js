@@ -6980,6 +6980,7 @@ function wmCityPos(id) {
   return [14 + (h % 70), 16 + ((h >> 7) % 56)];
 }
 let wmPinMode = null;   // #185: city id currently being repositioned by the DM
+let partyPinArm = false; // #269: player is placing/moving their own party marker
 function wmEmoji(kind) {
   const k = String(kind || '').toLowerCase();
   if (/capital|city/.test(k)) return '🏰';
@@ -7018,6 +7019,7 @@ function injectWorldMap() {
   }));
   const at = worldState.party.at;
   const voteTo = worldState.vote && worldState.vote.to;
+  const iHavePin = !!(worldState.pins && worldState.pins[me.name]);   // #269
   const svgLinks = links.map((l) => {
     const [x1, y1] = pos[l.a], [x2, y2] = pos[l.b];
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="wm-road${l.boat ? ' wm-sea' : ''}"/>`;
@@ -7033,6 +7035,17 @@ function injectWorldMap() {
       <text y="9.6" text-anchor="middle" class="wm-name">${escapeHtml(c.name)}</text>
     </g>`;
   }).join('');
+  // #269 party markers — one movable pin per party member, keyed by name
+  const svgPins = Object.values(worldState.pins || {}).map((p) => {
+    const mine = p.name === me.name;
+    const ini = (p.name || '?').slice(0, 1).toUpperCase();
+    return `<g class="wm-pin${mine ? ' wm-pin-mine' : ''}" data-wmpin="${escapeHtml(p.name)}" transform="translate(${p.x},${p.y})">
+      <path d="M0 0 C -2.5 -3.3 -2.5 -6.4 0 -8.2 C 2.5 -6.4 2.5 -3.3 0 0 Z" fill="${p.color || '#c0392b'}" stroke="#12100b" stroke-width=".55"/>
+      <circle cx="0" cy="-5.1" r="1.85" fill="#12100b"/>
+      <text x="0" y="-4.25" text-anchor="middle" class="wm-pin-ini">${escapeHtml(ini)}</text>
+      <text x="0" y="3.3" text-anchor="middle" class="wm-pin-name">${escapeHtml(p.name)}</text>
+    </g>`;
+  }).join('');
   const wrap = document.createElement('div');
   wrap.className = 'wmap';
   wrap.innerHTML = `
@@ -7045,11 +7058,12 @@ function injectWorldMap() {
         ? `<image href="${worldState.mapImage}" x="0" y="0" width="100" height="76" preserveAspectRatio="xMidYMid slice"/><rect x="0" y="0" width="100" height="76" fill="rgba(10,10,14,.14)"/>`
         : `<rect x="0" y="0" width="100" height="76" rx="2.5" fill="url(#wm-parch)" filter="url(#wm-rough)"/>`}
       <text x="50" y="7.4" text-anchor="middle" class="wm-title${worldState.mapImage ? ' wm-title-img' : ''}">✦ ${escapeHtml((worldState.name || 'The Realm'))} ✦</text>
-      ${svgLinks}${svgCities}
+      ${svgLinks}${svgCities}${svgPins}
     </svg>
     <div class="wm-hint">${me.isGm
-      ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📍 Move pins</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
-      : '🧭 Click a city to propose it to the party'}</div>
+      ? '🧭 Click a city to lead the party · <button class="wm-tool" id="wm-upload">🖼️ Map image</button> <button class="wm-tool" id="wm-pins">📌 Move cities</button>' + (worldState.mapImage ? ' <button class="wm-tool" id="wm-clearimg">🧹 Parchment</button>' : '')
+      : '🧭 Click a city to propose it to the party'}
+      · <button class="wm-tool wm-pinbtn" id="wm-mypin">📍 ${iHavePin ? 'Move my marker' : 'Place my marker'}</button>${iHavePin ? ' <button class="wm-tool" id="wm-mypin-clear">✖ Remove mine</button>' : ''}${me.isGm && Object.keys(worldState.pins || {}).length ? ' <button class="wm-tool" id="wm-clearpins">🧹 Clear all markers</button>' : ''}</div>
     <div class="wm-tip" style="display:none"><img class="wm-tip-img" alt=""/><div class="wm-tip-name"></div><div class="wm-tip-kind"></div></div>`;
   const old = box.parentElement.querySelector('.wmap');
   if (old) old.remove();
@@ -7099,6 +7113,31 @@ function injectWorldMap() {
   }
   // #185 DM tools: upload any map (Azgaar, Worldographer, hextml, bought packs), place pins
   const svg = wrap.querySelector('svg');
+  // #269 Party markers — anyone can drop/move their own pin on the world map
+  if (svg) {
+    svg.addEventListener('click', (ev) => {
+      if (!partyPinArm) return;
+      const r = svg.getBoundingClientRect();
+      const x = ((ev.clientX - r.left) / r.width) * 100;
+      const y = ((ev.clientY - r.top) / r.height) * 76;
+      socket.emit('world:pinSet', { x, y });
+      partyPinArm = false;
+      flashHint('📍 Your marker is set — the whole party can see it. Move it any time.');
+      ev.stopPropagation();
+    }, true);   // capture phase: beats city-travel clicks while placing
+    wrap.querySelectorAll('[data-wmpin]').forEach((g) => {
+      g.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (g.dataset.wmpin === me.name) { partyPinArm = true; flashHint('📍 Click a new spot to move your marker'); }
+      });
+    });
+    const myPin = wrap.querySelector('#wm-mypin');
+    if (myPin) myPin.addEventListener('click', (ev) => { ev.stopPropagation(); partyPinArm = true; flashHint('📍 Click anywhere on the map to place your marker'); });
+    const myPinClr = wrap.querySelector('#wm-mypin-clear');
+    if (myPinClr) myPinClr.addEventListener('click', (ev) => { ev.stopPropagation(); socket.emit('world:pinClear'); });
+    const clrPins = wrap.querySelector('#wm-clearpins');
+    if (clrPins) clrPins.addEventListener('click', (ev) => { ev.stopPropagation(); if (confirm("Clear everyone's markers from the map?")) socket.emit('world:pinClearAll'); });
+  }
   if (me.isGm && svg) {
     svg.addEventListener('click', (ev) => {
       if (typeof wmPinMode !== 'string' || !wmPinMode) return;
