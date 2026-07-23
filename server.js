@@ -63,18 +63,21 @@ function buildStarterWorld() {
     cities: {
       havenbrook: {
         id: 'havenbrook', name: 'Havenbrook', kind: 'town',
+        img: '/towns/forest.jpg',
         desc: 'A walled farming town of timber and thatch, ringed by barley fields. A safe first step for new adventurers.',
         vendors: [mkVendor("Brannoc's Goods", 'general'), mkVendor('The Iron Hearth', 'blacksmith')],
         links: [{ to: 'portcael', modes: { walk: 12, horse: 5, wagon: 7 } }, { to: 'ironhold', modes: { walk: 16, horse: 7 } }],
       },
       portcael: {
         id: 'portcael', name: 'Port Cael', kind: 'city',
+        img: '/towns/riverport.jpg',
         desc: 'A salt-worn harbor city where tall ships crowd the docks and every third face is a smuggler. Boats leave for the mountain river-road.',
         vendors: [mkVendor('Dockside Sundries', 'general'), mkVendor("Merryweather's Wagon", 'wagon'), mkVendor('The Bilge Rat', 'fence')],
         links: [{ to: 'havenbrook', modes: { walk: 12, horse: 5, wagon: 7 } }, { to: 'ironhold', modes: { boat: 8, walk: 20 } }],
       },
       ironhold: {
         id: 'ironhold', name: 'Ironhold', kind: 'city',
+        img: '/towns/forge.jpg',
         desc: 'A dwarven mountain hold of black stone and forge-fire, famed for arms and the arcane vaults cut deep beneath it.',
         vendors: [mkVendor('Deepdelve Arms', 'blacksmith'), mkVendor('The Arcane Vault', 'magic')],
         links: [{ to: 'havenbrook', modes: { walk: 16, horse: 7 } }, { to: 'portcael', modes: { boat: 8, walk: 20 } }],
@@ -509,10 +512,36 @@ function broadcastShop(roomId) {
   if (!room.shop) room.shop = { open: false, name: 'Market', items: [] };
   io.to(roomId).emit('shop:state', room.shop);
 }
+// Pick a bundled town banner by city kind/name keywords (default art for new cities).
+const TOWN_ART = ['/towns/highcitadel.jpg', '/towns/outpost.jpg', '/towns/riverport.jpg', '/towns/forge.jpg', '/towns/forest.jpg', '/towns/warhamlet.jpg'];
+function townImgFor(kind, name) {
+  const s = ((kind || '') + ' ' + (name || '')).toLowerCase();
+  if (/(port|harbor|harbour|dock|bay|coast|river|wharf)/.test(s)) return '/towns/riverport.jpg';
+  if (/(forge|iron|dwarf|mine|mountain|hold|deep)/.test(s)) return '/towns/forge.jpg';
+  if (/(fort|keep|outpost|garrison|watch|barracks|stronghold|castle)/.test(s)) return '/towns/outpost.jpg';
+  if (/(ruin|war|waste|abandon|blight|cursed|burned|fallen)/.test(s)) return '/towns/warhamlet.jpg';
+  if (/(forest|wood|grove|glade|thicket|hollow|settlement|hamlet|village)/.test(s)) return '/towns/forest.jpg';
+  if (/(citadel|capital|metropolis|palace|grand)/.test(s)) return '/towns/highcitadel.jpg';
+  return TOWN_ART[Math.abs((name || 'town').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % TOWN_ART.length];
+}
+// Ensure the 3 seed cities carry their default banners even in older saved rooms.
+const SEED_TOWN_ART = { havenbrook: '/towns/forest.jpg', portcael: '/towns/riverport.jpg', ironhold: '/towns/forge.jpg' };
+function retrofitTownArt(world) {
+  if (!world || !world.cities) return;
+  for (const id of Object.keys(SEED_TOWN_ART)) {
+    const c = world.cities[id];
+    if (c && !c.img) c.img = SEED_TOWN_ART[id];
+  }
+}
+// Materialize a room's world and ensure seed cities carry their default banners.
+function worldOf(room) {
+  if (!room.world) room.world = buildStarterWorld();
+  retrofitTownArt(room.world);
+  return room.world;
+}
 function broadcastWorld(roomId) {
   const room = rooms.get(roomId); if (!room) return;
-  if (!room.world) room.world = buildStarterWorld();
-  io.to(roomId).emit('world:state', room.world);
+  io.to(roomId).emit('world:state', worldOf(room));
 }
 function findVendor(world, cityId, vendorId) {
   const c = world && world.cities && world.cities[cityId]; if (!c) return null;
@@ -902,7 +931,7 @@ io.on('connection', (socket) => {
       quests: room.quests || { main: '', sides: [] },
       drawings: room.drawings || [],
       shop: room.shop || { open: false, name: 'Market', items: [] },
-      world: room.world || buildStarterWorld(),
+      world: worldOf(room),
       youId: socket.id,
       isGm: gm,
       gmClaimed: !!room.gmPassword,
@@ -2045,7 +2074,8 @@ io.on('connection', (socket) => {
     const nm = String(name || '').trim().slice(0, 40); if (!nm) return;
     const base = nm.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'city';
     let id = base; let n = 2; while (room.world.cities[id]) id = base + n++;
-    room.world.cities[id] = { id, name: nm, kind: String(kind || 'town').slice(0, 16), desc: String(desc || '').slice(0, 400), vendors: [], links: [] };
+    const kd = String(kind || 'town').slice(0, 16);
+    room.world.cities[id] = { id, name: nm, kind: kd, img: townImgFor(kd, nm), desc: String(desc || '').slice(0, 400), vendors: [], links: [] };
     markDirty(); broadcastWorld(joinedRoom);
     io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🗺️ Added ${nm} to the world. Link it to another city so the party can travel there.`, ts: Date.now() });
   });
@@ -2109,7 +2139,8 @@ io.on('connection', (socket) => {
     const base = nm.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'city'; let id = base, n = 2; while (room.world.cities[id]) id = base + n++;
     const TYPES = ['general', 'blacksmith', 'wagon', 'fence', 'magic', 'alchemist', 'tavern'];
     const vendors = grab('VENDORS').split(',').map((s) => { const [vn, vt] = s.split(':').map((x) => x.replace(/[*_`#]/g, '').trim()); return vn ? mkVendor(vn.slice(0, 40), TYPES.includes((vt || '').toLowerCase()) ? vt.toLowerCase() : 'general') : null; }).filter(Boolean).slice(0, 4);
-    room.world.cities[id] = { id, name: nm, kind: (grab('KIND') || 'town').toLowerCase().replace(/[^a-z]/g, '').slice(0, 12) || 'town', desc: grab('DESC').slice(0, 400), vendors, links: [] };
+    const kd2 = (grab('KIND') || 'town').toLowerCase().replace(/[^a-z]/g, '').slice(0, 12) || 'town';
+    room.world.cities[id] = { id, name: nm, kind: kd2, img: townImgFor(kd2, nm), desc: grab('DESC').slice(0, 400), vendors, links: [] };
     markDirty(); broadcastWorld(joinedRoom);
     io.to(socket.id).emit('chat', { id: 'm_' + rid(), author: 'System', role: 'system', text: `🗺️ The AI conjured ${nm} with ${vendors.length} vendors. Link it to the map so the party can reach it.`, ts: Date.now() });
   });
