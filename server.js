@@ -234,6 +234,7 @@ function saveRooms() {
         turnIndex: room.turnIndex,
         fog: room.fog,
         walls: room.walls,
+        doors: room.doors,
         lighting: room.lighting,
         aoes: room.aoes,
         handout: room.handout,
@@ -336,6 +337,7 @@ function loadRooms() {
         turnIndex: room.turnIndex || 0,
         fog: room.fog || { active: false, hidden: {} },
         walls: room.walls || {},
+        doors: room.doors || {},
         lighting: !!room.lighting,
         aoes: room.aoes || [],
         handout: room.handout || null,
@@ -387,6 +389,7 @@ function getRoom(id) {
       round: 1,                // combat round counter
       fog: { active: false, hidden: {} }, // hidden: { "cx,cy": true }
       walls: {},               // "cx,cy": true — sight-blocking wall cells
+      doors: {},               // "cx,cy": "closed" | "open" — #256 toggleable doors
       lighting: false,         // dynamic line-of-sight active
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
@@ -876,6 +879,7 @@ io.on('connection', (socket) => {
       round: room.round,
       fog: room.fog,
       walls: room.walls,
+      doors: room.doors,
       lighting: room.lighting,
       aoes: room.aoes,
       handout: room.handout,
@@ -1362,7 +1366,7 @@ io.on('connection', (socket) => {
   socket.on('light:active', (active) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
     room.lighting = !!active;
-    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls });
+    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls, doors: room.doors });
   });
   socket.on('wall:cell', ({ key, on }) => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
@@ -1371,8 +1375,27 @@ io.on('connection', (socket) => {
   });
   socket.on('wall:clear', () => {
     const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id)) return;
-    room.walls = {};
-    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls });
+    room.walls = {}; room.doors = {};
+    io.to(joinedRoom).emit('light:state', { lighting: room.lighting, walls: room.walls, doors: room.doors });
+  });
+  // ---- #256 Doors: GM paints them, anyone-at-the-table can swing them open/closed ----
+  socket.on('door:set', ({ key, on }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    room.doors = room.doors || {};
+    if (on) { room.doors[key] = 'closed'; delete room.walls[key]; }   // a door replaces a plain wall
+    else delete room.doors[key];
+    io.to(joinedRoom).emit('door:set', { key, state: room.doors[key] || null });
+    markDirty();
+  });
+  socket.on('door:toggle', ({ key }) => {
+    const room = rooms.get(joinedRoom); if (!room || !key) return;
+    const p = room.players[socket.id]; if (!p || p.spectator) return;   // spectators can't touch doors
+    room.doors = room.doors || {};
+    if (!room.doors[key]) return;
+    room.doors[key] = room.doors[key] === 'closed' ? 'open' : 'closed';
+    io.to(joinedRoom).emit('door:set', { key, state: room.doors[key] });
+    pushSystem(joinedRoom, `🚪 A door ${room.doors[key] === 'open' ? 'creaks open' : 'swings shut'}.`);
+    markDirty();
   });
 
   // ---- Area-of-effect spell templates (any player) ----
@@ -1996,7 +2019,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
-  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'doors', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
   // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
   socket.on('campaign:export', (ack) => {
     const room = rooms.get(joinedRoom);
@@ -2250,7 +2273,7 @@ io.on('connection', (socket) => {
       v: 2,
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
-      walls: room.walls, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
+      walls: room.walls, doors: room.doors, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
       weather: room.weather, ambience: room.ambience || 'off', round: room.round || 1,
       notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
       drawings: (room.drawings || []).slice(-500),
@@ -2270,6 +2293,7 @@ io.on('connection', (socket) => {
     room.turnIndex = data.turnIndex || 0;
     room.fog = data.fog || { active: false, hidden: {} };
     room.walls = data.walls || {};
+    room.doors = data.doors || {};
     room.lighting = !!data.lighting;
     room.aoes = data.aoes || [];
     room.handout = data.handout || null;
@@ -2289,7 +2313,7 @@ io.on('connection', (socket) => {
       io.to(sid).emit('state', {
         tokens: tokensFor(room, sid), chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
-        fog: room.fog, walls: room.walls, lighting: room.lighting, aoes: room.aoes,
+        fog: room.fog, walls: room.walls, doors: room.doors, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,
         ambience: room.ambience || 'off',
         notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
