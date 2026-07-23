@@ -728,6 +728,19 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
 .pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
 .pa-blue { background: linear-gradient(180deg, #2f6fb0, #1c4a78); }   /* #281 readable blue (Search / Dodge) */
+/* #283 Downtime activities */
+.dt-card { background: #1a1410; border: 1px solid rgba(217,177,84,.4); border-radius: 14px; max-width: 780px; width: 92%; max-height: 86vh; overflow: auto; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
+.dt-lead { color: #c9b78a; font-size: 13px; margin: 2px 0 12px; line-height: 1.4; }
+.dt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dt-act { background: rgba(0,0,0,.25); border: 1px solid rgba(217,177,84,.22); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; }
+.dt-act h3 { margin: 0 0 4px; font-family: "Cinzel", serif; color: #e8c877; font-size: 1.05rem; }
+.dt-hint { font-size: 12px; color: #b6a58a; margin: 0 0 8px; line-height: 1.35; flex: 1; }
+.dt-act select, .dt-act input { width: 100%; margin-bottom: 8px; padding: 7px 8px; background: #0d0b08; border: 1px solid rgba(217,177,84,.3); border-radius: 7px; color: #eee; box-sizing: border-box; }
+.dt-go { width: 100%; padding: 9px; border: none; border-radius: 8px; cursor: pointer; font-family: "Cinzel", serif; font-weight: 800; color: #241a0a; background: linear-gradient(180deg, #e8c877, #c79a3a); }
+.dt-go:hover { filter: brightness(1.08); }
+.dt-log { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.dt-row { background: rgba(0,0,0,.3); border-left: 3px solid #c79a3a; border-radius: 6px; padding: 7px 10px; font-size: 13px; color: #e6dcc4; line-height: 1.4; }
+@media (max-width: 640px) { .dt-grid { grid-template-columns: 1fr; } }
 /* #282 Ownership credit */
 .owner-credit { text-align: center; font-size: 11px; letter-spacing: .04em; color: rgba(217,177,84,0.72); margin: 10px 0 2px; opacity: .85; }
 .guide-owner { margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(217,177,84,0.18); }

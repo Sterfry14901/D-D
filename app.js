@@ -7490,3 +7490,67 @@ function openCombatModal(tok, mode) {
 })();
 // the old prompt-chain entry point now opens the panel
 startAttackFlow = function (attacker) { openCombatModal(attacker, 'attack'); };
+
+/* ============ #283 DOWNTIME ACTIVITIES ============
+   Between-session activities: carouse, research, craft, train.
+   Carouse & research roll your real CHA/INT; results post to the whole table. */
+function dtMod(k) { const s = (cs && cs.scores && Number(cs.scores[k])) || 10; return Math.floor((s - 10) / 2); }
+function dtD20() { return 1 + Math.floor(Math.random() * 20); }
+function dtSigned(n) { return (n >= 0 ? '+' : '') + n; }
+function dtLog(html) { const el = $('dt-log'); if (el) el.innerHTML = '<div class="dt-row">' + html + '</div>' + el.innerHTML; }
+function closeDowntime() { const m = $('downtime-modal'); if (m) m.style.display = 'none'; }
+(function initDowntime() {
+  const DT_CAROUSE = { low: { cost: 10, name: 'lower-class taverns' }, mid: { cost: 50, name: 'middle-class inns' }, high: { cost: 250, name: 'high-society galas' } };
+  if ($('dt-btn')) $('dt-btn').onclick = () => { const m = $('downtime-modal'); if (m) m.style.display = 'flex'; };
+  if ($('dt-close')) $('dt-close').onclick = closeDowntime;
+
+  if ($('dt-carouse')) $('dt-carouse').onclick = () => {
+    if (!cs || !cs.scores) { flashHint('🍺 Make a character first to carouse.'); return; }
+    const t = DT_CAROUSE[$('dt-carouse-tier').value] || DT_CAROUSE.low;
+    const gold = Number(cs.gp) || 0;
+    if (gold < t.cost) { flashHint('💰 You need ' + t.cost + ' gp to carouse in ' + t.name + '.'); return; }
+    cs.gp = gold - t.cost;
+    if (typeof csPopulate === 'function') csPopulate();
+    if (typeof saveCS === 'function') saveCS();
+    const d = dtD20(), m = dtMod('cha'), total = d + m;
+    let res;
+    if (total <= 5) res = '😵 Woke somewhere strange with no memory of the night — and maybe a new enemy.';
+    else if (total <= 10) res = '🙂 Made a passing acquaintance who might recall your name.';
+    else if (total <= 15) res = '🤝 Made a friend — a minor contact who owes you a small favor.';
+    else if (total <= 20) res = '⭐ Made a real ally in these circles — a reliable contact.';
+    else res = '👑 Became the toast of the town — a powerful contact now seeks you out.';
+    dtLog('🍺 <b>' + me.name + '</b> caroused in ' + t.name + ' (−' + t.cost + ' gp) · d20 ' + d + dtSigned(m) + ' = <b>' + total + '</b> — ' + res);
+    socket.emit('chat', { text: '🍺 ' + me.name + ' caroused in ' + t.name + ' (spent ' + t.cost + ' gp). CHA check ' + d + dtSigned(m) + ' = ' + total + ': ' + res });
+  };
+
+  if ($('dt-research')) $('dt-research').onclick = () => {
+    if (!cs || !cs.scores) { flashHint('📚 Make a character first to research.'); return; }
+    const topic = ($('dt-research-topic').value || '').trim();
+    if (!topic) { flashHint('📚 What are you researching?'); return; }
+    const d = dtD20(), m = dtMod('int'), total = d + m;
+    let res;
+    if (total <= 5) res = '❓ Dead ends and rumors — you learned little of use.';
+    else if (total <= 10) res = '📖 A few basic facts — enough to ask better questions.';
+    else if (total <= 15) res = '🔎 Solid, useful information the DM can share.';
+    else if (total <= 20) res = '📜 A key insight or hidden connection comes to light.';
+    else res = '🌟 A crucial secret — you uncover something few others know.';
+    dtLog('📚 <b>' + me.name + '</b> researched “' + topic + '” · d20 ' + d + dtSigned(m) + ' = <b>' + total + '</b> — ' + res);
+    socket.emit('chat', { text: '📚 ' + me.name + ' researched "' + topic + '". INT check ' + d + dtSigned(m) + ' = ' + total + ': ' + res + ' (DM: reveal what fits.)' });
+  };
+
+  if ($('dt-craft')) $('dt-craft').onclick = () => {
+    const item = ($('dt-craft-item').value || '').trim();
+    const val = Math.max(0, Number($('dt-craft-val').value) || 0);
+    if (!item || val <= 0) { flashHint('🛠️ Name the item and its market value.'); return; }
+    const mats = Math.ceil(val / 2), days = Math.max(1, Math.ceil(val / 5));
+    dtLog('🛠️ <b>' + me.name + '</b> plans to craft <b>' + item + '</b> (value ' + val + ' gp): materials ~' + mats + ' gp, about <b>' + days + ' day' + (days > 1 ? 's' : '') + '</b> of work.');
+    socket.emit('chat', { text: '🛠️ ' + me.name + ' begins crafting ' + item + ' — materials ~' + mats + ' gp, ~' + days + ' day' + (days > 1 ? 's' : '') + ' of work. (DM: adjust for tools/help.)' });
+  };
+
+  if ($('dt-train')) $('dt-train').onclick = () => {
+    const what = ($('dt-train-what').value || '').trim();
+    if (!what) { flashHint('🎓 What do you want to learn?'); return; }
+    dtLog('🎓 <b>' + me.name + '</b> begins training in <b>' + what + '</b> — roughly 10 workdays and ~25 gp per workweek with a teacher.');
+    socket.emit('chat', { text: '🎓 ' + me.name + ' starts training in ' + what + ' — ~10 workdays, ~25 gp/workweek. (DM: set the pace.)' });
+  };
+})();
