@@ -676,11 +676,19 @@ function renderShop() {
   const items = (shopState.items || []);
   body.innerHTML = `<div class="shop-gold">Your gold: <b>${gold} gp</b></div>` + (items.length ? `<div class="shop-list">${items.map((it) => {
     const sold = it.stock === 0;
-    const canAfford = gold >= it.price;
+    const hg = haggleState[it.id];                                   // #284 haggle result for this item
+    const price = hg ? Math.max(0, Math.round(it.price * hg.mult)) : it.price;
+    const canAfford = gold >= price;
     const stockTag = it.stock < 0 ? '' : sold ? ' · <span class="shop-sold">sold out</span>' : ` · ${it.stock} left`;
+    const priceStr = hg && price !== it.price
+      ? `<s>${it.price}</s> <b class="shop-deal">${price === 0 ? 'FREE' : price + ' gp'}</b>`
+      : `${price} gp`;
     return `<div class="shop-row">
-      <div class="shop-info"><span class="shop-name">${escapeHtml(it.name)}</span><span class="shop-meta">${it.price} gp · ${Math.round((Number(it.wt) || 0) * 10) / 10} lb${stockTag}</span></div>
-      <button class="shop-buy" data-buy="${it.id}" ${sold || !canAfford ? 'disabled' : ''}>${sold ? 'Sold' : canAfford ? 'Buy' : 'Need gold'}</button>
+      <div class="shop-info"><span class="shop-name">${escapeHtml(it.name)}</span><span class="shop-meta">${priceStr} · ${Math.round((Number(it.wt) || 0) * 10) / 10} lb${stockTag}</span></div>
+      <div class="shop-acts">
+        ${hg ? '' : `<button class="shop-haggle" data-haggle="${it.id}" ${sold ? 'disabled' : ''} title="Talk the vendor down — Persuasion (CHA) check">🤝 Haggle</button>`}
+        <button class="shop-buy" data-buy="${it.id}" ${sold || !canAfford ? 'disabled' : ''}>${sold ? 'Sold' : canAfford ? (price === 0 ? 'Take it' : 'Buy') : 'Need gold'}</button>
+      </div>
     </div>`;
   }).join('')}</div>` : '<div class="tr-empty">Nothing for sale yet.</div>');
   // Sell section — the player can sell back items the shop stocks (half price).
@@ -694,6 +702,30 @@ function renderShop() {
   }
   body.querySelectorAll('[data-buy]').forEach((b) => { b.onclick = () => buyShopItem(b.dataset.buy); });
   body.querySelectorAll('[data-sell]').forEach((b) => { b.onclick = () => sellShopItem(Number(b.dataset.sell)); });
+  body.querySelectorAll('[data-haggle]').forEach((b) => { b.onclick = () => haggleItem(b.dataset.haggle); });
+}
+/* #284 Haggle with the vendor — a Persuasion (CHA) check for a discount, or on a great roll, a freebie. One attempt per item per visit. */
+function haggleItem(id) {
+  const it = (shopState.items || []).find((x) => x.id === id); if (!it) return;
+  if (!shopState.open) { flashHint('The shop is closed.'); return; }
+  if (haggleState[id]) { flashHint('🤝 You already made your pitch on that one.'); return; }
+  if (!cs || !cs.scores) { flashHint('🤝 Make a character first.'); return; }
+  const prof = (typeof csProf === 'function') ? csProf() : 2;
+  const trained = !!(cs.skills && cs.skills['Persuasion']);
+  const mod = csMod(cs.scores.cha) + (trained ? prof : 0);
+  const d = 1 + Math.floor(Math.random() * 20), total = d + mod;
+  const nat20 = d === 20, nat1 = d === 1;
+  let mult, msg;
+  if (nat1) { mult = 1.15; msg = '😬 You fumble the pitch — the vendor takes offense and marks it UP.'; }
+  else if (nat20 || total >= 25) { mult = 0; msg = '🎁 The vendor is charmed — “For a hero like you? Take it, no charge.”'; }
+  else if (total >= 18) { mult = 0.75; msg = '💰 Deal struck — 25% off.'; }
+  else if (total >= 12) { mult = 0.9; msg = '🪙 A modest discount — 10% off.'; }
+  else { mult = 1; msg = '🤷 No dice — the price stands.'; }
+  haggleState[id] = { mult: mult };
+  const newPrice = Math.max(0, Math.round(it.price * mult));
+  renderShop();
+  const priceText = mult === 0 ? 'FREE' : newPrice + ' gp' + (newPrice > it.price ? ' (up from ' + it.price + ')' : '');
+  socket.emit('chat', { text: '🤝 ' + me.name + ' haggles over ' + it.name + ' — Persuasion ' + d + (mod >= 0 ? '+' : '') + mod + ' = ' + total + '. ' + msg + ' → ' + priceText });
 }
 function sellShopItem(gearIdx) {
   const g = (cs.gear || [])[gearIdx]; if (!g) return;
@@ -711,14 +743,16 @@ function buyShopItem(id) {
   const it = (shopState.items || []).find((x) => x.id === id); if (!it) return;
   if (!shopState.open) { flashHint('The shop is closed.'); return; }
   if (it.stock === 0) { flashHint('❌ Sold out.'); return; }
+  const hg = haggleState[id];                                        // #284 apply any haggled price
+  const price = hg ? Math.max(0, Math.round(it.price * hg.mult)) : it.price;
   const gold = Number(cs.gp) || 0;
-  if (gold < it.price) { flashHint('❌ Not enough gold — need ' + it.price + ' gp.'); return; }
-  cs.gp = gold - it.price;
+  if (gold < price) { flashHint('❌ Not enough gold — need ' + price + ' gp.'); return; }
+  cs.gp = gold - price;
   cs.gear = cs.gear || [];
   cs.gear.push({ n: String(it.name), on: false, w: Number(it.wt) || 0 });
   csPopulate(); csRenderGear(); saveCS();
   socket.emit('shop:buy', { id });
-  flashHint('🛒 Bought ' + it.name + ' for ' + it.price + ' gp');
+  flashHint(price === 0 ? '🎁 Got ' + it.name + ' for free!' : '🛒 Bought ' + it.name + ' for ' + price + ' gp');
 }
 function renderShopGm(body) {
   const items = (shopState.items || []);
@@ -932,8 +966,11 @@ function applyQuests(q) {
 
 /* ============ DM SHOP ============ */
 let shopState = { open: false, name: 'Market', items: [] };
+let haggleState = {}, shopWasOpen = false;   // #284 per-item haggle results, reset each time the shop opens
 function applyShop(sh) {
   shopState = { open: !!(sh && sh.open), name: (sh && sh.name) || 'Market', items: Array.isArray(sh && sh.items) ? sh.items.slice() : [] };
+  if (shopState.open && !shopWasOpen) haggleState = {};   // fresh haggling each visit
+  shopWasOpen = shopState.open;
   const btn = $('shop-btn');
   if (btn) { btn.style.display = (me.isGm || shopState.open) ? '' : 'none'; btn.textContent = '🏪 ' + shopState.name + (shopState.open ? '' : (me.isGm ? ' (closed)' : '')); }
   if ($('shop-modal') && $('shop-modal').style.display === 'flex') renderShop();

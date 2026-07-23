@@ -728,6 +728,12 @@ body:not(.is-gm) .gm-only { display: none !important; }
 .pa-red { background: linear-gradient(180deg, #c0392b, #92271c); }
 .pa-green { background: linear-gradient(180deg, #27ae60, #1d8148); }
 .pa-blue { background: linear-gradient(180deg, #2f6fb0, #1c4a78); }   /* #281 readable blue (Search / Dodge) */
+/* #284 Haggle with vendors */
+.shop-acts { display: flex; gap: 6px; align-items: center; }
+.shop-haggle { padding: 6px 10px; border: 1px solid rgba(217,177,84,.45); background: rgba(217,177,84,.12); color: #e8c877; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.shop-haggle:hover:not(:disabled) { background: rgba(217,177,84,.24); }
+.shop-haggle:disabled { opacity: .4; cursor: default; }
+.shop-deal { color: #7fdd8f; }
 /* #283 Downtime activities */
 .dt-card { background: #1a1410; border: 1px solid rgba(217,177,84,.4); border-radius: 14px; max-width: 780px; width: 92%; max-height: 86vh; overflow: auto; padding: 16px 18px; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
 .dt-lead { color: #c9b78a; font-size: 13px; margin: 2px 0 12px; line-height: 1.4; }
