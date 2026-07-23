@@ -1532,6 +1532,7 @@ button.cs-spellstat-box:hover { background: rgba(150,120,230,.3); }
 .wm-pulse { fill: none; stroke: #b3212e; stroke-width: .6; opacity: .8; animation: wmPulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes wmPulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
 .wm-hint { background: #221c11; color: #cbb98a; font-size: 12px; padding: 6px 10px; text-align: center; }
+.wm-subhint { margin-top: 5px; font-size: 11px; color: #9a8a63; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
 /* #185 world-map DM tools */
 .wm-tool { background: #2c2416; border: 1px solid #6b512c; color: #e8d9b0; border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-left: 4px; }
