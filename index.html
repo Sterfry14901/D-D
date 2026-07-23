@@ -86,6 +86,7 @@
         <button id="bug-btn" class="ghost" title="Report a bug — it goes straight to our Discord">🐛</button>
         <button id="guide-btn" class="ghost" title="How to play — Player guide &amp; DM master guide">📖 Guide</button>
         <button id="dt-btn" class="ghost" title="Downtime — craft, carouse, train &amp; research between sessions">🛠️ Downtime</button>
+        <button id="util-btn" class="ghost" title="Utility spells — the clever, flavorful magic: Prestidigitation, Mending, Feather Fall, Locate Object &amp; more">✨ Utility</button>
         <button id="help-btn" class="ghost" title="Help, hotkeys & chat commands (press ?)">❓ Help</button>
         <button id="voice-btn" class="ghost" title="Join voice chat">🎙️ Voice: Off</button>
         <button id="mute-btn" class="ghost hidden" title="Mute / unmute your microphone">🔊 Mic</button>
@@ -1048,6 +1049,7 @@
             <li>The 🎤 voice button connects live voice chat with your table.</li>
             <li><b>Journal tab (📓)</b>: shared notes plus <b>People you've met</b> — the cast of NPCs the AI DM remembers.</li>
             <li><b>✨ Custom Trackers</b> (character sheet): add your own stats — Corruption, Sanity, Faction rep, anything your table invents. Give it a cap of 1–8 for clickable pips, or leave it open as a counter. Click the name to rename; they save with your character and travel with exports.</li>
+            <li><b>✨ Utility spells</b> (button up top): the clever, non-combat magic — <b>Prestidigitation, Mending, Light, Mage Hand, Guidance, Feather Fall, Locate Object, Comprehend Languages</b> and more. One tap casts it: cantrips are free, leveled spells spend a real slot from your sheet, and every cast announces to the table so the DM can rule the result. Guidance even rolls your bonus for you.</li>
             <li><b>🎛 Your interface, your way</b> (button up top): untick the tabs you never use and they vanish from your panel — just for you. Save layouts as presets ("⚔️ Combat night" and "🎭 Roleplay night" come built in) and swap your whole workspace in one click.</li>
             <li><b>📅 Next session</b>: check the top of the Journal tab — your DM posts when you're playing next, and you'll see a reminder each time you join.</li>
             <li><b>🎵 Session Playlist</b> (Journal tab): when your DM links a Spotify or YouTube playlist, a player appears right in the Journal — the whole table listens to the same campaign soundtrack. If the DM set a ⚔️ battle mix, it takes over automatically when initiative starts.</li>
@@ -1268,6 +1270,16 @@
         </div>
       </div>
       <div id="dt-log" class="dt-log"></div>
+      <div class="owner-credit guide-owner">Realms of Fate — owned by Sterling Heinz</div>
+    </div>
+  </div>
+
+  <!-- #285 Utility spells -->
+  <div id="util-modal" class="overlay" style="display:none">
+    <div class="dt-card">
+      <div class="tr-head"><h2>✨ Utility Spells</h2><button id="util-close" class="ps-close" title="Close">✕</button></div>
+      <p class="dt-lead">The clever magic that solves problems instead of dealing damage. Cantrips are at-will; leveled spells spend a slot from your sheet. Every cast announces itself to the table so the DM can rule the outcome.</p>
+      <div id="util-body" class="dt-grid"></div>
       <div class="owner-credit guide-owner">Realms of Fate — owned by Sterling Heinz</div>
     </div>
   </div>
