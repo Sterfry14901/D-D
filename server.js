@@ -1391,11 +1391,44 @@ io.on('connection', (socket) => {
     const room = rooms.get(joinedRoom); if (!room || !key) return;
     const p = room.players[socket.id]; if (!p || p.spectator) return;   // spectators can't touch doors
     room.doors = room.doors || {};
-    if (!room.doors[key]) return;
-    room.doors[key] = room.doors[key] === 'closed' ? 'open' : 'closed';
+    const cur = room.doors[key]; if (!cur) return;
+    // #258 GM click cycles every state so the DM can set locked/secret doors:
+    if (isGm(room, socket.id)) {
+      const next = { closed: 'locked', locked: 'secret', secret: 'open', open: 'closed' }[cur] || 'closed';
+      room.doors[key] = next;
+      io.to(joinedRoom).emit('door:set', { key, state: next });
+      markDirty();
+      return;
+    }
+    // Players: locked doors don't budge (must be picked); secret doors are invisible.
+    if (cur === 'locked') { io.to(socket.id).emit('door:locked', { key }); return; }
+    if (cur === 'secret') return;
+    room.doors[key] = cur === 'closed' ? 'open' : 'closed';
     io.to(joinedRoom).emit('door:set', { key, state: room.doors[key] });
     pushSystem(joinedRoom, `🚪 A door ${room.doors[key] === 'open' ? 'creaks open' : 'swings shut'}.`);
     markDirty();
+  });
+  // #258 Lockpicking: a player with thieves' tools asks the DM to allow a pick.
+  socket.on('door:pick', ({ key }) => {
+    const room = rooms.get(joinedRoom); if (!room || !key) return;
+    const p = room.players[socket.id]; if (!p || p.isGm || p.spectator) return;
+    if ((room.doors || {})[key] !== 'locked') return;   // only real locked doors — walls & secrets can't be picked
+    let gmSeen = false;
+    for (const sid of Object.keys(room.players)) if (room.players[sid]?.isGm) { io.to(sid).emit('door:pickreq', { key, who: p.name, sid: socket.id }); gmSeen = true; }
+    io.to(socket.id).emit(gmSeen ? 'door:pickpending' : 'door:locked', { key });
+  });
+  socket.on('door:pickresp', ({ key, sid, ok }) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    if ((room.doors || {})[key] !== 'locked') return;
+    const who = room.players[sid]?.name || 'Someone';
+    if (ok) {
+      room.doors[key] = 'open';
+      io.to(joinedRoom).emit('door:set', { key, state: 'open' });
+      pushSystem(joinedRoom, `🔓 ${who} picks the lock — the door swings open!`);
+      markDirty();
+    } else if (sid) {
+      io.to(sid).emit('door:pickfail', { key });
+    }
   });
 
   // ---- Area-of-effect spell templates (any player) ----
