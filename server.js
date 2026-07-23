@@ -236,6 +236,7 @@ function saveRooms() {
         walls: room.walls,
         doors: room.doors,
         traps: room.traps,
+        hazards: room.hazards,
         lighting: room.lighting,
         aoes: room.aoes,
         handout: room.handout,
@@ -340,6 +341,7 @@ function loadRooms() {
         walls: room.walls || {},
         doors: room.doors || {},
         traps: room.traps || {},
+        hazards: room.hazards || {},
         lighting: !!room.lighting,
         aoes: room.aoes || [],
         handout: room.handout || null,
@@ -393,6 +395,7 @@ function getRoom(id) {
       walls: {},               // "cx,cy": true — sight-blocking wall cells
       doors: {},               // "cx,cy": "closed" | "open" — #256 toggleable doors
       traps: {},               // #259 "cx,cy": {armed,name,dmg,revealed}
+      hazards: {},             // #262 "cx,cy": {name,dmg,color} — visible persistent damaging terrain
       lighting: false,         // dynamic line-of-sight active
       aoes: [],                // area-of-effect templates [{id,type,x,y,x2,y2,size,color}]
       handout: null,           // image data-url currently shown to the table
@@ -884,6 +887,7 @@ io.on('connection', (socket) => {
       walls: room.walls,
       doors: room.doors,
       traps: room.traps,
+      hazards: room.hazards,
       lighting: room.lighting,
       aoes: room.aoes,
       handout: room.handout,
@@ -1158,6 +1162,27 @@ io.on('connection', (socket) => {
         pushSystem(joinedRoom, `💥 A ${nm} springs on ${who}!${dmg ? ' (' + dmg + ' damage)' : ''}`);
         timelineAdd(joinedRoom, `💥 ${who} triggered a ${nm}`, null);
         markDirty();
+      }
+    }
+    // #262 Hazard zones: entering a visible hazard cell burns the moving player token (persistent terrain).
+    if (room.hazards && !isGm(room, socket.id)) {
+      const g = room.gridSize || 70;
+      const hkey = Math.floor((x + (t.size || 1) * 32) / g) + ',' + Math.floor((y + (t.size || 1) * 32) / g);
+      const hz = room.hazards[hkey];
+      if (hz) {
+        if (t._lastHazard !== hkey && (Number(hz.dmg) || 0) > 0) {
+          const hdmg = Math.max(0, Math.min(999, Number(hz.dmg) || 0));
+          const hnm = String(hz.name || 'hazard').slice(0, 40);
+          const hwho = t.name || t.label || 'Someone';
+          t.hp = Math.max(0, (Number(t.hp) || 0) - hdmg);
+          emitTokenPerSocket(room, 'token:update', t);
+          io.to(joinedRoom).emit('hazard:hit', { key: hkey, name: hnm, token: hwho, dmg: hdmg });
+          pushSystem(joinedRoom, `🔥 ${hwho} takes ${hdmg} from ${hnm}!`);
+          markDirty();
+        }
+        t._lastHazard = hkey;
+      } else {
+        t._lastHazard = null;
       }
     }
   });
@@ -1492,6 +1517,25 @@ io.on('connection', (socket) => {
     if (on) { room.doors[key] = 'closed'; delete room.walls[key]; }   // a door replaces a plain wall
     else delete room.doors[key];
     io.to(joinedRoom).emit('door:set', { key, state: room.doors[key] || null });
+    markDirty();
+  });
+  // ---- #262 Hazard zones: GM paints visible, persistent damaging terrain (lava/acid/spikes/spell zones) ----
+  socket.on('hazard:set', ({ key, name, dmg, color } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    room.hazards = room.hazards || {};
+    room.hazards[key] = {
+      name: String(name || 'Hazard').slice(0, 40),
+      dmg: Math.max(0, Math.min(999, Math.floor(Number(dmg) || 0))),
+      color: String(color || '#e2562a').slice(0, 16),
+    };
+    io.to(joinedRoom).emit('hazard:set', { key, state: room.hazards[key] });
+    markDirty();
+  });
+  socket.on('hazard:clear', ({ key } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room || !isGm(room, socket.id) || !key) return;
+    room.hazards = room.hazards || {};
+    delete room.hazards[key];
+    io.to(joinedRoom).emit('hazard:set', { key, state: null });
     markDirty();
   });
   socket.on('door:toggle', ({ key }) => {
@@ -2159,7 +2203,7 @@ io.on('connection', (socket) => {
   });
 
   // ---- #233 Campaign backup: DM exports/imports the whole room as a file ----
-  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'doors', 'traps', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
+  const BAK_FIELDS = ['tokens', 'chat', 'mapImage', 'gridSize', 'initiative', 'turnIndex', 'fog', 'walls', 'doors', 'traps', 'hazards', 'lighting', 'aoes', 'handout', 'weather', 'ambience', 'notes', 'quests', 'drawings', 'round', 'shop', 'world', 'npcs', 'scenes', 'opts', 'session', 'pool', 'music', 'timeline', 'sessionCount'];
   // Deliberately NOT exported/imported: gmPassword, trial, partyCode (auth/billing) and notebook (players' PRIVATE notes).
   socket.on('campaign:export', (ack) => {
     const room = rooms.get(joinedRoom);
@@ -2413,7 +2457,7 @@ io.on('connection', (socket) => {
       v: 2,
       tokens: room.tokens, mapImage: room.mapImage, gridSize: room.gridSize,
       initiative: room.initiative, turnIndex: room.turnIndex, fog: room.fog,
-      walls: room.walls, doors: room.doors, traps: room.traps, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
+      walls: room.walls, doors: room.doors, traps: room.traps, hazards: room.hazards, lighting: room.lighting, aoes: room.aoes, handout: room.handout,
       weather: room.weather, ambience: room.ambience || 'off', round: room.round || 1,
       notes: room.notes || '', quests: room.quests || { main: '', sides: [] },
       drawings: (room.drawings || []).slice(-500),
@@ -2435,6 +2479,7 @@ io.on('connection', (socket) => {
     room.walls = data.walls || {};
     room.doors = data.doors || {};
     room.traps = data.traps || {};
+    room.hazards = data.hazards || {};
     room.lighting = !!data.lighting;
     room.aoes = data.aoes || [];
     room.handout = data.handout || null;
@@ -2454,7 +2499,7 @@ io.on('connection', (socket) => {
       io.to(sid).emit('state', {
         tokens: tokensFor(room, sid), chat: room.chat.slice(-100), mapImage: room.mapImage,
         gridSize: room.gridSize, initiative: room.initiative, turnIndex: room.turnIndex,
-        fog: room.fog, walls: room.walls, doors: room.doors, traps: room.traps, lighting: room.lighting, aoes: room.aoes,
+        fog: room.fog, walls: room.walls, doors: room.doors, traps: room.traps, hazards: room.hazards, lighting: room.lighting, aoes: room.aoes,
         handout: room.handout, weather: room.weather, round: room.round,
         ambience: room.ambience || 'off',
         notes: room.notes || '', quests: room.quests || { main: '', sides: [] },

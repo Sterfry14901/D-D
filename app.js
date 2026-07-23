@@ -19,6 +19,7 @@ let paintTarget = 'hide';   // 'hide' | 'reveal' | 'wall'
 let walls = {};             // "cx,cy": true — sight-blocking cells
 let doors = {};             // #256 "cx,cy": "open" | "closed"
 let traps = {};             // #259 "cx,cy": {armed,name,dmg,revealed}
+let hazards = {};           // #262 "cx,cy": {name,dmg,color} — visible persistent damaging terrain
 let lighting = false;       // dynamic line-of-sight active
 const VISION_RADIUS = 6;    // cells a token can see (~30 ft)
 let aoes = [];              // placed spell area templates
@@ -1395,6 +1396,7 @@ socket.on('state', (s) => {
   walls = s.walls || {};
   doors = s.doors || {};
   traps = s.traps || {};
+  hazards = s.hazards || {};
   lighting = !!s.lighting;
   $('light-toggle').textContent = `💡 Lighting: ${lighting ? 'On' : 'Off'}`;
   $('light-toggle').classList.toggle('active', lighting);
@@ -4633,7 +4635,7 @@ $('fog-btn').onclick = () => {
 function setPaintTarget(t) {
   paintTarget = t;
   fogPaintHide = (t === 'hide');
-  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase'],['door','fog-paint-door']]
+  [['hide','fog-paint-hide'],['reveal','fog-paint-reveal'],['wall','fog-paint-wall'],['wallerase','fog-paint-wall-erase'],['door','fog-paint-door'],['trap','fog-paint-trap'],['hazard','fog-paint-hazard']]
     .forEach(([k, id]) => { const b = $(id); if (b) b.classList.toggle('active', paintTarget === k); });
 }
 $('fog-paint-hide').onclick = () => setPaintTarget('hide');
@@ -4651,6 +4653,27 @@ if ($('fog-paint-trap')) $('fog-paint-trap').onclick = () => {
   trapBrush = { name: (nm.trim() || 'trap').slice(0, 40), dmg: Math.max(0, Math.min(999, Math.floor(Number(dg) || 0))) };
   setPaintTarget('trap');
   flashHint(`⚠️ Painting hidden ${trapBrush.name}s${trapBrush.dmg ? ' (' + trapBrush.dmg + ' dmg)' : ''} — click cells`);
+};
+// #262 Hazard brush — visible, persistent damaging terrain (lava/acid/spikes/spell zones). Everyone sees it.
+let hazardBrush = { name: 'Lava', dmg: 3, color: '#e2562a' };
+function hazardColorFor(nm) {
+  const s = (nm || '').toLowerCase();
+  if (/acid|poison|slime|toxic|ooze|bog/.test(s)) return '#5bbf3a';
+  if (/ice|frost|cold|freez|snow/.test(s)) return '#4bb6e8';
+  if (/spike|blade|caltrop|thorn|razor|glass|spear/.test(s)) return '#c9ccd4';
+  if (/lightning|shock|spark|storm|electr/.test(s)) return '#f4d03f';
+  if (/holy|radiant|sun|light/.test(s)) return '#f6e27a';
+  return '#e2562a';   // lava / fire default
+}
+if ($('fog-paint-hazard')) $('fog-paint-hazard').onclick = () => {
+  const nm = prompt('Hazard name (e.g. Lava, Acid Pool, Spike Field, Wall of Fire):', hazardBrush.name || 'Lava');
+  if (nm === null) return;
+  const dg = prompt('Damage each time a token enters it (0 for none — you can rule it yourself):', String(hazardBrush.dmg || 0));
+  if (dg === null) return;
+  const name = (nm.trim() || 'Hazard').slice(0, 40);
+  hazardBrush = { name, dmg: Math.max(0, Math.min(999, Math.floor(Number(dg) || 0))), color: hazardColorFor(name) };
+  setPaintTarget('hazard');
+  flashHint(`🔥 Painting ${hazardBrush.name}${hazardBrush.dmg ? ' (' + hazardBrush.dmg + ' dmg on enter)' : ''} — click cells · right-click to erase`);
 };
 [['fog-brush-1', 1], ['fog-brush-3', 3], ['fog-brush-5', 5]].forEach(([id, n]) => {
   const b = $(id); if (!b) return;
@@ -4691,6 +4714,10 @@ function paintFog(e) {
       if (traps[key]) continue;
       traps[key] = { armed: true, revealed: false, name: trapBrush.name, dmg: trapBrush.dmg };
       socket.emit('trap:set', { key, name: trapBrush.name, dmg: trapBrush.dmg }); touchedWall = true;
+    } else if (paintTarget === 'hazard') {
+      // #262: paint a visible, persistent hazard cell (lava/acid/spikes/spell zone).
+      hazards[key] = { name: hazardBrush.name, dmg: hazardBrush.dmg, color: hazardBrush.color };
+      socket.emit('hazard:set', { key, name: hazardBrush.name, dmg: hazardBrush.dmg, color: hazardBrush.color }); touchedWall = true;
     } else {
       const wantHidden = (paintTarget === 'hide');
       if (!!fog.hidden[key] === wantHidden) continue;
@@ -4745,6 +4772,16 @@ socket.on('trap:set', ({ key, state }) => {
   if (state) traps[key] = state; else delete traps[key];
   renderWalls();
 });
+// #262 Hazard zones — sync + damage toast.
+socket.on('hazard:set', ({ key, state }) => {
+  if (state) hazards[key] = state; else delete hazards[key];
+  renderWalls();
+});
+socket.on('hazard:hit', ({ key, name, token, dmg }) => {
+  const [cx, cy] = String(key).split(',').map(Number);
+  if (typeof trapFlash === 'function') trapFlash(cx, cy);
+  flashHint(`🔥 ${token} takes ${dmg} from ${name}!`);
+});
 socket.on('trap:sprung', ({ key, name, token, dmg }) => {
   delete traps[key]; renderWalls();
   const [cx, cy] = key.split(',').map(Number);
@@ -4762,6 +4799,29 @@ socket.on('trap:disarmreq', ({ key, who, sid }) => {
 function renderWalls() {
   const layer = $('walls'); if (!layer) return;
   layer.innerHTML = '';
+  // #262 Hazard zones — visible to EVERYONE (persistent damaging terrain); GM right-clicks to erase.
+  const HZ_ICON = { '#5bbf3a': '☠️', '#4bb6e8': '❄️', '#c9ccd4': '✦', '#f4d03f': '⚡', '#f6e27a': '✨', '#e2562a': '🔥' };
+  for (const key in hazards) {
+    const hz = hazards[key]; if (!hz) continue;
+    const [cx, cy] = key.split(',').map(Number);
+    const col = hz.color || '#e2562a';
+    const cell = document.createElement('div');
+    cell.className = 'hazard-cell';
+    cell.style.position = 'absolute';
+    cell.style.left = cx * gridSize + 'px'; cell.style.top = cy * gridSize + 'px';
+    cell.style.width = gridSize + 'px'; cell.style.height = gridSize + 'px';
+    cell.style.background = col + '55';
+    cell.style.boxShadow = 'inset 0 0 0 2px ' + col + 'aa';
+    cell.style.display = 'flex'; cell.style.alignItems = 'center'; cell.style.justifyContent = 'center';
+    cell.style.fontSize = Math.round(gridSize * 0.4) + 'px';
+    cell.style.pointerEvents = me.isGm ? 'auto' : 'none';
+    cell.textContent = HZ_ICON[col] || '🔥';
+    cell.title = me.isGm
+      ? `${hz.name}${hz.dmg ? ' — ' + hz.dmg + ' dmg on enter' : ''} · right-click to erase`
+      : `${hz.name} — dangerous ground!`;
+    if (me.isGm) cell.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); delete hazards[key]; socket.emit('hazard:clear', { key }); renderWalls(); };
+    layer.appendChild(cell);
+  }
   // Wall blocks are a GM building aid — only the GM sees the raw walls.
   if (me.isGm) {
     for (const key in walls) {
