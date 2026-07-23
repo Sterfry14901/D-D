@@ -1204,6 +1204,48 @@ io.on('connection', (socket) => {
       markDirty();
     } else if (sid) io.to(sid).emit('trap:disarmfail', { key });
   });
+  // #260 Search — a player looks for hidden traps & secret doors near their token.
+  // Server rolls d20 + the searcher's bonus and reveals anything within range whose DC is beaten.
+  socket.on('search:area', ({ bonus } = {}) => {
+    const room = rooms.get(joinedRoom); if (!room) return;
+    const p = room.players[socket.id]; if (!p || p.isGm || p.spectator) return;
+    const g = room.gridSize || 70;
+    const RANGE = 2;              // 2 cells ≈ 10 ft immediate surroundings
+    const TRAP_DC = 13, DOOR_DC = 15;
+    const b = Math.max(-5, Math.min(15, Number(bonus) || 0));
+    const roll = 1 + Math.floor(Math.random() * 20);
+    const total = roll + b;
+    // owned tokens = origin points of the search
+    const mine = Object.values(room.tokens || {}).filter((t) =>
+      t && !t.hidden && (t.ownerId === socket.id || (t.owner && p.name && t.owner === p.name)));
+    if (!mine.length) { io.to(socket.id).emit('search:result', { total, roll, bonus: b, found: 0, none: true }); return; }
+    const cellOf = (t) => [Math.floor((t.x + (t.size || 1) * 32) / g), Math.floor((t.y + (t.size || 1) * 32) / g)];
+    const near = (cx, cy) => mine.some((t) => { const [tx, ty] = cellOf(t); return Math.abs(tx - cx) <= RANGE && Math.abs(ty - cy) <= RANGE; });
+    let found = 0;
+    // hidden traps
+    if (room.traps) for (const key of Object.keys(room.traps)) {
+      const tr = room.traps[key]; if (!tr || tr.revealed) continue;
+      const [cx, cy] = key.split(',').map(Number);
+      if (near(cx, cy) && total >= (Number(tr.dc) || TRAP_DC)) {
+        tr.revealed = true; found++;
+        io.to(joinedRoom).emit('trap:set', { key, state: tr });
+        pushSystem(joinedRoom, `🔍 ${p.name} spots a hidden ${tr.name}!`);
+      }
+    }
+    // secret doors → become normal (visible) closed doors
+    if (room.doors) for (const key of Object.keys(room.doors)) {
+      if (room.doors[key] !== 'secret') continue;
+      const [cx, cy] = key.split(',').map(Number);
+      if (near(cx, cy) && total >= DOOR_DC) {
+        room.doors[key] = 'closed'; found++;
+        io.to(joinedRoom).emit('door:set', { key, state: 'closed' });
+        pushSystem(joinedRoom, `🔍 ${p.name} discovers a hidden door!`);
+        timelineAdd(joinedRoom, `🔍 ${p.name} found a secret door`, null);
+      }
+    }
+    io.to(socket.id).emit('search:result', { total, roll, bonus: b, found });
+    if (found) markDirty();
+  });
   socket.on('token:update', (token) => {
     const room = rooms.get(joinedRoom); if (!room || !room.tokens[token.id]) return;
     if (!canControlToken(room, socket.id, room.tokens[token.id])) return;   // only your own token

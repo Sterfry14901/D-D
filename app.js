@@ -289,6 +289,31 @@ if ($('pa-heal')) $('pa-heal').onclick = () => {
   if (!tok) { flashHint('No token of yours on the map yet.'); return; }
   openCombatModal(tok, 'heal');
 };
+/* #260 Search — look for hidden traps & secret doors near your token (Perception/Investigation). */
+function searchBonus() {
+  try {
+    if (!cs || !cs.scores) return 0;
+    const prof = (typeof csProf === 'function') ? csProf() : 2;
+    const m = (typeof csMod === 'function') ? csMod : (s) => Math.floor((Number(s || 10) - 10) / 2);
+    const per = m(cs.scores.wis) + ((cs.skills && cs.skills['Perception']) ? prof : 0);
+    const inv = m(cs.scores.int) + ((cs.skills && cs.skills['Investigation']) ? prof : 0);
+    return Math.max(per, inv);
+  } catch (e) { return 0; }
+}
+if ($('pa-search')) $('pa-search').onclick = () => {
+  if (me.isGm) { flashHint('You see every trap and secret door already. 🔍 Search is for players.'); return; }
+  const tok = myBattleToken();
+  if (!tok) { flashHint('No token of yours on the map yet — ask the DM to give you one.'); return; }
+  socket.emit('search:area', { bonus: searchBonus() });
+  flashHint('🔍 Searching your surroundings…');
+};
+socket.on('search:result', ({ total, roll, bonus, found, none }) => {
+  if (none) { flashHint('🔍 You need a token on the map to search.'); return; }
+  const b = (bonus >= 0 ? '+' : '') + bonus;
+  const line = `🔍 Search: d20(${roll}) ${b} = ${total}`;
+  if (found > 0) { flashHint(`${line} — you found ${found} hidden thing${found > 1 ? 's' : ''}!`); }
+  else { flashHint(`${line} — nothing hidden nearby (that you can find).`); }
+});
 document.querySelectorAll('.tab[data-tab="combat"]').forEach((t) => t.addEventListener('click', () => setTimeout(renderPaBar, 50)));
 
 /* ---- #196 NPC memory — the AI DM remembers everyone the party meets ---- */
