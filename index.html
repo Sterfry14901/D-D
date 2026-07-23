@@ -85,6 +85,7 @@
         <button id="dmv-btn" class="ghost gm-only" title="Big map with a slim LEFT rail of DM tools — no right panel">🧭 DM map view</button>
         <button id="bug-btn" class="ghost" title="Report a bug — it goes straight to our Discord">🐛</button>
         <button id="guide-btn" class="ghost" title="How to play — Player guide &amp; DM master guide">📖 Guide</button>
+        <button id="dt-btn" class="ghost" title="Downtime — craft, carouse, train &amp; research between sessions">🛠️ Downtime</button>
         <button id="help-btn" class="ghost" title="Help, hotkeys & chat commands (press ?)">❓ Help</button>
         <button id="voice-btn" class="ghost" title="Join voice chat">🎙️ Voice: Off</button>
         <button id="mute-btn" class="ghost hidden" title="Mute / unmute your microphone">🔊 Mic</button>
@@ -1225,6 +1226,47 @@
           </ul>
         </details>
       </div>
+      <div class="owner-credit guide-owner">Realms of Fate — owned by Sterling Heinz</div>
+    </div>
+  </div>
+
+  <!-- #283 Downtime activities -->
+  <div id="downtime-modal" class="overlay" style="display:none">
+    <div class="dt-card">
+      <div class="tr-head"><h2>🛠️ Downtime</h2><button id="dt-close" class="ps-close" title="Close">✕</button></div>
+      <p class="dt-lead">Between adventures, spend your days. Rolls use your character's real ability scores, and results post to the table so the DM can weave them in.</p>
+      <div class="dt-grid">
+        <div class="dt-act">
+          <h3>🍺 Carouse</h3>
+          <p class="dt-hint">Spend gold hobnobbing — a CHA check makes contacts (or trouble).</p>
+          <select id="dt-carouse-tier">
+            <option value="low">Lower-class taverns — 10 gp</option>
+            <option value="mid">Middle-class inns — 50 gp</option>
+            <option value="high">High-society galas — 250 gp</option>
+          </select>
+          <button id="dt-carouse" class="dt-go">Carouse</button>
+        </div>
+        <div class="dt-act">
+          <h3>📚 Research</h3>
+          <p class="dt-hint">Dig into a topic — an INT check uncovers lore.</p>
+          <input id="dt-research-topic" type="text" placeholder="e.g. the cult of the Black Sun" maxlength="60" />
+          <button id="dt-research" class="dt-go">Research</button>
+        </div>
+        <div class="dt-act">
+          <h3>🛠️ Craft</h3>
+          <p class="dt-hint">Make an item over time — materials cost half its value, progress ~5 gp/day.</p>
+          <input id="dt-craft-item" type="text" placeholder="item (e.g. a fine longsword)" maxlength="48" />
+          <input id="dt-craft-val" type="number" min="1" placeholder="market value (gp)" />
+          <button id="dt-craft" class="dt-go">Plan craft</button>
+        </div>
+        <div class="dt-act">
+          <h3>🎓 Train</h3>
+          <p class="dt-hint">Learn a tool, language, or skill — roughly 10 workdays &amp; ~25 gp per workweek with a teacher.</p>
+          <input id="dt-train-what" type="text" placeholder="what to learn (e.g. thieves' tools)" maxlength="48" />
+          <button id="dt-train" class="dt-go">Plan training</button>
+        </div>
+      </div>
+      <div id="dt-log" class="dt-log"></div>
       <div class="owner-credit guide-owner">Realms of Fate — owned by Sterling Heinz</div>
     </div>
   </div>
